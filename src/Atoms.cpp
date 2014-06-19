@@ -1,4 +1,5 @@
 #include "Atoms.h"
+#include <rct/Log.h>
 #include <vector>
 #include <stdlib.h>
 #include <string.h>
@@ -6,7 +7,7 @@
 struct Atom
 {
     const char* name;
-    xcb_atom_t atom;
+    xcb_atom_t& atom;
 };
 
 template<int Count>

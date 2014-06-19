@@ -1,6 +1,8 @@
 #include "WindowManager.h"
 #include "Atoms.h"
+#include <rct/EventLoop.h>
 #include <rct/Rct.h>
+#include <rct/Log.h>
 #include <xcb/xcb_atom.h>
 #include <xcb/xcb_aux.h>
 
@@ -12,6 +14,8 @@ WindowManager::WindowManager()
 WindowManager::~WindowManager()
 {
     if (mConn) {
+        const int fd = xcb_get_file_descriptor(mConn);
+        EventLoop::eventLoop()->unregisterSocket(fd);
         xcb_disconnect(mConn);
         mConn = 0;
     }
@@ -26,14 +30,17 @@ bool WindowManager::install()
     Atoms::setup(mConn);
 
     xcb_void_cookie_t cookie;
+    xcb_generic_error_t* err;
 
     // check if another WM is running
     {
         const uint32_t values[] = { XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT };
         cookie = xcb_change_window_attributes_checked(mConn, mScreen->root, XCB_CW_EVENT_MASK, values);
-        xcb_generic_error_t* err = xcb_request_check(mConn, cookie);
-        if (err)
+        err = xcb_request_check(mConn, cookie);
+        if (err) {
+            free(err);
             return false;
+        }
     }
 
     const uint32_t values[] = {
@@ -46,9 +53,11 @@ bool WindowManager::install()
         XCB_EVENT_MASK_PROPERTY_CHANGE
     };
     cookie = xcb_change_window_attributes_checked(mConn, mScreen->root, XCB_CW_EVENT_MASK, values);
-    xcb_generic_error_t* err = xcb_request_check(mConn, cookie);
-    if (err)
+    err = xcb_request_check(mConn, cookie);
+    if (err) {
+        free(err);
         return false;
+    }
 
     xcb_atom_t atom[] = {
         Atoms::_NET_SUPPORTED,
@@ -96,9 +105,26 @@ bool WindowManager::install()
         Atoms::_NET_WM_STATE_DEMANDS_ATTENTION
     };
 
-    xcb_change_property(mConn, XCB_PROP_MODE_REPLACE,
-                        mScreen->root, Atoms::_NET_SUPPORTED, XCB_ATOM_ATOM, 32,
-                        Rct::countof(atom), atom);
+    cookie = xcb_change_property(mConn, XCB_PROP_MODE_REPLACE,
+                                 mScreen->root, Atoms::_NET_SUPPORTED, XCB_ATOM_ATOM, 32,
+                                 Rct::countof(atom), atom);
+    err = xcb_request_check(mConn, cookie);
+    if (err) {
+        free(err);
+        return false;
+    }
+
+    const int fd = xcb_get_file_descriptor(mConn);
+    EventLoop::eventLoop()->registerSocket(fd, EventLoop::SocketRead, [this](int, unsigned int) {
+            for (;;) {
+                xcb_generic_event_t* event = xcb_poll_for_event(mConn);
+                if (event) {
+                    free(event);
+                } else {
+                    break;
+                }
+            }
+        });
 
     return true;
 }
