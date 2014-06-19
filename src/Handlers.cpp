@@ -1,4 +1,6 @@
 #include "Handlers.h"
+#include "Client.h"
+#include "WindowManager.h"
 
 namespace Handlers {
 
@@ -44,6 +46,22 @@ void handleMappingNotify(const xcb_mapping_notify_event_t* event)
 
 void handleMapRequest(const xcb_map_request_event_t* event)
 {
+    xcb_connection_t* conn = WindowManager::instance()->connection();
+    const xcb_get_window_attributes_cookie_t cookie = xcb_get_window_attributes_unchecked(conn, event->window);
+    xcb_get_window_attributes_reply_t* reply = xcb_get_window_attributes_reply(conn, cookie, 0);
+    XcbScope scope(reply);
+    if (!reply)
+        return;
+    if (reply->override_redirect) {
+        return;
+    }
+    Client::SharedPtr client = Client::client(event->window);
+    if (client) {
+        // stuff
+    } else {
+        client = Client::manage(event->window);
+        // more stuff
+    }
 }
 
 void handlePropertyNotify(const xcb_property_notify_event_t* event)

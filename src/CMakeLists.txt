@@ -27,6 +27,7 @@ add_definitions("-DOS_${CMAKE_SYSTEM_NAME}")
 set(NWM_SOURCES
   main.cpp
   Atoms.cpp
+  Client.cpp
   Handlers.cpp
   WindowManager.cpp)
 

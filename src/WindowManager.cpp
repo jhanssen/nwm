@@ -7,6 +7,8 @@
 #include <xcb/xcb_atom.h>
 #include <xcb/xcb_aux.h>
 
+WindowManager::SharedPtr WindowManager::sInstance;
+
 WindowManager::WindowManager()
     : mConn(0), mScreen(0), mScreenNo(0)
 {
@@ -120,6 +122,7 @@ bool WindowManager::install()
             for (;;) {
                 xcb_generic_event_t* event = xcb_poll_for_event(mConn);
                 if (event) {
+                    XcbScope scope(event);
                     switch (event->response_type & ~0x80) {
                     case XCB_BUTTON_PRESS:
                         Handlers::handleButtonPress(reinterpret_cast<xcb_button_press_event_t*>(event));
@@ -161,12 +164,12 @@ bool WindowManager::install()
                         Handlers::handleUnmapNotify(reinterpret_cast<xcb_unmap_notify_event_t*>(event));
                         break;
                     }
-                    free(event);
                 } else {
                     break;
                 }
             }
         });
 
+    sInstance = shared_from_this();
     return true;
 }

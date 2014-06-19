@@ -19,6 +19,8 @@ int main(int argc, char** argv)
     }
 
     loop->exec();
+    WindowManager::release();
+    manager.reset();
     cleanupLogging();
     return 0;
 }
