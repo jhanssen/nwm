@@ -1,0 +1,73 @@
+#ifndef ATOMS_H
+#define ATOMS_H
+
+namespace Atoms
+{
+    xcb_atom_t _NET_SUPPORTED;
+    xcb_atom_t _NET_STARTUP_ID;
+    xcb_atom_t _NET_CLIENT_LIST;
+    xcb_atom_t _NET_CLIENT_LIST_STACKING;
+    xcb_atom_t _NET_NUMBER_OF_DESKTOPS;
+    xcb_atom_t _NET_CURRENT_DESKTOP;
+    xcb_atom_t _NET_DESKTOP_NAMES;
+    xcb_atom_t _NET_ACTIVE_WINDOW;
+    xcb_atom_t _NET_SUPPORTING_WM_CHECK;
+    xcb_atom_t _NET_CLOSE_WINDOW;
+    xcb_atom_t _NET_WM_NAME;
+    xcb_atom_t _NET_WM_STRUT_PARTIAL;
+    xcb_atom_t _NET_WM_VISIBLE_NAME;
+    xcb_atom_t _NET_WM_DESKTOP;
+    xcb_atom_t _NET_WM_ICON_NAME;
+    xcb_atom_t _NET_WM_VISIBLE_ICON_NAME;
+    xcb_atom_t _NET_WM_WINDOW_TYPE;
+    xcb_atom_t _NET_WM_WINDOW_TYPE_DESKTOP;
+    xcb_atom_t _NET_WM_WINDOW_TYPE_DOCK;
+    xcb_atom_t _NET_WM_WINDOW_TYPE_TOOLBAR;
+    xcb_atom_t _NET_WM_WINDOW_TYPE_MENU;
+    xcb_atom_t _NET_WM_WINDOW_TYPE_UTILITY;
+    xcb_atom_t _NET_WM_WINDOW_TYPE_SPLASH;
+    xcb_atom_t _NET_WM_WINDOW_TYPE_DIALOG;
+    xcb_atom_t _NET_WM_WINDOW_TYPE_DROPDOWN_MENU;
+    xcb_atom_t _NET_WM_WINDOW_TYPE_POPUP_MENU;
+    xcb_atom_t _NET_WM_WINDOW_TYPE_TOOLTIP;
+    xcb_atom_t _NET_WM_WINDOW_TYPE_NOTIFICATION;
+    xcb_atom_t _NET_WM_WINDOW_TYPE_COMBO;
+    xcb_atom_t _NET_WM_WINDOW_TYPE_DND;
+    xcb_atom_t _NET_WM_WINDOW_TYPE_NORMAL;
+    xcb_atom_t _NET_WM_ICON;
+    xcb_atom_t _NET_WM_PID;
+    xcb_atom_t _NET_WM_STATE;
+    xcb_atom_t _NET_WM_STATE_STICKY;
+    xcb_atom_t _NET_WM_STATE_SKIP_TASKBAR;
+    xcb_atom_t _NET_WM_STATE_FULLSCREEN;
+    xcb_atom_t _NET_WM_STATE_MAXIMIZED_VERT;
+    xcb_atom_t _NET_WM_STATE_MAXIMIZED_HORZ;
+    xcb_atom_t _NET_WM_STATE_ABOVE;
+    xcb_atom_t _NET_WM_STATE_BELOW;
+    xcb_atom_t _NET_WM_STATE_MODAL;
+    xcb_atom_t _NET_WM_STATE_HIDDEN;
+    xcb_atom_t _NET_WM_STATE_DEMANDS_ATTENTION;
+    xcb_atom_t UTF8_STRING;
+    xcb_atom_t COMPOUND_TEXT;
+    xcb_atom_t WM_PROTOCOLS;
+    xcb_atom_t WM_DELETE_WINDOW;
+    xcb_atom_t _XEMBED;
+    xcb_atom_t _XEMBED_INFO;
+    xcb_atom_t _NET_SYSTEM_TRAY_OPCODE;
+    xcb_atom_t _KDE_NET_WM_SYSTEM_TRAY_WINDOW_FOR;
+    xcb_atom_t MANAGER;
+    xcb_atom_t _XROOTPMAP_ID;
+    xcb_atom_t ESETROOT_PMAP_ID;
+    xcb_atom_t WM_STATE;
+    xcb_atom_t _NET_WM_WINDOW_OPACITY;
+    xcb_atom_t _NET_SYSTEM_TRAY_ORIENTATION;
+    xcb_atom_t WM_CHANGE_STATE;
+    xcb_atom_t WM_WINDOW_ROLE;
+    xcb_atom_t WM_CLIENT_LEADER;
+    xcb_atom_t XSEL_DATA;
+    xcb_atom_t WM_TAKE_FOCUS;
+
+    bool setup();
+};
+
+#endif
