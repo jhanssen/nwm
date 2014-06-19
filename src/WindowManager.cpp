@@ -1,5 +1,6 @@
 #include "WindowManager.h"
 #include "Atoms.h"
+#include "Handlers.h"
 #include <rct/EventLoop.h>
 #include <rct/Rct.h>
 #include <rct/Log.h>
@@ -59,7 +60,7 @@ bool WindowManager::install()
         return false;
     }
 
-    xcb_atom_t atom[] = {
+    const xcb_atom_t atom[] = {
         Atoms::_NET_SUPPORTED,
         Atoms::_NET_SUPPORTING_WM_CHECK,
         Atoms::_NET_STARTUP_ID,
@@ -119,6 +120,47 @@ bool WindowManager::install()
             for (;;) {
                 xcb_generic_event_t* event = xcb_poll_for_event(mConn);
                 if (event) {
+                    switch (event->response_type & ~0x80) {
+                    case XCB_BUTTON_PRESS:
+                        Handlers::handleButtonPress(reinterpret_cast<xcb_button_press_event_t*>(event));
+                        break;
+                    case XCB_CLIENT_MESSAGE:
+                        Handlers::handleClientMessage(reinterpret_cast<xcb_client_message_event_t*>(event));
+                        break;
+                    case XCB_CONFIGURE_REQUEST:
+                        Handlers::handleConfigureRequest(reinterpret_cast<xcb_configure_request_event_t*>(event));
+                        break;
+                    case XCB_CONFIGURE_NOTIFY:
+                        Handlers::handleConfigureNotify(reinterpret_cast<xcb_configure_notify_event_t*>(event));
+                        break;
+                    case XCB_DESTROY_NOTIFY:
+                        Handlers::handleDestroyNotify(reinterpret_cast<xcb_destroy_notify_event_t*>(event));
+                        break;
+                    case XCB_ENTER_NOTIFY:
+                        Handlers::handleEnterNotify(reinterpret_cast<xcb_enter_notify_event_t*>(event));
+                        break;
+                    case XCB_EXPOSE:
+                        Handlers::handleExpose(reinterpret_cast<xcb_expose_event_t*>(event));
+                        break;
+                    case XCB_FOCUS_IN:
+                        Handlers::handleFocusIn(reinterpret_cast<xcb_focus_in_event_t*>(event));
+                        break;
+                    case XCB_KEY_PRESS:
+                        Handlers::handleKeyPress(reinterpret_cast<xcb_key_press_event_t*>(event));
+                        break;
+                    case XCB_MAPPING_NOTIFY:
+                        Handlers::handleMappingNotify(reinterpret_cast<xcb_mapping_notify_event_t*>(event));
+                        break;
+                    case XCB_MAP_REQUEST:
+                        Handlers::handleMapRequest(reinterpret_cast<xcb_map_request_event_t*>(event));
+                        break;
+                    case XCB_PROPERTY_NOTIFY:
+                        Handlers::handlePropertyNotify(reinterpret_cast<xcb_property_notify_event_t*>(event));
+                        break;
+                    case XCB_UNMAP_NOTIFY:
+                        Handlers::handleUnmapNotify(reinterpret_cast<xcb_unmap_notify_event_t*>(event));
+                        break;
+                    }
                     free(event);
                 } else {
                     break;
