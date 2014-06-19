@@ -36,4 +36,4 @@ include_directories(${CMAKE_CURRENT_LIST_DIR}
 
 add_executable(nwm ${NWM_SOURCES})
 add_dependencies(nwm rct)
-target_link_libraries(nwm rct)
+target_link_libraries(nwm rct xcb xcb-util)

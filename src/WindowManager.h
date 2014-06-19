@@ -16,15 +16,10 @@ public:
 
     bool install();
 
-    template<int Count>
-    void WindowManager::setupAtoms(const char* (&atoms)[Count]);
-
 private:
     xcb_connection_t* mConn;
     xcb_screen_t* mScreen;
     int mScreenNo;
-
-    Hash<std::string, xcb_atom_t> mAtoms;
 };
 
 #endif

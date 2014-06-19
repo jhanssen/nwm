@@ -1,4 +1,7 @@
 #include "Atoms.h"
+#include <vector>
+#include <stdlib.h>
+#include <string.h>
 
 struct Atom
 {
@@ -7,16 +10,16 @@ struct Atom
 };
 
 template<int Count>
-static void setupAtoms(Atom (&atoms)[Count])
+static void setupAtoms(Atom (&atoms)[Count], xcb_connection_t* conn)
 {
     std::vector<xcb_intern_atom_cookie_t> cookies;
     cookies.reserve(Count);
     for (int i = 0; i < Count; ++i) {
-        cookies.push_back(std::make_pair(atoms[i].name, xcb_intern_atom(mConn, 0, strlen(atoms[i].name), atoms[i].name)));
+        cookies.push_back(xcb_intern_atom(conn, 0, strlen(atoms[i].name), atoms[i].name));
     }
     xcb_generic_error_t* err;
     for (int i = 0; i < Count; ++i) {
-        if (xcb_intern_atom_reply_t* reply = xcb_intern_atom_reply(mConn, cookies[i], &err)) {
+        if (xcb_intern_atom_reply_t* reply = xcb_intern_atom_reply(conn, cookies[i], &err)) {
             atoms[i].atom = reply->atom;
             free(reply);
         } else {
@@ -27,9 +30,75 @@ static void setupAtoms(Atom (&atoms)[Count])
     }
 }
 
-bool Atoms::setup()
+namespace Atoms
 {
-    const Atom atoms[] = {
+xcb_atom_t _NET_SUPPORTED;
+xcb_atom_t _NET_STARTUP_ID;
+xcb_atom_t _NET_CLIENT_LIST;
+xcb_atom_t _NET_CLIENT_LIST_STACKING;
+xcb_atom_t _NET_NUMBER_OF_DESKTOPS;
+xcb_atom_t _NET_CURRENT_DESKTOP;
+xcb_atom_t _NET_DESKTOP_NAMES;
+xcb_atom_t _NET_ACTIVE_WINDOW;
+xcb_atom_t _NET_SUPPORTING_WM_CHECK;
+xcb_atom_t _NET_CLOSE_WINDOW;
+xcb_atom_t _NET_WM_NAME;
+xcb_atom_t _NET_WM_STRUT_PARTIAL;
+xcb_atom_t _NET_WM_VISIBLE_NAME;
+xcb_atom_t _NET_WM_DESKTOP;
+xcb_atom_t _NET_WM_ICON_NAME;
+xcb_atom_t _NET_WM_VISIBLE_ICON_NAME;
+xcb_atom_t _NET_WM_WINDOW_TYPE;
+xcb_atom_t _NET_WM_WINDOW_TYPE_DESKTOP;
+xcb_atom_t _NET_WM_WINDOW_TYPE_DOCK;
+xcb_atom_t _NET_WM_WINDOW_TYPE_TOOLBAR;
+xcb_atom_t _NET_WM_WINDOW_TYPE_MENU;
+xcb_atom_t _NET_WM_WINDOW_TYPE_UTILITY;
+xcb_atom_t _NET_WM_WINDOW_TYPE_SPLASH;
+xcb_atom_t _NET_WM_WINDOW_TYPE_DIALOG;
+xcb_atom_t _NET_WM_WINDOW_TYPE_DROPDOWN_MENU;
+xcb_atom_t _NET_WM_WINDOW_TYPE_POPUP_MENU;
+xcb_atom_t _NET_WM_WINDOW_TYPE_TOOLTIP;
+xcb_atom_t _NET_WM_WINDOW_TYPE_NOTIFICATION;
+xcb_atom_t _NET_WM_WINDOW_TYPE_COMBO;
+xcb_atom_t _NET_WM_WINDOW_TYPE_DND;
+xcb_atom_t _NET_WM_WINDOW_TYPE_NORMAL;
+xcb_atom_t _NET_WM_ICON;
+xcb_atom_t _NET_WM_PID;
+xcb_atom_t _NET_WM_STATE;
+xcb_atom_t _NET_WM_STATE_STICKY;
+xcb_atom_t _NET_WM_STATE_SKIP_TASKBAR;
+xcb_atom_t _NET_WM_STATE_FULLSCREEN;
+xcb_atom_t _NET_WM_STATE_MAXIMIZED_VERT;
+xcb_atom_t _NET_WM_STATE_MAXIMIZED_HORZ;
+xcb_atom_t _NET_WM_STATE_ABOVE;
+xcb_atom_t _NET_WM_STATE_BELOW;
+xcb_atom_t _NET_WM_STATE_MODAL;
+xcb_atom_t _NET_WM_STATE_HIDDEN;
+xcb_atom_t _NET_WM_STATE_DEMANDS_ATTENTION;
+xcb_atom_t UTF8_STRING;
+xcb_atom_t COMPOUND_TEXT;
+xcb_atom_t WM_PROTOCOLS;
+xcb_atom_t WM_DELETE_WINDOW;
+xcb_atom_t _XEMBED;
+xcb_atom_t _XEMBED_INFO;
+xcb_atom_t _NET_SYSTEM_TRAY_OPCODE;
+xcb_atom_t _KDE_NET_WM_SYSTEM_TRAY_WINDOW_FOR;
+xcb_atom_t MANAGER;
+xcb_atom_t _XROOTPMAP_ID;
+xcb_atom_t ESETROOT_PMAP_ID;
+xcb_atom_t WM_STATE;
+xcb_atom_t _NET_WM_WINDOW_OPACITY;
+xcb_atom_t _NET_SYSTEM_TRAY_ORIENTATION;
+xcb_atom_t WM_CHANGE_STATE;
+xcb_atom_t WM_WINDOW_ROLE;
+xcb_atom_t WM_CLIENT_LEADER;
+xcb_atom_t XSEL_DATA;
+xcb_atom_t WM_TAKE_FOCUS;
+
+bool setup(xcb_connection_t* conn)
+{
+    Atom atoms[] = {
         { "_NET_SUPPORTED", _NET_SUPPORTED },
         { "_NET_STARTUP_ID", _NET_STARTUP_ID },
         { "_NET_CLIENT_LIST", _NET_CLIENT_LIST },
@@ -94,6 +163,8 @@ bool Atoms::setup()
         { "XSEL_DATA", XSEL_DATA },
         { "WM_TAKE_FOCUS", WM_TAKE_FOCUS }
     };
-    setupAtoms(atoms);
+    setupAtoms(atoms, conn);
     return true;
 }
+
+} // namespace Atoms
