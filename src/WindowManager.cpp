@@ -1,6 +1,7 @@
 #include "WindowManager.h"
 #include "Atoms.h"
 #include "Handlers.h"
+#include "Types.h"
 #include <rct/EventLoop.h>
 #include <rct/Rct.h>
 #include <rct/Log.h>
@@ -46,15 +47,7 @@ bool WindowManager::install()
         }
     }
 
-    const uint32_t values[] = {
-        XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT |
-        XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY |
-        XCB_EVENT_MASK_BUTTON_PRESS |
-        XCB_EVENT_MASK_ENTER_WINDOW |
-        XCB_EVENT_MASK_LEAVE_WINDOW |
-        XCB_EVENT_MASK_STRUCTURE_NOTIFY |
-        XCB_EVENT_MASK_PROPERTY_CHANGE
-    };
+    const uint32_t values[] = { Types::RootEventMask };
     cookie = xcb_change_window_attributes_checked(mConn, mScreen->root, XCB_CW_EVENT_MASK, values);
     err = xcb_request_check(mConn, cookie);
     if (err) {
@@ -125,49 +118,66 @@ bool WindowManager::install()
                     XcbScope scope(event);
                     switch (event->response_type & ~0x80) {
                     case XCB_BUTTON_PRESS:
+                        error() << "button press";
                         Handlers::handleButtonPress(reinterpret_cast<xcb_button_press_event_t*>(event));
                         break;
                     case XCB_CLIENT_MESSAGE:
+                        error() << "client message";
                         Handlers::handleClientMessage(reinterpret_cast<xcb_client_message_event_t*>(event));
                         break;
                     case XCB_CONFIGURE_REQUEST:
+                        error() << "configure request";
                         Handlers::handleConfigureRequest(reinterpret_cast<xcb_configure_request_event_t*>(event));
                         break;
                     case XCB_CONFIGURE_NOTIFY:
+                        error() << "configure notify";
                         Handlers::handleConfigureNotify(reinterpret_cast<xcb_configure_notify_event_t*>(event));
                         break;
                     case XCB_DESTROY_NOTIFY:
+                        error() << "destroy notify";
                         Handlers::handleDestroyNotify(reinterpret_cast<xcb_destroy_notify_event_t*>(event));
                         break;
                     case XCB_ENTER_NOTIFY:
+                        error() << "enter notify";
                         Handlers::handleEnterNotify(reinterpret_cast<xcb_enter_notify_event_t*>(event));
                         break;
                     case XCB_EXPOSE:
+                        error() << "expose";
                         Handlers::handleExpose(reinterpret_cast<xcb_expose_event_t*>(event));
                         break;
                     case XCB_FOCUS_IN:
+                        error() << "focus in";
                         Handlers::handleFocusIn(reinterpret_cast<xcb_focus_in_event_t*>(event));
                         break;
                     case XCB_KEY_PRESS:
+                        error() << "key press";
                         Handlers::handleKeyPress(reinterpret_cast<xcb_key_press_event_t*>(event));
                         break;
                     case XCB_MAPPING_NOTIFY:
+                        error() << "mapping notify";
                         Handlers::handleMappingNotify(reinterpret_cast<xcb_mapping_notify_event_t*>(event));
                         break;
                     case XCB_MAP_REQUEST:
+                        error() << "map request";
                         Handlers::handleMapRequest(reinterpret_cast<xcb_map_request_event_t*>(event));
                         break;
                     case XCB_PROPERTY_NOTIFY:
+                        error() << "property notify";
                         Handlers::handlePropertyNotify(reinterpret_cast<xcb_property_notify_event_t*>(event));
                         break;
                     case XCB_UNMAP_NOTIFY:
+                        error() << "unmap notify";
                         Handlers::handleUnmapNotify(reinterpret_cast<xcb_unmap_notify_event_t*>(event));
+                        break;
+                    default:
+                        error() << "unhandled event" << (event->response_type & ~0x80);
                         break;
                     }
                 } else {
                     break;
                 }
             }
+            xcb_flush(mConn);
         });
 
     sInstance = shared_from_this();

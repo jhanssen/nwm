@@ -1,7 +1,6 @@
 #ifndef WINDOWMANAGER_H
 #define WINDOWMANAGER_H
 
-#include <rct/Hash.h>
 #include <memory>
 #include <xcb/xcb.h>
 #include <stdlib.h>

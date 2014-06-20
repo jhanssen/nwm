@@ -25,6 +25,7 @@ private:
 
 private:
     xcb_window_t mWindow;
+    xcb_window_t mFrame;
     bool mValid;
 
     static Hash<xcb_window_t, Client::SharedPtr> sClients;
