@@ -22,7 +22,8 @@ WindowManager::~WindowManager()
     Client::clear();
     if (mConn) {
         const int fd = xcb_get_file_descriptor(mConn);
-        EventLoop::eventLoop()->unregisterSocket(fd);
+        if (EventLoop::SharedPtr eventLoop = EventLoop::eventLoop())
+            eventLoop->unregisterSocket(fd);
         xcb_disconnect(mConn);
         mConn = 0;
     }
@@ -252,4 +253,10 @@ bool WindowManager::install(const char* display)
         });
 
     return true;
+}
+
+void WindowManager::release()
+{
+    Client::clear();
+    sInstance.reset();
 }

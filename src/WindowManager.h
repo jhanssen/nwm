@@ -17,7 +17,7 @@ public:
     bool install(const char* display = 0);
 
     static SharedPtr instance() { return sInstance; }
-    static void release() { sInstance.reset(); }
+    static void release();
 
     xcb_connection_t* connection() const { return mConn; }
     xcb_screen_t* screen() const { return mScreen; }

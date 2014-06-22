@@ -9,18 +9,24 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    EventLoop::SharedPtr loop = std::make_shared<EventLoop>();
-    loop->init(EventLoop::MainEventLoop);
+    WindowManager::SharedPtr manager;
+    {
+        EventLoop::SharedPtr loop = std::make_shared<EventLoop>();
+        loop->init(EventLoop::MainEventLoop|EventLoop::EnableSigIntHandler);
 
-    WindowManager::SharedPtr manager = std::make_shared<WindowManager>();
-    if (!manager->install(argc > 1 ? argv[1] : 0)) {
-        error() << "Unable to install nwm. Another window manager already running?";
-        return 2;
+        manager = std::make_shared<WindowManager>();
+        if (!manager->install(argc > 1 ? argv[1] : 0)) {
+            error() << "Unable to install nwm. Another window manager already running?";
+            return 2;
+        }
+
+        loop->exec();
     }
-
-    loop->exec();
-    WindowManager::release();
-    manager.reset();
+    if (manager) {
+        WindowManager::release();
+        manager.reset();
+    }
     cleanupLogging();
+    error() << "nwm done.";
     return 0;
 }
