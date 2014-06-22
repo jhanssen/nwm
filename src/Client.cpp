@@ -22,8 +22,10 @@ Client::Client(xcb_window_t win)
     error() << "valid client";
     mValid = true;
     mLayout = wm->layout()->add(Size({ geom->width, geom->height }));
-    error() << "laid out at" << mLayout->rect();
+    const Rect& layoutRect = mLayout->rect();
+    error() << "laid out at" << layoutRect;
     wm->layout()->dump();
+    mLayout->rectChanged().connect(std::bind(&Client::onLayoutChanged, this, std::placeholders::_1));
 #warning do startup-notification stuff here
     xcb_change_save_set(conn, XCB_SET_MODE_INSERT, win);
     xcb_screen_t* screen = WindowManager::instance()->screen();
@@ -43,7 +45,7 @@ Client::Client(xcb_window_t win)
          | XCB_EVENT_MASK_BUTTON_RELEASE)
     };
     xcb_create_window(conn, XCB_COPY_FROM_PARENT, mFrame, screen->root,
-                      geom->x, geom->y, geom->width, geom->height, geom->border_width,
+                      layoutRect.x, layoutRect.y, layoutRect.width, layoutRect.height, geom->border_width,
                       XCB_COPY_FROM_PARENT, XCB_COPY_FROM_PARENT,
                       XCB_CW_BORDER_PIXEL | XCB_CW_BIT_GRAVITY | XCB_CW_WIN_GRAVITY
                       | XCB_CW_OVERRIDE_REDIRECT | XCB_CW_EVENT_MASK, values);
@@ -57,7 +59,24 @@ Client::Client(xcb_window_t win)
     xcb_ungrab_server(conn);
     const uint32_t windowEvent[] = { Types::ClientInputMask };
     xcb_change_window_attributes(conn, mWindow, XCB_CW_EVENT_MASK, windowEvent);
-    xcb_configure_window(conn, mWindow, XCB_CONFIG_WINDOW_BORDER_WIDTH, noValue);
+
+    {
+        uint16_t windowMask = 0;
+        uint32_t windowValues[3];
+        int i = 0;
+        if (geom->width != layoutRect.width) {
+            windowMask |= XCB_CONFIG_WINDOW_WIDTH;
+            windowValues[i++] = layoutRect.width;
+        }
+        if (geom->height != layoutRect.height) {
+            windowMask |= XCB_CONFIG_WINDOW_HEIGHT;
+            windowValues[i++] = layoutRect.height;
+        }
+        windowMask |= XCB_CONFIG_WINDOW_BORDER_WIDTH;
+        windowValues[i++] = 0;
+        xcb_configure_window(conn, mWindow, windowMask, windowValues);
+    }
+
     const uint32_t stackMode[] = { XCB_STACK_MODE_ABOVE };
     xcb_configure_window(conn, mFrame, XCB_CONFIG_WINDOW_STACK_MODE, stackMode);
 #warning do xinerama placement
@@ -72,6 +91,22 @@ Client::~Client()
     if (mWindow)
         xcb_reparent_window(conn, mWindow, screen->root, 0, 0);
     xcb_destroy_window(conn, mFrame);
+}
+
+void Client::onLayoutChanged(const Rect& rect)
+{
+    error() << "layout changed" << rect;
+    xcb_connection_t* conn = WindowManager::instance()->connection();
+    {
+        const uint16_t mask = XCB_CONFIG_WINDOW_X|XCB_CONFIG_WINDOW_Y|XCB_CONFIG_WINDOW_WIDTH|XCB_CONFIG_WINDOW_HEIGHT;
+        const uint32_t values[4] = { rect.x, rect.y, rect.width, rect.height };
+        xcb_configure_window(conn, mFrame, mask, values);
+    }
+    {
+        const uint16_t mask = XCB_CONFIG_WINDOW_WIDTH|XCB_CONFIG_WINDOW_HEIGHT;
+        const uint32_t values[2] = { rect.width, rect.height };
+        xcb_configure_window(conn, mWindow, mask, values);
+    }
 }
 
 Client::SharedPtr Client::manage(xcb_window_t window)

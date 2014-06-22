@@ -26,10 +26,12 @@ public:
     void unmap();
     void destroy();
 
+    const Layout::SharedPtr& layout() const { return mLayout; }
+
 private:
     Client(xcb_window_t win);
 
-    void layoutChanged(const Rect& rect);
+    void onLayoutChanged(const Rect& rect);
 
 private:
     xcb_window_t mWindow;
