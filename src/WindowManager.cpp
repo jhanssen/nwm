@@ -52,6 +52,7 @@ bool WindowManager::install(const char* display)
         cookie = xcb_change_window_attributes_checked(mConn, mScreen->root, XCB_CW_EVENT_MASK, values);
         err = xcb_request_check(mConn, cookie);
         if (err) {
+            LOG_ERROR(err, "Unable to change window attributes 1");
             free(err);
             sInstance.reset();
             return false;
@@ -62,6 +63,7 @@ bool WindowManager::install(const char* display)
     cookie = xcb_change_window_attributes_checked(mConn, mScreen->root, XCB_CW_EVENT_MASK, values);
     err = xcb_request_check(mConn, cookie);
     if (err) {
+        LOG_ERROR(err, "Unable to change window attributes 2");
         free(err);
         sInstance.reset();
         return false;
@@ -118,6 +120,7 @@ bool WindowManager::install(const char* display)
                                  Rct::countof(atom), atom);
     err = xcb_request_check(mConn, cookie);
     if (err) {
+        LOG_ERROR(err, "Unable to change _NET_SUPPORTED property on root window");
         free(err);
         sInstance.reset();
         return false;
@@ -129,6 +132,7 @@ bool WindowManager::install(const char* display)
         xcb_query_tree_reply_t* treeReply = xcb_query_tree_reply(mConn, treeCookie, &err);
         FreeScope scope(treeReply);
         if (err) {
+            LOG_ERROR(err, "Unable to query window tree");
             free(err);
             sInstance.reset();
             return false;

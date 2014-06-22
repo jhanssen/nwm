@@ -64,4 +64,9 @@ private:
     xcb_connection_t* mConn;
 };
 
+#define LOG_ERROR(err, msg) \
+    do { \
+        error() << "X error" << err->error_code << msg << "in" << __FUNCTION__ << "@" << __FILE__ << ":" << __LINE__; \
+    } while (0)
+
 #endif

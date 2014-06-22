@@ -26,8 +26,10 @@ static void setupAtoms(Atom (&atoms)[Count], xcb_connection_t* conn)
             free(reply);
         } else {
             atoms[i].atom = 0;
-            if (err)
+            if (err) {
+                LOG_ERROR(err, "Couldn't query atom");
                 free(err);
+            }
         }
     }
 }
@@ -176,6 +178,7 @@ std::string name(xcb_atom_t atom)
     xcb_generic_error_t* err;
     xcb_get_atom_name_reply_t* reply = xcb_get_atom_name_reply(conn, cookie, &err);
     if (err) {
+        LOG_ERROR(err, "Couldn't get atom name");
         free(err);
         return std::string();
     }
