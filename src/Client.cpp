@@ -22,9 +22,7 @@ Client::Client(xcb_window_t win)
     error() << "valid client";
     mValid = true;
     mLayout = wm->layout()->add(Size({ geom->width, geom->height }));
-    error() << "laid out at"
-            << mLayout->rect().x << mLayout->rect().y
-            << mLayout->rect().width << mLayout->rect().height;
+    error() << "laid out at" << mLayout->rect();
     wm->layout()->dump();
 #warning do startup-notification stuff here
     xcb_change_save_set(conn, XCB_SET_MODE_INSERT, win);
