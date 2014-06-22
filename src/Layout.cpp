@@ -41,17 +41,21 @@ int Layout::children(SharedPtr& first, SharedPtr& second)
     return n;
 }
 
-void Layout::forEach(const std::function<bool(const SharedPtr& layout)>& func)
+bool Layout::forEach(const std::function<bool(const SharedPtr& layout)>& func)
 {
     if (!func(shared_from_this()))
-        return;
+        return false;
     SharedPtr first, second;
     children(first, second);
     if (first) {
-        first->forEach(func);
-        if (second)
-            second->forEach(func);
+        if (!first->forEach(func))
+            return false;
+        if (second) {
+            if (!second->forEach(func))
+                return false;
+        }
     }
+    return true;
 }
 
 static inline Size calcSize(const Layout::SharedPtr& c1, const Layout::SharedPtr& c2, const Layout::SharedPtr& p)
@@ -72,17 +76,26 @@ Layout::SharedPtr Layout::add(const Size& size)
     unsigned int curGeom = 0;
     Layout::SharedPtr curLayout;
     forEach([&curRatio, &curGeom, &curLayout, size](const SharedPtr& layout) -> bool {
+            error() << "looking at" << layout->rect();
             SharedPtr c1, c2;
             const int num = layout->children(c1, c2);
             if (num <= 1) {
                 // do we fit in the remaining space?
                 Size sz = layout->rect().size();
+                if (layout->mUsed) {
+                    assert(!num);
+                    sz.width -= layout->mRequested.width;
+                    sz.height -= layout->mRequested.height;
+                }
                 if (c1) {
+                    assert(!layout->mUsed);
                     // subtract
                     sz.width -= c1->requestedSize().width;
                     sz.height -= c1->requestedSize().height;
                 }
+                error() << "considering 1" << sz << size;
                 if (sz.width >= size.width && sz.height >= size.height) {
+                    error() << "taken";
                     // yes, let's use this one
                     curLayout = layout;
                     return false;
@@ -93,11 +106,12 @@ Layout::SharedPtr Layout::add(const Size& size)
                 const Size c2Size = c2->requestedSize();
                 const Size pSize = layout->rect().size();
 
-                const unsigned int reqWidth = c1Size.width + c2Size.width;
-                const unsigned int reqHeight = c1Size.height + c2Size.height;
-                const float ratio = (reqWidth * reqHeight) / static_cast<float>(pSize.width * pSize.height);
-                const unsigned int geom = (pSize.width * pSize.height) / static_cast<float>(reqWidth * reqHeight);
+                const unsigned int reqGeom = (c1Size.width * c1Size.height) + (c2Size.width * c2Size.height);
+                const float ratio = reqGeom / static_cast<float>(pSize.width * pSize.height);
+                const unsigned int geom = (pSize.width * pSize.height) / static_cast<float>(reqGeom);
+                error() << "considering 2" << c1Size << c2Size << pSize << "req" << reqGeom << ratio << geom << "cur" << curRatio << curGeom;
                 if (ratio <= curRatio && geom > curGeom) {
+                    error() << "candidate";
                     curRatio = ratio;
                     curGeom = geom;
                     curLayout = layout;

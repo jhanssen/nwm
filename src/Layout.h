@@ -36,7 +36,7 @@ private:
     void relayout();
     static void dumpHelper(const Layout::SharedPtr&, int indent);
 
-    void forEach(const std::function<bool(const SharedPtr& layout)>& func);
+    bool forEach(const std::function<bool(const SharedPtr& layout)>& func);
     SharedPtr clone() const;
 
 private:
