@@ -20,10 +20,12 @@ Layout::~Layout()
 {
     if (mParent) {
         if (EventLoop::SharedPtr loop = EventLoop::eventLoop()) {
-            loop->callLater([](const WeakPtr& parent) {
-                    if (SharedPtr p = parent.lock())
+            WeakPtr parent = mParent;
+            loop->callLater([parent]() {
+                    if (SharedPtr p = parent.lock()) {
                         p->relayout();
-                }, mParent);
+                    }
+                });
         }
     }
 }

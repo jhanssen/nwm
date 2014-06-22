@@ -152,5 +152,6 @@ void Client::unmap()
 void Client::destroy()
 {
     unmap();
+    release(mWindow);
     mWindow = 0;
 }
