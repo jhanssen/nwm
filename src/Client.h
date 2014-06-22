@@ -16,9 +16,14 @@ public:
     static SharedPtr client(xcb_window_t window);
     static SharedPtr manage(xcb_window_t window);
     static void release(xcb_window_t window);
+    static void clear() { sClients.clear(); }
 
     void release() { release(mWindow); mWindow = 0; }
     bool isValid() const { return mValid; }
+
+    void map();
+    void unmap();
+    void destroy();
 
 private:
     Client(xcb_window_t win);

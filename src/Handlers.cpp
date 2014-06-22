@@ -64,6 +64,12 @@ void handleConfigureNotify(const xcb_configure_notify_event_t* event)
 
 void handleDestroyNotify(const xcb_destroy_notify_event_t* event)
 {
+    xcb_connection_t* conn = WindowManager::instance()->connection();
+    Client::SharedPtr client = Client::client(event->window);
+    if (client) {
+        client->destroy();
+        client->release();
+    }
 }
 
 void handleEnterNotify(const xcb_enter_notify_event_t* event)
@@ -104,6 +110,7 @@ void handleMapRequest(const xcb_map_request_event_t* event)
         client = Client::manage(event->window);
         // more stuff
     }
+    client->map();
 }
 
 void handlePropertyNotify(const xcb_property_notify_event_t* event)
@@ -112,6 +119,10 @@ void handlePropertyNotify(const xcb_property_notify_event_t* event)
 
 void handleUnmapNotify(const xcb_unmap_notify_event_t* event)
 {
+    xcb_connection_t* conn = WindowManager::instance()->connection();
+    Client::SharedPtr client = Client::client(event->window);
+    if (client)
+        client->unmap();
 }
 
 } // namespace Handlers

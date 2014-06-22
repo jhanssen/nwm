@@ -13,7 +13,7 @@ int main(int argc, char** argv)
     loop->init(EventLoop::MainEventLoop);
 
     WindowManager::SharedPtr manager = std::make_shared<WindowManager>();
-    if (!manager->install()) {
+    if (!manager->install(argc > 1 ? argv[1] : 0)) {
         error() << "Unable to install nwm. Another window manager already running?";
         return 2;
     }

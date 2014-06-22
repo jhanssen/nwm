@@ -14,7 +14,7 @@ public:
     WindowManager();
     ~WindowManager();
 
-    bool install();
+    bool install(const char* display = 0);
 
     static SharedPtr instance() { return sInstance; }
     static void release() { sInstance.reset(); }
@@ -45,6 +45,23 @@ public:
 
 private:
     void* mD;
+};
+
+class GrabScope
+{
+public:
+    GrabScope(xcb_connection_t* conn)
+        : mConn(conn)
+    {
+        xcb_grab_server(mConn);
+    }
+    ~GrabScope()
+    {
+        xcb_ungrab_server(mConn);
+    }
+
+private:
+    xcb_connection_t* mConn;
 };
 
 #endif

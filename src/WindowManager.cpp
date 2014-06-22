@@ -1,5 +1,6 @@
 #include "WindowManager.h"
 #include "Atoms.h"
+#include "Client.h"
 #include "Handlers.h"
 #include "Types.h"
 #include <rct/EventLoop.h>
@@ -7,6 +8,7 @@
 #include <rct/Log.h>
 #include <xcb/xcb_atom.h>
 #include <xcb/xcb_aux.h>
+#include <xcb/xcb_icccm.h>
 
 WindowManager::SharedPtr WindowManager::sInstance;
 
@@ -17,6 +19,7 @@ WindowManager::WindowManager()
 
 WindowManager::~WindowManager()
 {
+    Client::clear();
     if (mConn) {
         const int fd = xcb_get_file_descriptor(mConn);
         EventLoop::eventLoop()->unregisterSocket(fd);
@@ -25,16 +28,23 @@ WindowManager::~WindowManager()
     }
 }
 
-bool WindowManager::install()
+bool WindowManager::install(const char* display)
 {
-    mConn = xcb_connect(0, &mScreenNo);
-    if (!mConn)
+    sInstance = shared_from_this();
+
+    mConn = xcb_connect(display, &mScreenNo);
+    if (!mConn) {
+        sInstance.reset();
         return false;
+    }
+
     mScreen = xcb_aux_get_screen(mConn, mScreenNo);
     Atoms::setup(mConn);
 
     xcb_void_cookie_t cookie;
     xcb_generic_error_t* err;
+
+    GrabScope scope(mConn);
 
     // check if another WM is running
     {
@@ -43,6 +53,7 @@ bool WindowManager::install()
         err = xcb_request_check(mConn, cookie);
         if (err) {
             free(err);
+            sInstance.reset();
             return false;
         }
     }
@@ -52,6 +63,7 @@ bool WindowManager::install()
     err = xcb_request_check(mConn, cookie);
     if (err) {
         free(err);
+        sInstance.reset();
         return false;
     }
 
@@ -107,9 +119,54 @@ bool WindowManager::install()
     err = xcb_request_check(mConn, cookie);
     if (err) {
         free(err);
+        sInstance.reset();
         return false;
     }
 
+    // Manage all existing windows
+    {
+        xcb_query_tree_cookie_t treeCookie = xcb_query_tree(mConn, mScreen->root);
+        xcb_query_tree_reply_t* treeReply = xcb_query_tree_reply(mConn, treeCookie, &err);
+        XcbScope scope(treeReply);
+        if (err) {
+            free(err);
+            sInstance.reset();
+            return false;
+        }
+        xcb_window_t* clients = xcb_query_tree_children(treeReply);
+        if (clients) {
+            const int clientLength = xcb_query_tree_children_length(treeReply);
+
+            std::vector<xcb_get_window_attributes_cookie_t> attrs;
+            std::vector<xcb_get_property_cookie_t> states;
+            attrs.reserve(clientLength);
+            states.reserve(clientLength);
+
+            for (int i = 0; i < clientLength; ++i) {
+                attrs.push_back(xcb_get_window_attributes_unchecked(mConn, clients[i]));
+                states.push_back(xcb_get_property_unchecked(mConn, false, clients[i], Atoms::WM_STATE, Atoms::WM_STATE, 0L, 2L));
+            }
+            for (int i = 0; i < clientLength; ++i) {
+                xcb_get_window_attributes_reply_t* attr = xcb_get_window_attributes_reply(mConn, attrs[i], 0);
+                XcbScope scope(attr);
+                xcb_get_property_reply_t* state = xcb_get_property_reply(mConn, states[i], 0);
+                uint32_t stateValue = XCB_ICCCM_WM_STATE_NORMAL;
+                if (state) {
+                    if (xcb_get_property_value_length(state))
+                        stateValue = *static_cast<uint32_t*>(xcb_get_property_value(state));
+                    free(state);
+                }
+
+                if (!attr || attr->override_redirect || attr->map_state == XCB_MAP_STATE_UNMAPPED
+                    || stateValue == XCB_ICCCM_WM_STATE_WITHDRAWN) {
+                    continue;
+                }
+                Client::manage(clients[i]);
+            }
+        }
+    }
+
+    // Get events
     const int fd = xcb_get_file_descriptor(mConn);
     EventLoop::eventLoop()->registerSocket(fd, EventLoop::SocketRead, [this](int, unsigned int) {
             for (;;) {
@@ -180,6 +237,5 @@ bool WindowManager::install()
             xcb_flush(mConn);
         });
 
-    sInstance = shared_from_this();
     return true;
 }

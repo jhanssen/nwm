@@ -54,16 +54,20 @@ Client::Client(xcb_window_t win)
     const uint32_t windowEvent[] = { Types::ClientInputMask };
     xcb_change_window_attributes(conn, mWindow, XCB_CW_EVENT_MASK, windowEvent);
     xcb_configure_window(conn, mWindow, XCB_CONFIG_WINDOW_BORDER_WIDTH, noValue);
-    const uint32_t stackMode[] = { XCB_STACK_MODE_BELOW };
+    const uint32_t stackMode[] = { XCB_STACK_MODE_ABOVE };
     xcb_configure_window(conn, mFrame, XCB_CONFIG_WINDOW_STACK_MODE, stackMode);
 #warning do xinerama placement
     const uint32_t stateMode[] = { XCB_ICCCM_WM_STATE_NORMAL, XCB_NONE };
     xcb_change_property(conn, XCB_PROP_MODE_REPLACE, mWindow, Atoms::WM_STATE, Atoms::WM_STATE, 32, 2, stateMode);
-
 }
 
 Client::~Client()
 {
+    xcb_connection_t* conn = WindowManager::instance()->connection();
+    xcb_screen_t* screen = WindowManager::instance()->screen();
+    if (mWindow)
+        xcb_reparent_window(conn, mWindow, screen->root, 0, 0);
+    xcb_destroy_window(conn, mFrame);
 }
 
 Client::SharedPtr Client::manage(xcb_window_t window)
@@ -92,4 +96,22 @@ void Client::release(xcb_window_t window)
     if (it != sClients.end()) {
         sClients.erase(it);
     }
+}
+
+void Client::map()
+{
+    xcb_connection_t* conn = WindowManager::instance()->connection();
+    xcb_map_window(conn, mFrame);
+}
+
+void Client::unmap()
+{
+    xcb_connection_t* conn = WindowManager::instance()->connection();
+    xcb_unmap_window(conn, mFrame);
+}
+
+void Client::destroy()
+{
+    unmap();
+    mWindow = 0;
 }
