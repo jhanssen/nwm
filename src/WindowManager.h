@@ -47,15 +47,15 @@ private:
     void* mD;
 };
 
-class GrabScope
+class ServerGrabScope
 {
 public:
-    GrabScope(xcb_connection_t* conn)
+    ServerGrabScope(xcb_connection_t* conn)
         : mConn(conn)
     {
         xcb_grab_server(mConn);
     }
-    ~GrabScope()
+    ~ServerGrabScope()
     {
         xcb_ungrab_server(mConn);
     }

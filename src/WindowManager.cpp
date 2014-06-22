@@ -44,7 +44,7 @@ bool WindowManager::install(const char* display)
     xcb_void_cookie_t cookie;
     xcb_generic_error_t* err;
 
-    GrabScope scope(mConn);
+    ServerGrabScope scope(mConn);
 
     // check if another WM is running
     {
