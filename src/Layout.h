@@ -34,7 +34,6 @@ public:
 private:
     int children(SharedPtr& first, SharedPtr& second);
     void relayout();
-    void updateDirection();
     static void dumpHelper(const Layout::SharedPtr&, int indent);
 
     void forEach(const std::function<bool(const SharedPtr& layout)>& func);

@@ -28,11 +28,6 @@ Layout::~Layout()
     }
 }
 
-void Layout::updateDirection()
-{
-    mDirection = (mRect.width > mRect.height) ? LeftRight : TopBottom;
-}
-
 int Layout::children(SharedPtr& first, SharedPtr& second)
 {
     SharedPtr* ptrs[2] = { &first, &second };
@@ -156,14 +151,13 @@ Layout::SharedPtr Layout::add(const Size& size)
             ncp->mChildren.first = curLayout;
             created->mParent = ncp;
             ncp->mChildren.second = created;
-            Size sz;
-            if (parent)
-                sz = calcSize(parent->mChildren.first.lock(), parent->mChildren.second.lock(), parent);
-            ncp->mRequested = sz;
-            if (parent)
+            if (parent) {
+                ncp->mRequested = calcSize(parent->mChildren.first.lock(), parent->mChildren.second.lock(), parent);
+                ncp->mDirection = (ncp->mRequested.width > ncp->mRequested.height) ? LeftRight : TopBottom;
                 parent->relayout();
-            else
+            } else {
                 ncp->relayout();
+            }
             return created;
         } else {
             curLayout->mChildren.first = created;
