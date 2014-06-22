@@ -30,14 +30,14 @@ private:
     static SharedPtr sInstance;
 };
 
-class XcbScope
+class FreeScope
 {
 public:
-    XcbScope(void* d)
+    FreeScope(void* d)
         : mD(d)
     {
     }
-    ~XcbScope()
+    ~FreeScope()
     {
         if (mD)
             free(mD);

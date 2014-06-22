@@ -15,7 +15,7 @@ Client::Client(xcb_window_t win)
     xcb_connection_t* conn = WindowManager::instance()->connection();
     const xcb_get_geometry_cookie_t cookie = xcb_get_geometry_unchecked(conn, win);
     xcb_get_geometry_reply_t* geom = xcb_get_geometry_reply(conn, cookie, 0);
-    XcbScope scope(geom);
+    FreeScope scope(geom);
     if (!geom)
         return;
     error() << "valid client";

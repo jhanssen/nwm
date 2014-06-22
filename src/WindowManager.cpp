@@ -127,7 +127,7 @@ bool WindowManager::install(const char* display)
     {
         xcb_query_tree_cookie_t treeCookie = xcb_query_tree(mConn, mScreen->root);
         xcb_query_tree_reply_t* treeReply = xcb_query_tree_reply(mConn, treeCookie, &err);
-        XcbScope scope(treeReply);
+        FreeScope scope(treeReply);
         if (err) {
             free(err);
             sInstance.reset();
@@ -148,7 +148,7 @@ bool WindowManager::install(const char* display)
             }
             for (int i = 0; i < clientLength; ++i) {
                 xcb_get_window_attributes_reply_t* attr = xcb_get_window_attributes_reply(mConn, attrs[i], 0);
-                XcbScope scope(attr);
+                FreeScope scope(attr);
                 xcb_get_property_reply_t* state = xcb_get_property_reply(mConn, states[i], 0);
                 uint32_t stateValue = XCB_ICCCM_WM_STATE_NORMAL;
                 if (state) {
@@ -173,7 +173,7 @@ bool WindowManager::install(const char* display)
             for (;;) {
                 xcb_generic_event_t* event = xcb_poll_for_event(mConn);
                 if (event) {
-                    XcbScope scope(event);
+                    FreeScope scope(event);
                     switch (event->response_type & ~0x80) {
                     case XCB_BUTTON_PRESS:
                         error() << "button press";
