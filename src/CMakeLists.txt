@@ -30,6 +30,7 @@ set(NWM_SOURCES
   Atoms.cpp
   Client.cpp
   Handlers.cpp
+  Layout.cpp
   WindowManager.cpp)
 
 include_directories(${CMAKE_CURRENT_LIST_DIR}

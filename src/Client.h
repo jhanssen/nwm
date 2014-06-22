@@ -1,6 +1,7 @@
 #ifndef CLIENT_H
 #define CLIENT_H
 
+#include "Layout.h"
 #include <rct/Hash.h>
 #include <xcb/xcb.h>
 #include <memory>
@@ -28,10 +29,13 @@ public:
 private:
     Client(xcb_window_t win);
 
+    void layoutChanged(const Rect& rect);
+
 private:
     xcb_window_t mWindow;
     xcb_window_t mFrame;
     bool mValid;
+    Layout::SharedPtr mLayout;
 
     static Hash<xcb_window_t, Client::SharedPtr> sClients;
 };

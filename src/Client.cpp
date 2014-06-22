@@ -12,7 +12,8 @@ Client::Client(xcb_window_t win)
     : mWindow(win), mValid(false)
 {
     error() << "making client";
-    xcb_connection_t* conn = WindowManager::instance()->connection();
+    WindowManager::SharedPtr wm = WindowManager::instance();
+    xcb_connection_t* conn = wm->connection();
     const xcb_get_geometry_cookie_t cookie = xcb_get_geometry_unchecked(conn, win);
     xcb_get_geometry_reply_t* geom = xcb_get_geometry_reply(conn, cookie, 0);
     FreeScope scope(geom);
@@ -20,6 +21,11 @@ Client::Client(xcb_window_t win)
         return;
     error() << "valid client";
     mValid = true;
+    mLayout = wm->layout()->add(Size({ geom->width, geom->height }));
+    error() << "laid out at"
+            << mLayout->rect().x << mLayout->rect().y
+            << mLayout->rect().width << mLayout->rect().height;
+    wm->layout()->dump();
 #warning do startup-notification stuff here
     xcb_change_save_set(conn, XCB_SET_MODE_INSERT, win);
     xcb_screen_t* screen = WindowManager::instance()->screen();

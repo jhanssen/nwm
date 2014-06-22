@@ -21,9 +21,10 @@ WindowManager::~WindowManager()
 {
     Client::clear();
     if (mConn) {
-        const int fd = xcb_get_file_descriptor(mConn);
-        if (EventLoop::SharedPtr eventLoop = EventLoop::eventLoop())
+        if (EventLoop::SharedPtr eventLoop = EventLoop::eventLoop()) {
+            const int fd = xcb_get_file_descriptor(mConn);
             eventLoop->unregisterSocket(fd);
+        }
         xcb_disconnect(mConn);
         mConn = 0;
     }
@@ -40,6 +41,7 @@ bool WindowManager::install(const char* display)
     }
 
     mScreen = xcb_aux_get_screen(mConn, mScreenNo);
+    mLayout = std::make_shared<Layout>(Size({ mScreen->width_in_pixels, mScreen->height_in_pixels }));
     Atoms::setup(mConn);
 
     xcb_void_cookie_t cookie;

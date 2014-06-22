@@ -1,6 +1,7 @@
 #ifndef WINDOWMANAGER_H
 #define WINDOWMANAGER_H
 
+#include "Layout.h"
 #include <memory>
 #include <xcb/xcb.h>
 #include <stdlib.h>
@@ -21,11 +22,13 @@ public:
 
     xcb_connection_t* connection() const { return mConn; }
     xcb_screen_t* screen() const { return mScreen; }
+    const Layout::SharedPtr& layout() const { return mLayout; }
 
 private:
     xcb_connection_t* mConn;
     xcb_screen_t* mScreen;
     int mScreenNo;
+    Layout::SharedPtr mLayout;
 
     static SharedPtr sInstance;
 };
