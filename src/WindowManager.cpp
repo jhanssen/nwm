@@ -33,7 +33,7 @@ bool WindowManager::install(const char* display)
     sInstance = shared_from_this();
 
     mConn = xcb_connect(display, &mScreenNo);
-    if (!mConn) {
+    if (!mConn || xcb_connection_has_error(mConn)) {
         sInstance.reset();
         return false;
     }
@@ -172,10 +172,19 @@ bool WindowManager::install(const char* display)
     }
 
     // Get events
+    xcb_connection_t* conn = mConn;
     const int fd = xcb_get_file_descriptor(mConn);
-    EventLoop::eventLoop()->registerSocket(fd, EventLoop::SocketRead, [this](int, unsigned int) {
+    EventLoop::eventLoop()->registerSocket(fd, EventLoop::SocketRead, [conn, fd](int, unsigned int) {
             for (;;) {
-                xcb_generic_event_t* event = xcb_poll_for_event(mConn);
+                if (xcb_connection_has_error(conn)) {
+                    error() << "X server connection error" << xcb_connection_has_error(conn);
+                    if (EventLoop::SharedPtr eventLoop = EventLoop::eventLoop()) {
+                        eventLoop->unregisterSocket(fd);
+                        eventLoop->quit();
+                    }
+                    return;
+                }
+                xcb_generic_event_t* event = xcb_poll_for_event(conn);
                 if (event) {
                     FreeScope scope(event);
                     switch (event->response_type & ~0x80) {
@@ -239,7 +248,7 @@ bool WindowManager::install(const char* display)
                     break;
                 }
             }
-            xcb_flush(mConn);
+            xcb_flush(conn);
         });
 
     return true;
