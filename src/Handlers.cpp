@@ -1,6 +1,8 @@
 #include "Handlers.h"
+#include "Atoms.h"
 #include "Client.h"
 #include "WindowManager.h"
+#include <rct/Log.h>
 
 namespace Handlers {
 
@@ -64,7 +66,6 @@ void handleConfigureNotify(const xcb_configure_notify_event_t* event)
 
 void handleDestroyNotify(const xcb_destroy_notify_event_t* event)
 {
-    xcb_connection_t* conn = WindowManager::instance()->connection();
     Client::SharedPtr client = Client::client(event->window);
     if (client) {
         client->destroy();
@@ -115,11 +116,11 @@ void handleMapRequest(const xcb_map_request_event_t* event)
 
 void handlePropertyNotify(const xcb_property_notify_event_t* event)
 {
+    error() << "notifying for property" << Atoms::name(event->atom);
 }
 
 void handleUnmapNotify(const xcb_unmap_notify_event_t* event)
 {
-    xcb_connection_t* conn = WindowManager::instance()->connection();
     Client::SharedPtr client = Client::client(event->window);
     if (client)
         client->unmap();

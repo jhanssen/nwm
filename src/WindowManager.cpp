@@ -161,7 +161,8 @@ bool WindowManager::install(const char* display)
                     || stateValue == XCB_ICCCM_WM_STATE_WITHDRAWN) {
                     continue;
                 }
-                Client::manage(clients[i]);
+                Client::SharedPtr client = Client::manage(clients[i]);
+                client->map();
             }
         }
     }

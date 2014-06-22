@@ -1,4 +1,5 @@
 #include "Atoms.h"
+#include "WindowManager.h"
 #include <rct/Log.h>
 #include <vector>
 #include <stdlib.h>
@@ -166,6 +167,26 @@ bool setup(xcb_connection_t* conn)
     };
     setupAtoms(atoms, conn);
     return true;
+}
+
+std::string name(xcb_atom_t atom)
+{
+    xcb_connection_t* conn = WindowManager::instance()->connection();
+    xcb_get_atom_name_cookie_t cookie = xcb_get_atom_name(conn, atom);
+    xcb_generic_error_t* err;
+    xcb_get_atom_name_reply_t* reply = xcb_get_atom_name_reply(conn, cookie, &err);
+    if (err) {
+        free(err);
+        return std::string();
+    }
+
+    std::string name;
+    if (reply) {
+        const int len = xcb_get_atom_name_name_length(reply);
+        name = std::string(xcb_get_atom_name_name(reply), len);
+        free(reply);
+    }
+    return name;
 }
 
 } // namespace Atoms

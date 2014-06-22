@@ -1,6 +1,7 @@
 #ifndef ATOMS_H
 #define ATOMS_H
 
+#include <string>
 #include <xcb/xcb_atom.h>
 
 namespace Atoms
@@ -70,6 +71,7 @@ extern xcb_atom_t XSEL_DATA;
 extern xcb_atom_t WM_TAKE_FOCUS;
 
 bool setup(xcb_connection_t* conn);
+std::string name(xcb_atom_t atom); // not efficient, call this for debugging only
 };
 
 #endif
