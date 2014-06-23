@@ -399,10 +399,9 @@ String WindowManager::keycodeToString(xcb_keycode_t code)
     const int size = xkb_state_key_get_utf8(mXkb.state, code, 0, 0);
     if (size <= 0)
         return String();
-    //String str(size, '\0');
-    char buf[size + 1];
-    xkb_state_key_get_utf8(mXkb.state, code, buf, size + 1);
-    return String(buf);
+    String str(size, '\0');
+    xkb_state_key_get_utf8(mXkb.state, code, str.data(), size + 1);
+    return str;
 }
 
 xkb_keysym_t WindowManager::keycodeToKeysym(xcb_keycode_t code)
