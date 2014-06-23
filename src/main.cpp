@@ -21,11 +21,12 @@ int main(int argc, char** argv)
 
     // setup confuse parser
     cfg_opt_t keybindOpts[] = {
-        CFG_STR("command", 0, CFGF_NODEFAULT),
+        // ewww. fixed recent versions of confuse I believe
+        CFG_STR(const_cast<char*>("command"), 0, CFGF_NODEFAULT),
         CFG_END()
     };
     cfg_opt_t opts[] = {
-        CFG_SEC("keybind", keybindOpts, CFGF_TITLE|CFGF_MULTI),
+        CFG_SEC(const_cast<char*>("keybind"), keybindOpts, CFGF_TITLE|CFGF_MULTI),
         CFG_END()
     };
     cfg_t* keybind;

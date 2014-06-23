@@ -34,12 +34,15 @@ set(NWM_SOURCES
   Layout.cpp
   WindowManager.cpp)
 
+include(FindPkgConfig)
+pkg_search_module(CONFUSE REQUIRED libconfuse)
+
 include_directories(${CMAKE_CURRENT_LIST_DIR}
-                    ${CMAKE_CURRENT_BINARY_DIR}/../3rdparty/libconfuse/include
+                    ${CONFUSE_INCLUDE_DIRS}
                     rct/include/
                     rct
                     ${CMAKE_CURRENT_BINARY_DIR}/rct/include/rct)
 
 add_executable(nwm ${NWM_SOURCES})
 add_dependencies(nwm rct)
-target_link_libraries(nwm rct xcb xcb-util xcb-xkb xcb-keysyms xkbcommon xkbcommon-x11 ${CMAKE_CURRENT_BINARY_DIR}/../3rdparty/libconfuse/lib/libconfuse.a)
+target_link_libraries(nwm rct xcb xcb-util xcb-xkb xcb-keysyms xkbcommon xkbcommon-x11 ${CONFUSE_LIBRARIES})
