@@ -1,0 +1,7 @@
+keybind "Ctrl-A" {
+  command = "hello"
+}
+
+keybind "Shift-A" {
+  command = "shift-hello"
+}

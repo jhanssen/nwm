@@ -19,6 +19,7 @@ Client::Client(xcb_window_t win)
     FreeScope scope(geom);
     if (!geom)
         return;
+    wm->rebindKeys(win);
     error() << "valid client";
     mValid = true;
     mLayout = wm->layout()->add(Size({ geom->width, geom->height }));

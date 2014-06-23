@@ -60,7 +60,6 @@ WindowManager::~WindowManager()
         xkb_keymap_unref(mXkb.keymap);
         xkb_context_unref(mXkb.ctx);
     }
-    unbindKeys();
     xcb_key_symbols_free(mSyms);
 
     Client::clear();
@@ -395,6 +394,22 @@ void WindowManager::release()
     sInstance.reset();
 }
 
+String WindowManager::keycodeToString(xcb_keycode_t code)
+{
+    const int size = xkb_state_key_get_utf8(mXkb.state, code, 0, 0);
+    if (size <= 0)
+        return String();
+    //String str(size, '\0');
+    char buf[size + 1];
+    xkb_state_key_get_utf8(mXkb.state, code, buf, size + 1);
+    return String(buf);
+}
+
+xkb_keysym_t WindowManager::keycodeToKeysym(xcb_keycode_t code)
+{
+    return xkb_state_key_get_one_sym(mXkb.state, code);
+}
+
 void WindowManager::updateXkbState(xcb_xkb_state_notify_event_t* state)
 {
     xkb_state_update_mask(mXkb.state,
@@ -416,19 +431,37 @@ void WindowManager::updateXkbMap(xcb_xkb_map_notify_event_t* map)
     rebindKeys();
 }
 
-void WindowManager::rebindKeys()
+void WindowManager::rebindKeys(xcb_window_t win)
 {
-    unbindKeys();
-#warning rebind
+    xcb_ungrab_key(mConn, XCB_GRAB_ANY, win, XCB_BUTTON_MASK_ANY);
+    for (const Keybinding& binding : mKeybindings) {
+        binding.rebind(mConn, win);
+    }
 }
 
-void WindowManager::unbindKeys()
+void WindowManager::rebindKeys()
 {
-#warning unbind
+    const List<Client::SharedPtr>& clients = Client::clients();
+
+    xcb_ungrab_key(mConn, XCB_GRAB_ANY, mScreen->root, XCB_BUTTON_MASK_ANY);
+    for (const Client::SharedPtr& client : clients) {
+        xcb_ungrab_key(mConn, XCB_GRAB_ANY, client->window(), XCB_BUTTON_MASK_ANY);
+    }
+
+    for (const Keybinding& binding : mKeybindings) {
+        binding.rebind(mConn, mScreen->root);
+        for (const Client::SharedPtr& client : clients) {
+            binding.rebind(mConn, client->window());
+        }
+    }
 }
 
 void WindowManager::addKeybinding(const Keybinding& binding)
 {
-#warning deal with binding
-    rebindKeys();
+    mKeybindings.append(binding);
+    binding.rebind(mConn, mScreen->root);
+    const List<Client::SharedPtr>& clients = Client::clients();
+    for (const Client::SharedPtr& client : clients) {
+        binding.rebind(mConn, client->window());
+    }
 }

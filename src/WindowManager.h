@@ -3,6 +3,7 @@
 
 #include "Layout.h"
 #include "Keybinding.h"
+#include <rct/List.h>
 #include <memory>
 #include <xcb/xcb.h>
 #include <xcb/xcb_keysyms.h>
@@ -33,16 +34,20 @@ public:
     xcb_screen_t* screen() const { return mScreen; }
     const Layout::SharedPtr& layout() const { return mLayout; }
 
+    xcb_key_symbols_t* keySymbols() const { return mSyms; }
     int32_t xkbDevice() const { return mXkb.device; }
     xkb_context* xkbContext() const { return mXkb.ctx; }
     xkb_keymap* xkbKeymap() const { return mXkb.keymap; }
     xkb_state* xkbState() const { return mXkb.state; }
     void updateXkbState(xcb_xkb_state_notify_event_t* state);
     void updateXkbMap(xcb_xkb_map_notify_event_t* map);
+    String keycodeToString(xcb_keycode_t code);
+    xkb_keysym_t keycodeToKeysym(xcb_keycode_t code);
+
+    void rebindKeys(xcb_window_t win);
 
 private:
     void rebindKeys();
-    void unbindKeys();
 
 private:
     struct Xkb {
@@ -58,6 +63,7 @@ private:
     uint8_t mXkbEvent;
     xcb_key_symbols_t* mSyms;
     Layout::SharedPtr mLayout;
+    List<Keybinding> mKeybindings;
 
     static SharedPtr sInstance;
 };

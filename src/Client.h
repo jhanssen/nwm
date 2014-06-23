@@ -19,6 +19,9 @@ public:
     static void release(xcb_window_t window);
     static void clear() { sClients.clear(); }
 
+    // ### heavy, should be improved
+    static List<Client::SharedPtr> clients() { return sClients.values(); }
+
     void release() { release(mWindow); mWindow = 0; }
     bool isValid() const { return mValid; }
 
@@ -27,6 +30,7 @@ public:
     void destroy();
 
     const Layout::SharedPtr& layout() const { return mLayout; }
+    xcb_window_t window() const { return mWindow; }
 
 private:
     Client(xcb_window_t win);

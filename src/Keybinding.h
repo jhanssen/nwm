@@ -2,29 +2,51 @@
 #define KEYBINDING
 
 #include <rct/String.h>
+#include <rct/List.h>
 #include <xcb/xcb.h>
+#include <xcb/xcb_keysyms.h>
+
+typedef uint32_t xkb_keysym_t;
+typedef uint8_t xcb_keycode_t;
 
 class Keybinding
 {
 public:
-    Keybinding(uint16_t mod, xcb_keysym_t sym, const String& cmd);
+    Keybinding() { };
     Keybinding(const String& key, const String& cmd);
 
-    bool isValid() const { return mValid; };
+    bool isValid() const { return !mSeq.empty(); };
+    void recreate();
 
-    uint16_t mod() const { return mMod; }
-    xcb_keysym_t keysym() const { return mKeysym; }
+    struct Sequence
+    {
+        uint16_t mods;
+        List<xcb_keycode_t> codes;
+
+        xkb_keysym_t sym;
+        void recreate(xcb_key_symbols_t* syms);
+    };
+    const List<Sequence>& sequence() const { return mSeq; }
     String command() const { return mCmd; }
 
-private:
-    bool parse(const String& key);
+    void rebind(xcb_connection_t* conn, xcb_window_t win) const;
 
 private:
-    bool mValid;
+    void parse(const String& key);
+    void add(const String& key, const List<String>& mods = List<String>());
 
-    uint16_t mMod;
-    xcb_keysym_t mKeysym;
+private:
+    List<Sequence> mSeq;
     String mCmd;
 };
+
+inline void Keybinding::rebind(xcb_connection_t* conn, xcb_window_t win) const
+{
+    for (const Keybinding::Sequence& seq : mSeq) {
+        for (xcb_keycode_t code : seq.codes) {
+            xcb_grab_key(conn, true, win, seq.mods, code, XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC);
+        }
+    }
+}
 
 #endif

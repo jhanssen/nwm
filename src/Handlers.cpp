@@ -86,6 +86,23 @@ void handleFocusIn(const xcb_focus_in_event_t* event)
 
 void handleKeyPress(const xcb_key_press_event_t* event)
 {
+    const char* mods[] = {
+        "Shift", "Lock", "Ctrl", "Alt",
+        "Mod2", "Mod3", "Mod4", "Mod5",
+        "Button1", "Button2", "Button3", "Button4", "Button5"
+    };
+
+    uint32_t mask = event->state;
+    List<String> modifiers;
+    for (const char **mod = mods; mask; mask >>= 1, ++mod) {
+        if (mask & 1) {
+            modifiers.append(*mod);
+        }
+    }
+
+    const String key = WindowManager::instance()->keycodeToString(event->detail);
+    error() << "got key" << String::join(modifiers, "-") << key;
+    error() << "sym" << WindowManager::instance()->keycodeToKeysym(event->detail);
 }
 
 void handleMappingNotify(const xcb_mapping_notify_event_t* event)
