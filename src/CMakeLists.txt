@@ -35,7 +35,7 @@ set(NWM_SOURCES
   WindowManager.cpp)
 
 include(FindPkgConfig)
-pkg_search_module(CONFUSE REQUIRED libconfuse)
+pkg_check_modules(CONFUSE REQUIRED libconfuse)
 pkg_check_modules(XKBCOMMON REQUIRED xkbcommon)
 pkg_check_modules(XKBCOMMON_X11 REQUIRED xkbcommon-x11)
 pkg_check_modules(XCB REQUIRED xcb)
