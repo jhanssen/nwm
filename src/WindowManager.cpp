@@ -9,6 +9,7 @@
 #include <xcb/xcb_atom.h>
 #include <xcb/xcb_aux.h>
 #include <xcb/xcb_icccm.h>
+#include <xcb/xcb_keysyms.h>
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-x11.h>
 // Really XCB?? This is awful, awful!
@@ -33,7 +34,14 @@ static inline void handleXkb(_xkb_event* event)
 {
     WindowManager::SharedPtr wm = WindowManager::instance();
     if (event->any.deviceID == wm->xkbDevice()) {
-        wm->updateXkbState(&event->state_notify);
+        switch (event->any.xkbType) {
+        case XCB_XKB_STATE_NOTIFY:
+            wm->updateXkbState(&event->state_notify);
+            break;
+        case XCB_XKB_MAP_NOTIFY:
+            wm->updateXkbMap(&event->map_notify);
+            break;
+        }
     }
 }
 
@@ -52,6 +60,8 @@ WindowManager::~WindowManager()
         xkb_keymap_unref(mXkb.keymap);
         xkb_context_unref(mXkb.ctx);
     }
+    unbindKeys();
+    xcb_key_symbols_free(mSyms);
 
     Client::clear();
     if (mConn) {
@@ -177,6 +187,8 @@ bool WindowManager::install(const char* display)
 
         mXkbEvent = reply->first_event;
         mXkb = Xkb({ ctx, keymap, state, deviceId });
+
+        mSyms = xcb_key_symbols_alloc(mConn);
     }
 
     const uint32_t values[] = { Types::RootEventMask };
@@ -346,10 +358,6 @@ bool WindowManager::install(const char* display)
                         error() << "key press";
                         Handlers::handleKeyPress(reinterpret_cast<xcb_key_press_event_t*>(event));
                         break;
-                    case XCB_MAPPING_NOTIFY:
-                        error() << "mapping notify";
-                        Handlers::handleMappingNotify(reinterpret_cast<xcb_mapping_notify_event_t*>(event));
-                        break;
                     case XCB_MAP_REQUEST:
                         error() << "map request";
                         Handlers::handleMapRequest(reinterpret_cast<xcb_map_request_event_t*>(event));
@@ -387,17 +395,40 @@ void WindowManager::release()
     sInstance.reset();
 }
 
-void WindowManager::updateXkbState(xcb_xkb_state_notify_event_t* notify)
+void WindowManager::updateXkbState(xcb_xkb_state_notify_event_t* state)
 {
     xkb_state_update_mask(mXkb.state,
-                          notify->baseMods,
-                          notify->latchedMods,
-                          notify->lockedMods,
-                          notify->baseGroup,
-                          notify->latchedGroup,
-                          notify->lockedGroup);
+                          state->baseMods,
+                          state->latchedMods,
+                          state->lockedMods,
+                          state->baseGroup,
+                          state->latchedGroup,
+                          state->lockedGroup);
+    xcb_key_symbols_free(mSyms);
+    mSyms = xcb_key_symbols_alloc(mConn);
+    rebindKeys();
+}
+
+void WindowManager::updateXkbMap(xcb_xkb_map_notify_event_t* map)
+{
+    xcb_key_symbols_free(mSyms);
+    mSyms = xcb_key_symbols_alloc(mConn);
+    rebindKeys();
+}
+
+void WindowManager::rebindKeys()
+{
+    unbindKeys();
+#warning rebind
+}
+
+void WindowManager::unbindKeys()
+{
+#warning unbind
 }
 
 void WindowManager::addKeybinding(const Keybinding& binding)
 {
+#warning deal with binding
+    rebindKeys();
 }

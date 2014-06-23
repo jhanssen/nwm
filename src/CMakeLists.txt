@@ -42,4 +42,4 @@ include_directories(${CMAKE_CURRENT_LIST_DIR}
 
 add_executable(nwm ${NWM_SOURCES})
 add_dependencies(nwm rct)
-target_link_libraries(nwm rct xcb xcb-util xcb-xkb xkbcommon xkbcommon-x11 ${CMAKE_CURRENT_BINARY_DIR}/../3rdparty/libconfuse/lib/libconfuse.a)
+target_link_libraries(nwm rct xcb xcb-util xcb-xkb xcb-keysyms xkbcommon xkbcommon-x11 ${CMAKE_CURRENT_BINARY_DIR}/../3rdparty/libconfuse/lib/libconfuse.a)

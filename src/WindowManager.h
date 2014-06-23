@@ -5,12 +5,14 @@
 #include "Keybinding.h"
 #include <memory>
 #include <xcb/xcb.h>
+#include <xcb/xcb_keysyms.h>
 #include <stdlib.h>
 
 struct xkb_context;
 struct xkb_keymap;
 struct xkb_state;
 struct xcb_xkb_state_notify_event_t;
+struct xcb_xkb_map_notify_event_t;
 
 class WindowManager : public std::enable_shared_from_this<WindowManager>
 {
@@ -35,7 +37,12 @@ public:
     xkb_context* xkbContext() const { return mXkb.ctx; }
     xkb_keymap* xkbKeymap() const { return mXkb.keymap; }
     xkb_state* xkbState() const { return mXkb.state; }
-    void updateXkbState(xcb_xkb_state_notify_event_t* notify);
+    void updateXkbState(xcb_xkb_state_notify_event_t* state);
+    void updateXkbMap(xcb_xkb_map_notify_event_t* map);
+
+private:
+    void rebindKeys();
+    void unbindKeys();
 
 private:
     struct Xkb {
@@ -49,6 +56,7 @@ private:
     xcb_screen_t* mScreen;
     int mScreenNo;
     uint8_t mXkbEvent;
+    xcb_key_symbols_t* mSyms;
     Layout::SharedPtr mLayout;
 
     static SharedPtr sInstance;
