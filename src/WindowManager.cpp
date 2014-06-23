@@ -9,16 +9,50 @@
 #include <xcb/xcb_atom.h>
 #include <xcb/xcb_aux.h>
 #include <xcb/xcb_icccm.h>
+#include <xkbcommon/xkbcommon.h>
+#include <xkbcommon/xkbcommon-x11.h>
+// Really XCB?? This is awful, awful!
+#define explicit _explicit
+#include <xcb/xkb.h>
+#undef explicit
+
+typedef union {
+    /* All XKB events share these fields. */
+    struct {
+        uint8_t response_type;
+        uint8_t xkbType;
+        uint16_t sequence;
+        xcb_timestamp_t time;
+        uint8_t deviceID;
+    } any;
+    xcb_xkb_map_notify_event_t map_notify;
+    xcb_xkb_state_notify_event_t state_notify;
+} _xkb_event;
+
+static inline void handleXkb(_xkb_event* event)
+{
+    WindowManager::SharedPtr wm = WindowManager::instance();
+    if (event->any.deviceID == wm->xkbDevice()) {
+        wm->updateXkbState(&event->state_notify);
+    }
+}
 
 WindowManager::SharedPtr WindowManager::sInstance;
 
 WindowManager::WindowManager()
-    : mConn(0), mScreen(0), mScreenNo(0)
+    : mConn(0), mScreen(0), mScreenNo(0), mXkbEvent(0)
 {
+    memset(&mXkb, '\0', sizeof(mXkb));
 }
 
 WindowManager::~WindowManager()
 {
+    if (mXkb.ctx) {
+        xkb_state_unref(mXkb.state);
+        xkb_keymap_unref(mXkb.keymap);
+        xkb_context_unref(mXkb.ctx);
+    }
+
     Client::clear();
     if (mConn) {
         if (EventLoop::SharedPtr eventLoop = EventLoop::eventLoop()) {
@@ -60,6 +94,89 @@ bool WindowManager::install(const char* display)
             sInstance.reset();
             return false;
         }
+    }
+
+    // lookup keyboard stuffs
+    {
+        xcb_prefetch_extension_data(mConn, &xcb_xkb_id);
+
+        const int ret = xkb_x11_setup_xkb_extension(mConn,
+                                                    XKB_X11_MIN_MAJOR_XKB_VERSION,
+                                                    XKB_X11_MIN_MINOR_XKB_VERSION,
+                                                    XKB_X11_SETUP_XKB_EXTENSION_NO_FLAGS,
+                                                    0, 0, 0, 0);
+        if (!ret) {
+            error() << "Unable to setup XKB extension";
+            sInstance.reset();
+            return false;
+        }
+        xkb_context* ctx = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
+        if (!ctx) {
+            error() << "Unable to create new xkb_context";
+            sInstance.reset();
+            return false;
+        }
+        const int32_t deviceId = xkb_x11_get_core_keyboard_device_id(mConn);
+        if (deviceId == -1) {
+            error() << "Unable to get device id from core keyboard device";
+            xkb_context_unref(ctx);
+            sInstance.reset();
+            return false;
+        }
+        xkb_keymap* keymap = xkb_x11_keymap_new_from_device(ctx, mConn, deviceId, XKB_KEYMAP_COMPILE_NO_FLAGS);
+        if (!keymap) {
+            error() << "Unable to get keymap from device";
+            xkb_context_unref(ctx);
+            sInstance.reset();
+            return false;
+        }
+        xkb_state* state = xkb_x11_state_new_from_device(keymap, mConn, deviceId);
+        if (!state) {
+            error() << "Unable to get state from keymap/device";
+            xkb_keymap_unref(keymap);
+            xkb_context_unref(ctx);
+            sInstance.reset();
+            return false;
+        }
+
+        const xcb_query_extension_reply_t *reply = xcb_get_extension_data(mConn, &xcb_xkb_id);
+        if (!reply || !reply->present) {
+            error() << "Unable to get extension reply for XKB";
+            xkb_state_unref(state);
+            xkb_keymap_unref(keymap);
+            xkb_context_unref(ctx);
+            sInstance.reset();
+            return false;
+        }
+
+        unsigned int affectMap, map;
+        affectMap = map = XCB_XKB_MAP_PART_KEY_TYPES
+            | XCB_XKB_MAP_PART_KEY_SYMS
+            | XCB_XKB_MAP_PART_MODIFIER_MAP
+            | XCB_XKB_MAP_PART_EXPLICIT_COMPONENTS
+            | XCB_XKB_MAP_PART_KEY_ACTIONS
+            | XCB_XKB_MAP_PART_KEY_BEHAVIORS
+            | XCB_XKB_MAP_PART_VIRTUAL_MODS
+            | XCB_XKB_MAP_PART_VIRTUAL_MOD_MAP;
+
+        xcb_void_cookie_t select = xcb_xkb_select_events_checked(mConn, XCB_XKB_ID_USE_CORE_KBD,
+                                                                 XCB_XKB_EVENT_TYPE_STATE_NOTIFY | XCB_XKB_EVENT_TYPE_MAP_NOTIFY,
+                                                                 0,
+                                                                 XCB_XKB_EVENT_TYPE_STATE_NOTIFY | XCB_XKB_EVENT_TYPE_MAP_NOTIFY,
+                                                                 affectMap, map, 0);
+        err = xcb_request_check(mConn, select);
+        if (err) {
+            LOG_ERROR(err, "Unable to select XKB events");
+            free(err);
+            xkb_state_unref(state);
+            xkb_keymap_unref(keymap);
+            xkb_context_unref(ctx);
+            sInstance.reset();
+            return false;
+        }
+
+        mXkbEvent = reply->first_event;
+        mXkb = Xkb({ ctx, keymap, state, deviceId });
     }
 
     const uint32_t values[] = { Types::RootEventMask };
@@ -177,7 +294,8 @@ bool WindowManager::install(const char* display)
     // Get events
     xcb_connection_t* conn = mConn;
     const int fd = xcb_get_file_descriptor(mConn);
-    EventLoop::eventLoop()->registerSocket(fd, EventLoop::SocketRead, [conn, fd](int, unsigned int) {
+    uint8_t xkbEvent = mXkbEvent;
+    EventLoop::eventLoop()->registerSocket(fd, EventLoop::SocketRead, [conn, fd, xkbEvent](int, unsigned int) {
             for (;;) {
                 if (xcb_connection_has_error(conn)) {
                     error() << "X server connection error" << xcb_connection_has_error(conn);
@@ -190,7 +308,8 @@ bool WindowManager::install(const char* display)
                 xcb_generic_event_t* event = xcb_poll_for_event(conn);
                 if (event) {
                     FreeScope scope(event);
-                    switch (event->response_type & ~0x80) {
+                    const unsigned int responseType = event->response_type & ~0x80;
+                    switch (responseType) {
                     case XCB_BUTTON_PRESS:
                         error() << "button press";
                         Handlers::handleButtonPress(reinterpret_cast<xcb_button_press_event_t*>(event));
@@ -244,7 +363,12 @@ bool WindowManager::install(const char* display)
                         Handlers::handleUnmapNotify(reinterpret_cast<xcb_unmap_notify_event_t*>(event));
                         break;
                     default:
-                        error() << "unhandled event" << (event->response_type & ~0x80);
+                        if (responseType == xkbEvent) {
+                            error() << "xkb event";
+                            handleXkb(reinterpret_cast<_xkb_event*>(event));
+                            break;
+                        }
+                        error() << "unhandled event" << responseType;
                         break;
                     }
                 } else {
@@ -261,4 +385,19 @@ void WindowManager::release()
 {
     Client::clear();
     sInstance.reset();
+}
+
+void WindowManager::updateXkbState(xcb_xkb_state_notify_event_t* notify)
+{
+    xkb_state_update_mask(mXkb.state,
+                          notify->baseMods,
+                          notify->latchedMods,
+                          notify->lockedMods,
+                          notify->baseGroup,
+                          notify->latchedGroup,
+                          notify->lockedGroup);
+}
+
+void WindowManager::addKeybinding(const Keybinding& binding)
+{
 }

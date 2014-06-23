@@ -2,9 +2,15 @@
 #define WINDOWMANAGER_H
 
 #include "Layout.h"
+#include "Keybinding.h"
 #include <memory>
 #include <xcb/xcb.h>
 #include <stdlib.h>
+
+struct xkb_context;
+struct xkb_keymap;
+struct xkb_state;
+struct xcb_xkb_state_notify_event_t;
 
 class WindowManager : public std::enable_shared_from_this<WindowManager>
 {
@@ -16,6 +22,7 @@ public:
     ~WindowManager();
 
     bool install(const char* display = 0);
+    void addKeybinding(const Keybinding& binding);
 
     static SharedPtr instance() { return sInstance; }
     static void release();
@@ -24,10 +31,24 @@ public:
     xcb_screen_t* screen() const { return mScreen; }
     const Layout::SharedPtr& layout() const { return mLayout; }
 
+    int32_t xkbDevice() const { return mXkb.device; }
+    xkb_context* xkbContext() const { return mXkb.ctx; }
+    xkb_keymap* xkbKeymap() const { return mXkb.keymap; }
+    xkb_state* xkbState() const { return mXkb.state; }
+    void updateXkbState(xcb_xkb_state_notify_event_t* notify);
+
 private:
+    struct Xkb {
+        xkb_context* ctx;
+        xkb_keymap* keymap;
+        xkb_state* state;
+        int32_t device;
+    } mXkb;
+
     xcb_connection_t* mConn;
     xcb_screen_t* mScreen;
     int mScreenNo;
+    uint8_t mXkbEvent;
     Layout::SharedPtr mLayout;
 
     static SharedPtr sInstance;

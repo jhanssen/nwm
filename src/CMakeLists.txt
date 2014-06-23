@@ -30,14 +30,16 @@ set(NWM_SOURCES
   Atoms.cpp
   Client.cpp
   Handlers.cpp
+  Keybinding.cpp
   Layout.cpp
   WindowManager.cpp)
 
 include_directories(${CMAKE_CURRENT_LIST_DIR}
+                    ${CMAKE_CURRENT_BINARY_DIR}/../3rdparty/libconfuse/include
                     rct/include/
                     rct
                     ${CMAKE_CURRENT_BINARY_DIR}/rct/include/rct)
 
 add_executable(nwm ${NWM_SOURCES})
 add_dependencies(nwm rct)
-target_link_libraries(nwm rct xcb xcb-util)
+target_link_libraries(nwm rct xcb xcb-util xcb-xkb xkbcommon xkbcommon-x11 ${CMAKE_CURRENT_BINARY_DIR}/../3rdparty/libconfuse/lib/libconfuse.a)
