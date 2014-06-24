@@ -426,6 +426,7 @@ void WindowManager::updateXkbMap(xcb_xkb_map_notify_event_t* map)
     xcb_key_symbols_free(mSyms);
     mSyms = xcb_key_symbols_alloc(mConn);
     rebindKeys();
+#warning requery xkb core device and recreate state here?
 }
 
 const Keybinding* WindowManager::lookupKeybinding(xkb_keysym_t sym, uint16_t mods)
