@@ -3,5 +3,5 @@ keybind "Ctrl-A" {
 }
 
 keybind "Shift-A" {
-  command = "shift-hello"
+  exec = "xterm"
 }

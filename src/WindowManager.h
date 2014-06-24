@@ -24,8 +24,10 @@ public:
     WindowManager();
     ~WindowManager();
 
-    bool install(const char* display = 0);
+    bool install(const String& display = String());
     void addKeybinding(const Keybinding& binding);
+
+    String displayString() const { return mDisplay; }
 
     static SharedPtr instance() { return sInstance; }
     static void release();
@@ -45,6 +47,7 @@ public:
     xkb_keysym_t keycodeToKeysym(xcb_keycode_t code);
 
     void rebindKeys(xcb_window_t win);
+    const Keybinding* lookupKeybinding(xkb_keysym_t sym, uint16_t mods);
 
 private:
     void rebindKeys();
@@ -56,6 +59,8 @@ private:
         xkb_state* state;
         int32_t device;
     } mXkb;
+
+    String mDisplay;
 
     xcb_connection_t* mConn;
     xcb_screen_t* mScreen;

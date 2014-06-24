@@ -3,8 +3,8 @@
 #include <rct/Log.h>
 #include <xkbcommon/xkbcommon.h>
 
-Keybinding::Keybinding(const String& key, const String& cmd)
-    : mCmd(cmd)
+Keybinding::Keybinding(const String& key, const String& cmd, const String& exec)
+    : mCmd(cmd), mExec(exec)
 {
     parse(key);
 }

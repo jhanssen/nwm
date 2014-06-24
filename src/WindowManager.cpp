@@ -73,11 +73,12 @@ WindowManager::~WindowManager()
     }
 }
 
-bool WindowManager::install(const char* display)
+bool WindowManager::install(const String& display)
 {
     sInstance = shared_from_this();
+    mDisplay = display;
 
-    mConn = xcb_connect(display, &mScreenNo);
+    mConn = xcb_connect(display.constData(), &mScreenNo);
     if (!mConn || xcb_connection_has_error(mConn)) {
         sInstance.reset();
         return false;
@@ -418,9 +419,6 @@ void WindowManager::updateXkbState(xcb_xkb_state_notify_event_t* state)
                           state->baseGroup,
                           state->latchedGroup,
                           state->lockedGroup);
-    xcb_key_symbols_free(mSyms);
-    mSyms = xcb_key_symbols_alloc(mConn);
-    rebindKeys();
 }
 
 void WindowManager::updateXkbMap(xcb_xkb_map_notify_event_t* map)
@@ -428,6 +426,18 @@ void WindowManager::updateXkbMap(xcb_xkb_map_notify_event_t* map)
     xcb_key_symbols_free(mSyms);
     mSyms = xcb_key_symbols_alloc(mConn);
     rebindKeys();
+}
+
+const Keybinding* WindowManager::lookupKeybinding(xkb_keysym_t sym, uint16_t mods)
+{
+    for (const Keybinding& binding : mKeybindings) {
+        const List<Keybinding::Sequence>& seqs = binding.sequence();
+        for (const Keybinding::Sequence& seq : seqs) {
+            if (seq.sym == sym && seq.mods == mods)
+                return &binding;
+        }
+    }
+    return 0;
 }
 
 void WindowManager::rebindKeys(xcb_window_t win)

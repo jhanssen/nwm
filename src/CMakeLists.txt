@@ -32,6 +32,7 @@ set(NWM_SOURCES
   Handlers.cpp
   Keybinding.cpp
   Layout.cpp
+  Util.cpp
   WindowManager.cpp)
 
 include(FindPkgConfig)

@@ -23,6 +23,7 @@ int main(int argc, char** argv)
     cfg_opt_t keybindOpts[] = {
         // ewww. fixed recent versions of confuse I believe
         CFG_STR(const_cast<char*>("command"), 0, CFGF_NODEFAULT),
+        CFG_STR(const_cast<char*>("exec"), 0, CFGF_NODEFAULT),
         CFG_END()
     };
     cfg_opt_t opts[] = {
@@ -56,12 +57,13 @@ int main(int argc, char** argv)
         for (unsigned int i = 0; i < cfg_size(cfg, "keybind"); ++i) {
             keybind = cfg_getnsec(cfg, "keybind", i);
             const char* cmd = cfg_getstr(keybind, "command");
-            if (!cmd) {
-                error() << "no command for" << cfg_title(keybind);
+            const char* exec = cfg_getstr(keybind, "exec");
+            if (!cmd && !exec) {
+                error() << "no command or exec for" << cfg_title(keybind);
                 continue;
             }
 
-            Keybinding keybinding(cfg_title(keybind), cmd);
+            Keybinding keybinding(cfg_title(keybind), cmd, exec);
             if (!keybinding.isValid()) {
                 error() << "keybind not valid" << cfg_title(keybind);
                 continue;

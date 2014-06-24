@@ -1,7 +1,9 @@
 #include "Handlers.h"
 #include "Atoms.h"
 #include "Client.h"
+#include "Util.h"
 #include "WindowManager.h"
+#include <xkbcommon/xkbcommon.h>
 #include <rct/Log.h>
 
 namespace Handlers {
@@ -86,6 +88,7 @@ void handleFocusIn(const xcb_focus_in_event_t* event)
 
 void handleKeyPress(const xcb_key_press_event_t* event)
 {
+    /*
     const char* mods[] = {
         "Shift", "Lock", "Ctrl", "Alt",
         "Mod2", "Mod3", "Mod4", "Mod5",
@@ -103,6 +106,26 @@ void handleKeyPress(const xcb_key_press_event_t* event)
     const String key = WindowManager::instance()->keycodeToString(event->detail);
     error() << "got key" << String::join(modifiers, "-") << key;
     error() << "sym" << WindowManager::instance()->keycodeToKeysym(event->detail);
+    */
+    WindowManager::SharedPtr wm = WindowManager::instance();
+    //const int col = (event->state & XCB_MOD_MASK_SHIFT);
+    const int col = 0;
+    const xcb_keysym_t sym = xcb_key_press_lookup_keysym(wm->keySymbols(), const_cast<xcb_key_press_event_t*>(event), col);
+    //const xkb_keysym_t sym = wm->keycodeToKeysym(event->detail);
+    const Keybinding* binding = wm->lookupKeybinding(sym, event->state);
+    if (!binding) {
+        char buf[256];
+        xkb_keysym_get_name(sym, buf, sizeof(buf));
+        error() << "no keybind for" << sym << buf;
+        return;
+    }
+    const String& exec = binding->exec();
+    if (!exec.isEmpty()) {
+        error() << "launching" << exec;
+        Util::launch(exec, wm->displayString());
+    } else {
+        error() << "no exec" << sym;
+    }
 }
 
 void handleMappingNotify(const xcb_mapping_notify_event_t* event)
