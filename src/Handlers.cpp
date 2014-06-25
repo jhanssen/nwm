@@ -10,6 +10,7 @@ namespace Handlers {
 
 void handleButtonPress(const xcb_button_press_event_t* event)
 {
+    WindowManager::instance()->updateTimestamp(event->time);
 }
 
 void handleClientMessage(const xcb_client_message_event_t* event)
@@ -76,6 +77,7 @@ void handleDestroyNotify(const xcb_destroy_notify_event_t* event)
 
 void handleEnterNotify(const xcb_enter_notify_event_t* event)
 {
+    WindowManager::instance()->updateTimestamp(event->time);
 }
 
 void handleExpose(const xcb_expose_event_t* event)
@@ -108,6 +110,7 @@ void handleKeyPress(const xcb_key_press_event_t* event)
     error() << "sym" << WindowManager::instance()->keycodeToKeysym(event->detail);
     */
     WindowManager::SharedPtr wm = WindowManager::instance();
+    wm->updateTimestamp(event->time);
     //const int col = (event->state & XCB_MOD_MASK_SHIFT);
     const int col = 0;
     const xcb_keysym_t sym = xcb_key_press_lookup_keysym(wm->keySymbols(), const_cast<xcb_key_press_event_t*>(event), col);
@@ -155,6 +158,7 @@ void handleMapRequest(const xcb_map_request_event_t* event)
 
 void handlePropertyNotify(const xcb_property_notify_event_t* event)
 {
+    WindowManager::instance()->updateTimestamp(event->time);
     error() << "notifying for property" << Atoms::name(event->atom);
 }
 

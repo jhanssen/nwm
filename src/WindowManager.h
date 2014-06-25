@@ -32,6 +32,9 @@ public:
     static SharedPtr instance() { return sInstance; }
     static void release();
 
+    void updateTimestamp(xcb_timestamp_t timestamp) { mTimestamp = timestamp; }
+    xcb_timestamp_t timestamp() const { return mTimestamp; }
+
     xcb_connection_t* connection() const { return mConn; }
     xcb_screen_t* screen() const { return mScreen; }
     const Layout::SharedPtr& layout() const { return mLayout; }
@@ -69,6 +72,7 @@ private:
     xcb_key_symbols_t* mSyms;
     Layout::SharedPtr mLayout;
     List<Keybinding> mKeybindings;
+    xcb_timestamp_t mTimestamp;
 
     static SharedPtr sInstance;
 };

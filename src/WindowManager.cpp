@@ -48,7 +48,7 @@ static inline void handleXkb(_xkb_event* event)
 WindowManager::SharedPtr WindowManager::sInstance;
 
 WindowManager::WindowManager()
-    : mConn(0), mScreen(0), mScreenNo(0), mXkbEvent(0)
+    : mConn(0), mScreen(0), mScreenNo(0), mXkbEvent(0), mTimestamp(XCB_CURRENT_TIME)
 {
     memset(&mXkb, '\0', sizeof(mXkb));
 }
