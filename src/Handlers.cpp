@@ -78,6 +78,9 @@ void handleDestroyNotify(const xcb_destroy_notify_event_t* event)
 void handleEnterNotify(const xcb_enter_notify_event_t* event)
 {
     WindowManager::instance()->updateTimestamp(event->time);
+    Client::SharedPtr client = Client::client(event->child);
+    if (client)
+        client->focus();
 }
 
 void handleExpose(const xcb_expose_event_t* event)

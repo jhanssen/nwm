@@ -8,7 +8,7 @@
 Hash<xcb_window_t, Client::SharedPtr> Client::sClients;
 
 Client::Client(xcb_window_t win)
-    : mWindow(win), mValid(false)
+    : mWindow(win), mValid(false), mNoFocus(false)
 {
     error() << "making client";
     WindowManager::SharedPtr wm = WindowManager::instance();
@@ -78,6 +78,8 @@ Client::Client(xcb_window_t win)
 #warning do xinerama placement
     const uint32_t stateMode[] = { XCB_ICCCM_WM_STATE_NORMAL, XCB_NONE };
     xcb_change_property(conn, XCB_PROP_MODE_REPLACE, mWindow, Atoms::WM_STATE, Atoms::WM_STATE, 32, 2, stateMode);
+
+    focus();
 }
 
 Client::~Client()
@@ -130,16 +132,18 @@ void Client::updateNormalHints(xcb_connection_t* conn, xcb_get_property_cookie_t
 
 void Client::updateTransient(xcb_connection_t* conn, xcb_get_property_cookie_t cookie)
 {
-    xcb_window_t t;
-    if (xcb_icccm_get_wm_transient_for_reply(conn, cookie, &t, 0))
-        mTransientFor = t;
-    else
+    if (!xcb_icccm_get_wm_transient_for_reply(conn, cookie, &mTransientFor, 0)) {
         mTransientFor = XCB_NONE;
+    }
 }
 
 void Client::updateHints(xcb_connection_t* conn, xcb_get_property_cookie_t cookie)
 {
-    if (!xcb_icccm_get_wm_hints_reply(conn, cookie, &mWmHints, 0)) {
+    if (xcb_icccm_get_wm_hints_reply(conn, cookie, &mWmHints, 0)) {
+        if (mWmHints.flags & XCB_ICCCM_WM_HINT_INPUT) {
+            mNoFocus = !mWmHints.input;
+        }
+    } else {
         memset(&mWmHints, '\0', sizeof(mWmHints));
     }
 }
@@ -223,6 +227,28 @@ void Client::unmap()
 {
     xcb_connection_t* conn = WindowManager::instance()->connection();
     xcb_unmap_window(conn, mFrame);
+}
+
+void Client::focus()
+{
+    const bool takeFocus = mProtocols.count(Atoms::WM_TAKE_FOCUS) > 0;
+    if (mNoFocus && !takeFocus)
+        return;
+    WindowManager::SharedPtr wm = WindowManager::instance();
+    if (takeFocus) {
+        xcb_client_message_event_t event;
+        memset(&event, '\0', sizeof(event));
+        event.response_type = XCB_CLIENT_MESSAGE;
+        event.window = mWindow;
+        event.format = 32;
+        event.type = Atoms::WM_PROTOCOLS;
+        event.data.data32[0] = Atoms::WM_TAKE_FOCUS;
+        event.data.data32[1] = wm->timestamp();
+
+        xcb_send_event(wm->connection(), false, mWindow, XCB_EVENT_MASK_NO_EVENT,
+                       reinterpret_cast<char*>(&event));
+    }
+    xcb_set_input_focus(wm->connection(), XCB_INPUT_FOCUS_PARENT, mWindow, wm->timestamp());
 }
 
 void Client::destroy()

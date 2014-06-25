@@ -30,6 +30,7 @@ public:
 
     void map();
     void unmap();
+    void focus();
     void destroy();
 
     const Layout::SharedPtr& layout() const { return mLayout; }
@@ -51,6 +52,7 @@ private:
     xcb_window_t mWindow;
     xcb_window_t mFrame;
     bool mValid;
+    bool mNoFocus;
     Layout::SharedPtr mLayout;
 
     Size mRequestedSize;
