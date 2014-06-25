@@ -1,3 +1,4 @@
+#include "Commands.h"
 #include "WindowManager.h"
 #include "Keybinding.h"
 #include <rct/EventLoop.h>
@@ -70,6 +71,8 @@ int main(int argc, char** argv)
             }
             manager->addKeybinding(keybinding);
         }
+
+        Commands::initBuiltins();
 
         loop->exec();
     }

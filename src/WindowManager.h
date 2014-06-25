@@ -37,6 +37,7 @@ public:
     xcb_timestamp_t timestamp() const { return mTimestamp; }
 
     void updateFocus(const Client::SharedPtr& client = Client::SharedPtr());
+    Client::SharedPtr focusedClient() const { return mFocused.lock(); }
 
     xcb_connection_t* connection() const { return mConn; }
     xcb_screen_t* screen() const { return mScreen; }

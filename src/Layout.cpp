@@ -396,8 +396,9 @@ void Layout::dumpHelper(const SharedPtr& layout, int indent)
     SharedPtr c1, c2;
     layout->children(c1, c2);
     const float ratio = static_cast<float>(req.width * req.height) / (r.width * r.height);
-    snprintf(buf, sizeof(buf), "%*s%u,%u+%u,%u, req %ux%u, ratio %f %s", indent, " ",
-             r.x, r.y, r.width, r.height, req.width, req.height, ratio, (layout->mUsed ? "USED" : ""));
+    snprintf(buf, sizeof(buf), "%*s%u,%u+%u,%u, req %ux%u, ratio %f dir %s %s", indent, " ",
+             r.x, r.y, r.width, r.height, req.width, req.height, ratio,
+             (layout->mDirection == LeftRight ? "left-right" : "top-bottom"), (layout->mUsed ? "USED" : ""));
     error() << buf;
     if (c1) {
         dumpHelper(c1, indent + 2);

@@ -29,6 +29,7 @@ set(NWM_SOURCES
   API.cpp
   Atoms.cpp
   Client.cpp
+  Commands.cpp
   Handlers.cpp
   Keybinding.cpp
   Layout.cpp

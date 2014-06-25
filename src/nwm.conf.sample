@@ -1,7 +1,23 @@
 keybind "Ctrl-A" {
-  command = "hello"
+  command = "layout.toggleOrientation"
 }
 
 keybind "Shift-A" {
   exec = "xterm"
+}
+
+keybind "Ctrl-Up" {
+  command = "layout.adjustLeft"
+}
+
+keybind "Ctrl-Left" {
+  command = "layout.adjustLeft"
+}
+
+keybind "Ctrl-Down" {
+  command = "layout.adjustRight"
+}
+
+keybind "Ctrl-Right" {
+  command = "layout.adjustRight"
 }

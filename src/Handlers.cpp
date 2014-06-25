@@ -1,6 +1,7 @@
 #include "Handlers.h"
 #include "Atoms.h"
 #include "Client.h"
+#include "Commands.h"
 #include "Util.h"
 #include "WindowManager.h"
 #include <xkbcommon/xkbcommon.h>
@@ -131,6 +132,13 @@ void handleKeyPress(const xcb_key_press_event_t* event)
         Util::launch(exec, wm->displayString());
     } else {
         error() << "no exec" << sym;
+    }
+    const String& cmd = binding->command();
+    if (!cmd.isEmpty()) {
+        error() << "cmd" << cmd;
+        Commands::exec(cmd);
+    } else {
+        error() << "no cmd" << sym;
     }
 }
 
