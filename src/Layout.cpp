@@ -82,23 +82,44 @@ Layout::SharedPtr Layout::add(const Size& size)
             if (num <= 1) {
                 // do we fit in the remaining space?
                 Size sz = layout->rect().size();
+                error() << "considering 1" << sz;
                 if (layout->mUsed) {
                     assert(!num);
+                    error() << "  removing req" << layout->mRequested;
                     sz.width -= layout->mRequested.width;
                     sz.height -= layout->mRequested.height;
                 }
                 if (c1) {
                     assert(!layout->mUsed);
                     // subtract
+                    error() << "  removing c1" << c1->requestedSize();
                     sz.width -= c1->requestedSize().width;
                     sz.height -= c1->requestedSize().height;
                 }
-                error() << "considering 1" << sz << size;
+                error() << "  considered 1" << sz << size;
                 if (sz.width >= size.width && sz.height >= size.height) {
-                    error() << "taken";
-                    // yes, let's use this one
                     curLayout = layout;
+                    error() << "    taken";
+                    // yes, let's use this one
                     return false;
+                } else {
+                    unsigned int reqGeom;
+                    const Size pSize = layout->rect().size();
+                    if (num == 1) {
+                        const Size c1Size = c1->requestedSize();
+                        reqGeom = (c1Size.width * c1Size.height);
+                    } else {
+                        assert(!num);
+                        reqGeom = 1; // avoid division by zero
+                    }
+                    const float ratio = reqGeom / static_cast<float>(pSize.width * pSize.height);
+                    const unsigned int geom = (pSize.width * pSize.height) / static_cast<float>(reqGeom);
+                    if (ratio <= curRatio && geom > curGeom) {
+                        error() << "    candidate 1";
+                        curRatio = ratio;
+                        curGeom = geom;
+                        curLayout = layout;
+                    }
                 }
             } else {
                 assert(num == 2);
@@ -111,7 +132,7 @@ Layout::SharedPtr Layout::add(const Size& size)
                 const unsigned int geom = (pSize.width * pSize.height) / static_cast<float>(reqGeom);
                 error() << "considering 2" << c1Size << c2Size << pSize << "req" << reqGeom << ratio << geom << "cur" << curRatio << curGeom;
                 if (ratio <= curRatio && geom > curGeom) {
-                    error() << "candidate";
+                    error() << "candidate 2";
                     curRatio = ratio;
                     curGeom = geom;
                     curLayout = layout;
@@ -263,8 +284,8 @@ void Layout::relayout()
                 }
                 if (!done) {
                     // fall back to a pure ratio calculation
-                    const float firstRatio = static_cast<float>(firstSize.width) / mRect.width;
-                    const float secondRatio = static_cast<float>(secondSize.width) / mRect.width;
+                    const float firstRatio = (static_cast<float>(firstSize.width) / mRect.width) / 2.;
+                    const float secondRatio = (static_cast<float>(secondSize.width) / mRect.width) / 2.;
                     first->mRect = { mRect.x, mRect.y, static_cast<unsigned int>(mRect.width * firstRatio), mRect.height };
                     first->relayout();
                     second->mRect = { static_cast<unsigned int>(mRect.x + (mRect.width * firstRatio)), mRect.y,
@@ -328,8 +349,8 @@ void Layout::relayout()
                 }
                 if (!done) {
                     // fall back to a pure ratio calculation
-                    const float firstRatio = static_cast<float>(firstSize.height) / mRect.height;
-                    const float secondRatio = static_cast<float>(secondSize.height) / mRect.height;
+                    const float firstRatio = (static_cast<float>(firstSize.height) / mRect.height) / 2.;
+                    const float secondRatio = (static_cast<float>(secondSize.height) / mRect.height) / 2.;
                     first->mRect = { mRect.x, mRect.y, mRect.width, static_cast<unsigned int>(mRect.height * firstRatio) };
                     first->relayout();
                     second->mRect = { mRect.x, static_cast<unsigned int>(mRect.y + (mRect.height * firstRatio)),
@@ -375,8 +396,8 @@ void Layout::dumpHelper(const SharedPtr& layout, int indent)
     SharedPtr c1, c2;
     layout->children(c1, c2);
     const float ratio = static_cast<float>(req.width * req.height) / (r.width * r.height);
-    snprintf(buf, sizeof(buf), "%*s%u,%u+%u,%u, req %ux%u, ratio %f", indent, " ",
-             r.x, r.y, r.width, r.height, req.width, req.height, ratio);
+    snprintf(buf, sizeof(buf), "%*s%u,%u+%u,%u, req %ux%u, ratio %f %s", indent, " ",
+             r.x, r.y, r.width, r.height, req.width, req.height, ratio, (layout->mUsed ? "USED" : ""));
     error() << buf;
     if (c1) {
         dumpHelper(c1, indent + 2);

@@ -14,15 +14,34 @@ Client::Client(xcb_window_t win)
     error() << "making client";
     WindowManager::SharedPtr wm = WindowManager::instance();
     xcb_connection_t* conn = wm->connection();
-    const xcb_get_geometry_cookie_t cookie = xcb_get_geometry_unchecked(conn, win);
-    xcb_get_geometry_reply_t* geom = xcb_get_geometry_reply(conn, cookie, 0);
+    const xcb_get_geometry_cookie_t geomCookie = xcb_get_geometry_unchecked(conn, win);
+    const xcb_get_property_cookie_t hintsCookie = xcb_icccm_get_wm_normal_hints(conn, win);
+    xcb_get_geometry_reply_t* geom = xcb_get_geometry_reply(conn, geomCookie, 0);
+    xcb_size_hints_t hints;
+    xcb_generic_error_t* hintsErr;
+    xcb_icccm_get_wm_normal_hints_reply(conn, hintsCookie, &hints, &hintsErr);
     FreeScope scope(geom);
     if (!geom)
         return;
+    int32_t width, height;
+    if (hintsErr) {
+        width = geom->width;
+        height = geom->height;
+        free(hintsErr);
+    } else {
+        if (hints.flags & XCB_ICCCM_SIZE_HINT_US_SIZE
+            || hints.flags & XCB_ICCCM_SIZE_HINT_P_SIZE) {
+            width = hints.width;
+            height = hints.height;
+        } else {
+            width = geom->width;
+            height = geom->height;
+        }
+    }
     wm->rebindKeys(win);
-    error() << "valid client";
+    error() << "valid client" << width << height;
     mValid = true;
-    mLayout = wm->layout()->add(Size({ geom->width, geom->height }));
+    mLayout = wm->layout()->add(Size({ static_cast<unsigned int>(width), static_cast<unsigned int>(height) }));
     const Rect& layoutRect = mLayout->rect();
     error() << "laid out at" << layoutRect;
     wm->layout()->dump();
