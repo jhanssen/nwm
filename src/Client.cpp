@@ -3,7 +3,6 @@
 #include "Types.h"
 #include "Atoms.h"
 #include <assert.h>
-#include <xcb/xcb_icccm.h>
 #include <rct/Log.h>
 
 Hash<xcb_window_t, Client::SharedPtr> Client::sClients;
@@ -14,34 +13,11 @@ Client::Client(xcb_window_t win)
     error() << "making client";
     WindowManager::SharedPtr wm = WindowManager::instance();
     xcb_connection_t* conn = wm->connection();
-    const xcb_get_geometry_cookie_t geomCookie = xcb_get_geometry_unchecked(conn, win);
-    const xcb_get_property_cookie_t hintsCookie = xcb_icccm_get_wm_normal_hints(conn, win);
-    xcb_get_geometry_reply_t* geom = xcb_get_geometry_reply(conn, geomCookie, 0);
-    xcb_size_hints_t hints;
-    xcb_generic_error_t* hintsErr;
-    xcb_icccm_get_wm_normal_hints_reply(conn, hintsCookie, &hints, &hintsErr);
-    FreeScope scope(geom);
-    if (!geom)
-        return;
-    int32_t width, height;
-    if (hintsErr) {
-        width = geom->width;
-        height = geom->height;
-        free(hintsErr);
-    } else {
-        if (hints.flags & XCB_ICCCM_SIZE_HINT_US_SIZE
-            || hints.flags & XCB_ICCCM_SIZE_HINT_P_SIZE) {
-            width = hints.width;
-            height = hints.height;
-        } else {
-            width = geom->width;
-            height = geom->height;
-        }
-    }
+    updateState(conn);
     wm->rebindKeys(win);
-    error() << "valid client" << width << height;
+    error() << "valid client" << mRequestedSize.width << mRequestedSize.height;
     mValid = true;
-    mLayout = wm->layout()->add(Size({ static_cast<unsigned int>(width), static_cast<unsigned int>(height) }));
+    mLayout = wm->layout()->add(Size({ mRequestedSize.width, mRequestedSize.height }));
     const Rect& layoutRect = mLayout->rect();
     error() << "laid out at" << layoutRect;
     wm->layout()->dump();
@@ -65,7 +41,7 @@ Client::Client(xcb_window_t win)
          | XCB_EVENT_MASK_BUTTON_RELEASE)
     };
     xcb_create_window(conn, XCB_COPY_FROM_PARENT, mFrame, screen->root,
-                      layoutRect.x, layoutRect.y, layoutRect.width, layoutRect.height, geom->border_width,
+                      layoutRect.x, layoutRect.y, layoutRect.width, layoutRect.height, 0,
                       XCB_COPY_FROM_PARENT, XCB_COPY_FROM_PARENT,
                       XCB_CW_BORDER_PIXEL | XCB_CW_BIT_GRAVITY | XCB_CW_WIN_GRAVITY
                       | XCB_CW_OVERRIDE_REDIRECT | XCB_CW_EVENT_MASK, values);
@@ -84,11 +60,11 @@ Client::Client(xcb_window_t win)
         uint16_t windowMask = 0;
         uint32_t windowValues[3];
         int i = 0;
-        if (geom->width != layoutRect.width) {
+        if (mRequestedSize.width != layoutRect.width) {
             windowMask |= XCB_CONFIG_WINDOW_WIDTH;
             windowValues[i++] = layoutRect.width;
         }
-        if (geom->height != layoutRect.height) {
+        if (mRequestedSize.height != layoutRect.height) {
             windowMask |= XCB_CONFIG_WINDOW_HEIGHT;
             windowValues[i++] = layoutRect.height;
         }
@@ -111,6 +87,86 @@ Client::~Client()
     if (mWindow)
         xcb_reparent_window(conn, mWindow, screen->root, 0, 0);
     xcb_destroy_window(conn, mFrame);
+}
+
+void Client::updateState(xcb_connection_t* conn)
+{
+    const xcb_get_geometry_cookie_t geomCookie = xcb_get_geometry_unchecked(conn, mWindow);
+    const xcb_get_property_cookie_t normalHintsCookie = xcb_icccm_get_wm_normal_hints(conn, mWindow);
+    const xcb_get_property_cookie_t transientCookie = xcb_icccm_get_wm_transient_for(conn, mWindow);
+    const xcb_get_property_cookie_t hintsCookie = xcb_icccm_get_wm_hints(conn, mWindow);
+    const xcb_get_property_cookie_t classCookie = xcb_icccm_get_wm_class(conn, mWindow);
+    const xcb_get_property_cookie_t protocolsCookie = xcb_icccm_get_wm_protocols(conn, mWindow, Atoms::WM_PROTOCOLS);
+
+    updateSize(conn, geomCookie);
+    updateNormalHints(conn, normalHintsCookie);
+    updateTransient(conn, transientCookie);
+    updateHints(conn, hintsCookie);
+    updateClass(conn, classCookie);
+    updateProtocols(conn, protocolsCookie);
+}
+
+void Client::updateSize(xcb_connection_t* conn, xcb_get_geometry_cookie_t cookie)
+{
+    xcb_get_geometry_reply_t* geom = xcb_get_geometry_reply(conn, cookie, 0);
+    FreeScope freeGeom(geom);
+    mRequestedSize.width = geom->width;
+    mRequestedSize.height = geom->height;
+}
+
+void Client::updateNormalHints(xcb_connection_t* conn, xcb_get_property_cookie_t cookie)
+{
+    if (xcb_icccm_get_wm_normal_hints_reply(conn, cookie, &mNormalHints, 0)) {
+        // overwrite the response from xcb_get_geometry_unchecked
+        if (mNormalHints.flags & XCB_ICCCM_SIZE_HINT_US_SIZE
+            || mNormalHints.flags & XCB_ICCCM_SIZE_HINT_P_SIZE) {
+            mRequestedSize.width = mNormalHints.width;
+            mRequestedSize.height = mNormalHints.height;
+        }
+    } else {
+        memset(&mNormalHints, '\0', sizeof(mNormalHints));
+    }
+}
+
+void Client::updateTransient(xcb_connection_t* conn, xcb_get_property_cookie_t cookie)
+{
+    xcb_window_t t;
+    if (xcb_icccm_get_wm_transient_for_reply(conn, cookie, &t, 0))
+        mTransientFor = t;
+    else
+        mTransientFor = XCB_NONE;
+}
+
+void Client::updateHints(xcb_connection_t* conn, xcb_get_property_cookie_t cookie)
+{
+    if (!xcb_icccm_get_wm_hints_reply(conn, cookie, &mWmHints, 0)) {
+        memset(&mWmHints, '\0', sizeof(mWmHints));
+    }
+}
+
+void Client::updateClass(xcb_connection_t* conn, xcb_get_property_cookie_t cookie)
+{
+    xcb_icccm_get_wm_class_reply_t prop;
+    if (xcb_icccm_get_wm_class_reply(conn, cookie, &prop, 0)) {
+        mClass.instanceName = prop.instance_name;
+        mClass.className = prop.class_name;
+        xcb_icccm_get_wm_class_reply_wipe(&prop);
+    } else {
+        mClass.instanceName.clear();
+        mClass.className.clear();
+    }
+}
+
+void Client::updateProtocols(xcb_connection_t* conn, xcb_get_property_cookie_t cookie)
+{
+    mProtocols.clear();
+    xcb_icccm_get_wm_protocols_reply_t prop;
+    if (xcb_icccm_get_wm_protocols_reply(conn, cookie, &prop, 0)) {
+        for (uint32_t i = 0; i < prop.atoms_len; ++i) {
+            mProtocols.insert(prop.atoms[i]);
+        }
+        xcb_icccm_get_wm_protocols_reply_wipe(&prop);
+    }
 }
 
 void Client::onLayoutChanged(const Rect& rect)
