@@ -1,6 +1,7 @@
 #ifndef WINDOWMANAGER_H
 #define WINDOWMANAGER_H
 
+#include "Client.h"
 #include "Layout.h"
 #include "Keybinding.h"
 #include <rct/List.h>
@@ -34,6 +35,8 @@ public:
 
     void updateTimestamp(xcb_timestamp_t timestamp) { mTimestamp = timestamp; }
     xcb_timestamp_t timestamp() const { return mTimestamp; }
+
+    void updateFocus(const Client::SharedPtr& client = Client::SharedPtr());
 
     xcb_connection_t* connection() const { return mConn; }
     xcb_screen_t* screen() const { return mScreen; }
@@ -73,6 +76,8 @@ private:
     Layout::SharedPtr mLayout;
     List<Keybinding> mKeybindings;
     xcb_timestamp_t mTimestamp;
+
+    Client::WeakPtr mFocused;
 
     static SharedPtr sInstance;
 };

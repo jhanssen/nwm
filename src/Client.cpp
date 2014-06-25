@@ -78,8 +78,6 @@ Client::Client(xcb_window_t win)
 #warning do xinerama placement
     const uint32_t stateMode[] = { XCB_ICCCM_WM_STATE_NORMAL, XCB_NONE };
     xcb_change_property(conn, XCB_PROP_MODE_REPLACE, mWindow, Atoms::WM_STATE, Atoms::WM_STATE, 32, 2, stateMode);
-
-    focus();
 }
 
 Client::~Client()
@@ -89,6 +87,13 @@ Client::~Client()
     if (mWindow)
         xcb_reparent_window(conn, mWindow, screen->root, 0, 0);
     xcb_destroy_window(conn, mFrame);
+
+    if (EventLoop::SharedPtr loop = EventLoop::eventLoop()) {
+        loop->callLater([]() {
+                if (WindowManager::SharedPtr wm = WindowManager::instance())
+                    wm->updateFocus();
+            });
+    }
 }
 
 void Client::updateState(xcb_connection_t* conn)
@@ -196,6 +201,7 @@ Client::SharedPtr Client::manage(xcb_window_t window)
     if (!ptr->isValid()) {
         return SharedPtr();
     }
+    ptr->focus();
     sClients[window] = ptr;
     return ptr;
 }
@@ -249,6 +255,7 @@ void Client::focus()
                        reinterpret_cast<char*>(&event));
     }
     xcb_set_input_focus(wm->connection(), XCB_INPUT_FOCUS_PARENT, mWindow, wm->timestamp());
+    wm->updateFocus(shared_from_this());
 }
 
 void Client::destroy()

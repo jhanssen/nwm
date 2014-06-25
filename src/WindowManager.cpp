@@ -395,6 +395,24 @@ void WindowManager::release()
     sInstance.reset();
 }
 
+void WindowManager::updateFocus(const Client::SharedPtr& client)
+{
+    if (client) {
+        mFocused = client;
+    } else {
+        if (!mFocused.lock()) {
+            const List<Client::SharedPtr>& clients = Client::clients();
+            for (const Client::SharedPtr& candidate : clients) {
+                if (candidate->noFocus())
+                    continue;
+                candidate->focus();
+                mFocused = candidate;
+                break;
+            }
+        }
+    }
+}
+
 String WindowManager::keycodeToString(xcb_keycode_t code)
 {
     const int size = xkb_state_key_get_utf8(mXkb.state, code, 0, 0);

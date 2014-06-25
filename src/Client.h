@@ -33,6 +33,8 @@ public:
     void focus();
     void destroy();
 
+    bool noFocus() const { return mNoFocus; }
+
     const Layout::SharedPtr& layout() const { return mLayout; }
     xcb_window_t window() const { return mWindow; }
 
