@@ -276,7 +276,7 @@ void Layout::relayout()
                             // let's go with that
                             first->mRect = { mRect.x, mRect.y, firstSize.width, mRect.height };
                             first->relayout();
-                            second->mRect = { mRect.x + remaining, mRect.y, static_cast<const unsigned int>(remaining), mRect.height };
+                            second->mRect = { mRect.x + firstSize.width, mRect.y, static_cast<const unsigned int>(remaining), mRect.height };
                             second->relayout();
                             done = true;
                         }
@@ -341,7 +341,7 @@ void Layout::relayout()
                             // let's go with that
                             first->mRect = { mRect.x, mRect.y, mRect.width, firstSize.height };
                             first->relayout();
-                            second->mRect = { mRect.x, mRect.y + remaining, mRect.width, static_cast<const unsigned int>(remaining) };
+                            second->mRect = { mRect.x, mRect.y + firstSize.height, mRect.width, static_cast<const unsigned int>(remaining) };
                             second->relayout();
                             done = true;
                         }
