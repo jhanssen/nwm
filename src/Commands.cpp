@@ -1,7 +1,7 @@
 #include "Commands.h"
 #include "WindowManager.h"
 
-Hash<String, std::function<void()> > Commands::sCmds;
+Hash<String, std::function<void(const List<String>&)> > Commands::sCmds;
 
 static inline Layout::SharedPtr parentOfFocus()
 {
@@ -22,7 +22,7 @@ static inline Layout::SharedPtr parentOfFocus()
 
 void Commands::initBuiltins()
 {
-    add("layout.toggleOrientation", []() {
+    add("layout.toggleOrientation", [](const List<String>&) {
             Layout::SharedPtr parent = parentOfFocus();
             if (!parent)
                 return;
@@ -37,13 +37,13 @@ void Commands::initBuiltins()
             }
             parent->dump();
         });
-    add("layout.adjustLeft", []() {
+    add("layout.adjustLeft", [](const List<String>&) {
             Layout::SharedPtr parent = parentOfFocus();
             if (!parent)
                 return;
             parent->adjust(-10);
         });
-    add("layout.adjustRight", []() {
+    add("layout.adjustRight", [](const List<String>&) {
             Layout::SharedPtr parent = parentOfFocus();
             if (!parent)
                 return;

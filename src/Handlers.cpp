@@ -133,12 +133,11 @@ void handleKeyPress(const xcb_key_press_event_t* event)
     } else {
         error() << "no exec" << sym;
     }
-    const String& cmd = binding->command();
-    if (!cmd.isEmpty()) {
-        error() << "cmd" << cmd;
-        Commands::exec(cmd);
-    } else {
-        error() << "no cmd" << sym;
+    List<String> cmdArgs = binding->command();
+    if (!cmdArgs.isEmpty()) {
+        const String cmd = cmdArgs.takeFirst();
+        error() << "execing" << cmd << cmdArgs;
+        Commands::exec(cmd, cmdArgs);
     }
 }
 

@@ -13,6 +13,16 @@
 //     return 0;
 // }
 
+static inline List<String> readStringList(cfg_t* cfg, const char* key)
+{
+    List<String> list;
+    const int sz = cfg_size(cfg, key);
+    for (int i = 0; i < sz; ++i) {
+        list.append(cfg_getnstr(cfg, key, i));
+    }
+    return list;
+}
+
 int main(int argc, char** argv)
 {
     if (!initLogging(argv[0], LogStderr, 0, 0, 0)) {
@@ -23,7 +33,7 @@ int main(int argc, char** argv)
     // setup confuse parser
     cfg_opt_t keybindOpts[] = {
         // ewww. fixed recent versions of confuse I believe
-        CFG_STR(const_cast<char*>("command"), 0, CFGF_NODEFAULT),
+        CFG_STR_LIST(const_cast<char*>("command"), const_cast<char*>("{}"), CFGF_NONE),
         CFG_STR(const_cast<char*>("exec"), 0, CFGF_NODEFAULT),
         CFG_END()
     };
@@ -57,9 +67,9 @@ int main(int argc, char** argv)
 
         for (unsigned int i = 0; i < cfg_size(cfg, "keybind"); ++i) {
             keybind = cfg_getnsec(cfg, "keybind", i);
-            const char* cmd = cfg_getstr(keybind, "command");
+            const List<String> cmd = readStringList(keybind, "command");
             const char* exec = cfg_getstr(keybind, "exec");
-            if (!cmd && !exec) {
+            if (cmd.isEmpty() && !exec) {
                 error() << "no command or exec for" << cfg_title(keybind);
                 continue;
             }
