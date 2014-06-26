@@ -10,14 +10,14 @@ keybind "Ctrl-Up" {
   command = "layout.adjustLeft"
 }
 
-keybind "Ctrl-Left" {
-  command = "layout.adjustLeft"
-}
-
 keybind "Ctrl-Down" {
   command = "layout.adjustRight"
 }
 
+keybind "Ctrl-Left" {
+  command = {"layout.adjust", "-20"}
+}
+
 keybind "Ctrl-Right" {
-  command = "layout.adjustRight"
+  command = {"layout.adjust", "20"}
 }

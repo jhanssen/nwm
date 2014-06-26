@@ -37,6 +37,13 @@ void Commands::initBuiltins()
             }
             parent->dump();
         });
+    add("layout.adjust", [](const List<String>& args) {
+            Layout::SharedPtr parent = parentOfFocus();
+            if (!parent)
+                return;
+            const int adjust = args.isEmpty() ? 10 : args[0].toLong();
+            parent->adjust(adjust);
+        });
     add("layout.adjustLeft", [](const List<String>&) {
             Layout::SharedPtr parent = parentOfFocus();
             if (!parent)
