@@ -48,6 +48,8 @@ pkg_check_modules(XCB_ICCCM REQUIRED xcb-icccm)
 pkg_check_modules(XCB_XKB REQUIRED xcb-xkb)
 pkg_check_modules(XCB_KEYSYMS REQUIRED xcb-keysyms)
 
+include(v8.cmake)
+
 include_directories(${CMAKE_CURRENT_LIST_DIR}
                     ${CONFUSE_INCLUDE_DIRS}
                     ${XCB_INCLUDE_DIRS}
@@ -57,10 +59,12 @@ include_directories(${CMAKE_CURRENT_LIST_DIR}
                     ${XCB_KEYSYMS_INCLUDE_DIRS}
                     ${XKBCOMMON_INCLUDE_DIRS}
                     ${XKBCOMMON_X11_INCLUDE_DIRS}
+                    ${V8_INCLUDE_DIRS}
                     rct/include/
                     rct
                     ${CMAKE_CURRENT_BINARY_DIR}/rct/include/rct)
 
+
 add_executable(nwm ${NWM_SOURCES})
-add_dependencies(nwm rct)
-target_link_libraries(nwm rct ${XCB_LIBRARIES} ${XCB_UTIL_LIBRARIES} ${XCB_ICCCM_LIBRARIES} ${XCB_XKB_LIBRARIES} ${XCB_KEYSYMS_LIBRARIES} ${XKBCOMMON_LIBRARIES} ${XKBCOMMON_X11_LIBRARIES} ${CONFUSE_LIBRARIES})
+add_dependencies(nwm rct v8)
+target_link_libraries(nwm rct ${V8_LIBRARIES} ${XCB_LIBRARIES} ${XCB_UTIL_LIBRARIES} ${XCB_ICCCM_LIBRARIES} ${XCB_XKB_LIBRARIES} ${XCB_KEYSYMS_LIBRARIES} ${XKBCOMMON_LIBRARIES} ${XKBCOMMON_X11_LIBRARIES} ${CONFUSE_LIBRARIES})
