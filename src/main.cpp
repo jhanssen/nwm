@@ -38,6 +38,7 @@ int main(int argc, char** argv)
         CFG_END()
     };
     cfg_opt_t opts[] = {
+        CFG_INT(const_cast<char*>("workspaces"), 1, CFGF_NONE),
         CFG_SEC(const_cast<char*>("keybind"), keybindOpts, CFGF_TITLE|CFGF_MULTI),
         CFG_END()
     };
@@ -59,7 +60,8 @@ int main(int argc, char** argv)
         EventLoop::SharedPtr loop = std::make_shared<EventLoop>();
         loop->init(EventLoop::MainEventLoop|EventLoop::EnableSigIntHandler);
 
-        manager = std::make_shared<WindowManager>();
+        const int workspaces = cfg_getint(cfg, "workspaces");
+        manager = std::make_shared<WindowManager>(workspaces);
         if (!manager->install(argc > 1 ? argv[1] : 0)) {
             error() << "Unable to install nwm. Another window manager already running?";
             return 2;

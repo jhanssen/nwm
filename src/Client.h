@@ -9,6 +9,8 @@
 #include <xcb/xcb_icccm.h>
 #include <memory>
 
+class Workspace;
+
 class Client : public std::enable_shared_from_this<Client>
 {
 public:
@@ -56,6 +58,7 @@ private:
     bool mValid;
     bool mNoFocus;
     Layout::SharedPtr mLayout;
+    std::weak_ptr<Workspace> mWorkspace;
 
     Size mRequestedSize;
     xcb_size_hints_t mNormalHints;

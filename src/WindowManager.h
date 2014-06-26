@@ -2,8 +2,8 @@
 #define WINDOWMANAGER_H
 
 #include "Client.h"
-#include "Layout.h"
 #include "Keybinding.h"
+#include "Workspace.h"
 #include <rct/List.h>
 #include <memory>
 #include <xcb/xcb.h>
@@ -22,7 +22,7 @@ public:
     typedef std::shared_ptr<WindowManager> SharedPtr;
     typedef std::weak_ptr<WindowManager> WeakPtr;
 
-    WindowManager();
+    WindowManager(int workspaces);
     ~WindowManager();
 
     bool install(const String& display = String());
@@ -36,12 +36,8 @@ public:
     void updateTimestamp(xcb_timestamp_t timestamp) { mTimestamp = timestamp; }
     xcb_timestamp_t timestamp() const { return mTimestamp; }
 
-    void updateFocus(const Client::SharedPtr& client = Client::SharedPtr());
-    Client::SharedPtr focusedClient() const { return mFocused.lock(); }
-
     xcb_connection_t* connection() const { return mConn; }
     xcb_screen_t* screen() const { return mScreen; }
-    const Layout::SharedPtr& layout() const { return mLayout; }
 
     xcb_key_symbols_t* keySymbols() const { return mSyms; }
     int32_t xkbDevice() const { return mXkb.device; }
@@ -74,11 +70,9 @@ private:
     int mScreenNo;
     uint8_t mXkbEvent;
     xcb_key_symbols_t* mSyms;
-    Layout::SharedPtr mLayout;
     List<Keybinding> mKeybindings;
+    List<Workspace::SharedPtr> mWorkspaces;
     xcb_timestamp_t mTimestamp;
-
-    Client::WeakPtr mFocused;
 
     static SharedPtr sInstance;
 };

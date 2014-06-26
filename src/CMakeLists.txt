@@ -34,7 +34,9 @@ set(NWM_SOURCES
   Keybinding.cpp
   Layout.cpp
   Util.cpp
-  WindowManager.cpp)
+  WindowManager.cpp
+  Workspace.cpp
+)
 
 include(FindPkgConfig)
 pkg_check_modules(CONFUSE REQUIRED libconfuse)

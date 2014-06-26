@@ -47,10 +47,12 @@ static inline void handleXkb(_xkb_event* event)
 
 WindowManager::SharedPtr WindowManager::sInstance;
 
-WindowManager::WindowManager()
+WindowManager::WindowManager(int workspaces)
     : mConn(0), mScreen(0), mScreenNo(0), mXkbEvent(0), mTimestamp(XCB_CURRENT_TIME)
 {
     memset(&mXkb, '\0', sizeof(mXkb));
+    assert(workspaces > 0);
+    mWorkspaces.resize(workspaces);
 }
 
 WindowManager::~WindowManager()
@@ -85,7 +87,13 @@ bool WindowManager::install(const String& display)
     }
 
     mScreen = xcb_aux_get_screen(mConn, mScreenNo);
-    mLayout = std::make_shared<Layout>(Size({ mScreen->width_in_pixels, mScreen->height_in_pixels }));
+
+    assert(mWorkspaces.size() > 0);
+    for (int w = 0; w < mWorkspaces.size(); ++w) {
+        mWorkspaces[w] = std::make_shared<Workspace>(Size({ mScreen->width_in_pixels, mScreen->height_in_pixels }));
+    }
+    mWorkspaces[0]->activate();
+
     Atoms::setup(mConn);
 
     xcb_void_cookie_t cookie;
@@ -393,24 +401,6 @@ void WindowManager::release()
 {
     Client::clear();
     sInstance.reset();
-}
-
-void WindowManager::updateFocus(const Client::SharedPtr& client)
-{
-    if (client) {
-        mFocused = client;
-    } else {
-        if (!mFocused.lock()) {
-            const List<Client::SharedPtr>& clients = Client::clients();
-            for (const Client::SharedPtr& candidate : clients) {
-                if (candidate->noFocus())
-                    continue;
-                candidate->focus();
-                mFocused = candidate;
-                break;
-            }
-        }
-    }
 }
 
 String WindowManager::keycodeToString(xcb_keycode_t code)

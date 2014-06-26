@@ -8,7 +8,7 @@ static inline Layout::SharedPtr parentOfFocus()
     WindowManager::SharedPtr wm = WindowManager::instance();
     if (!wm)
         return Layout::SharedPtr();
-    Client::SharedPtr current = wm->focusedClient();
+    Client::SharedPtr current = Workspace::active()->focusedClient();
     if (!current)
         return Layout::SharedPtr();
     const Layout::SharedPtr& layout = current->layout();

@@ -17,10 +17,10 @@ Client::Client(xcb_window_t win)
     wm->rebindKeys(win);
     error() << "valid client" << mRequestedSize.width << mRequestedSize.height;
     mValid = true;
-    mLayout = wm->layout()->add(Size({ mRequestedSize.width, mRequestedSize.height }));
+    mLayout = Workspace::active()->layout()->add(Size({ mRequestedSize.width, mRequestedSize.height }));
     const Rect& layoutRect = mLayout->rect();
     error() << "laid out at" << layoutRect;
-    wm->layout()->dump();
+    Workspace::active()->layout()->dump();
     mLayout->rectChanged().connect(std::bind(&Client::onLayoutChanged, this, std::placeholders::_1));
 #warning do startup-notification stuff here
     xcb_change_save_set(conn, XCB_SET_MODE_INSERT, win);
@@ -89,9 +89,10 @@ Client::~Client()
     xcb_destroy_window(conn, mFrame);
 
     if (EventLoop::SharedPtr loop = EventLoop::eventLoop()) {
-        loop->callLater([]() {
-                if (WindowManager::SharedPtr wm = WindowManager::instance())
-                    wm->updateFocus();
+        Workspace::WeakPtr workspace = mWorkspace;
+        loop->callLater([workspace]() {
+                if (Workspace::SharedPtr ws = workspace.lock())
+                    ws->updateFocus();
             });
     }
 }
@@ -201,6 +202,12 @@ Client::SharedPtr Client::manage(xcb_window_t window)
     if (!ptr->isValid()) {
         return SharedPtr();
     }
+    {
+        Workspace::SharedPtr ws = Workspace::active();
+        assert(ws);
+        ptr->mWorkspace = ws;
+        ws->addClient(ptr);
+    }
     ptr->focus();
     sClients[window] = ptr;
     return ptr;
@@ -219,6 +226,9 @@ void Client::release(xcb_window_t window)
 {
     Hash<xcb_window_t, Client::SharedPtr>::iterator it = sClients.find(window);
     if (it != sClients.end()) {
+        if (Workspace::SharedPtr ws = it->second->mWorkspace.lock()) {
+            ws->removeClient(it->second);
+        }
         sClients.erase(it);
     }
 }
@@ -255,7 +265,8 @@ void Client::focus()
                        reinterpret_cast<char*>(&event));
     }
     xcb_set_input_focus(wm->connection(), XCB_INPUT_FOCUS_PARENT, mWindow, wm->timestamp());
-    wm->updateFocus(shared_from_this());
+    if (Workspace::SharedPtr ws = mWorkspace.lock())
+        ws->updateFocus(shared_from_this());
 }
 
 void Client::destroy()
