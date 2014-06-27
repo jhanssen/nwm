@@ -55,8 +55,30 @@ void Workspace::updateFocus(const Client::SharedPtr& client)
 
 void Workspace::deactivate()
 {
+    // unmap all clients
+    for (const Client::WeakPtr& client : mClients) {
+        if (Client::SharedPtr c = client.lock()) {
+            c->unmap();
+        }
+    }
 }
 
-void Workspace::update()
+void Workspace::activate()
 {
+    if (Workspace::SharedPtr old = sActive.lock()) {
+        old->deactivate();
+    }
+    sActive = shared_from_this();
+    // map all clients in the stacking order
+    Client::SharedPtr client;
+    auto it = mClients.crbegin();
+    const auto end = mClients.crend();
+    while (it != end) {
+        if (client = it->lock()) {
+            client->map();
+        }
+        ++it;
+    }
+    if (client)
+        client->focus();
 }

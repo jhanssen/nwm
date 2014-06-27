@@ -52,6 +52,8 @@ public:
     void rebindKeys(xcb_window_t win);
     const Keybinding* lookupKeybinding(xkb_keysym_t sym, uint16_t mods);
 
+    const List<Workspace::SharedPtr>& workspaces() const { return mWorkspaces; }
+
 private:
     void rebindKeys();
 

@@ -5,7 +5,7 @@
 #include "Layout.h"
 #include "Rect.h"
 #include <rct/String.h>
-#include <rct/List.h>
+#include <rct/LinkedList.h>
 #include <rct/Set.h>
 #include <memory>
 
@@ -34,14 +34,13 @@ public:
 
 private:
     void deactivate();
-    void update();
 
 private:
     Size mSize;
     String mName;
     Layout::SharedPtr mLayout;
     // ordered by focus
-    List<Client::WeakPtr> mClients;
+    LinkedList<Client::WeakPtr> mClients;
 
     static Workspace::WeakPtr sActive;
 };
@@ -57,9 +56,13 @@ inline Client::SharedPtr Workspace::focusedClient() const
 
 inline void Workspace::addClient(const Client::SharedPtr& client)
 {
+    if (sActive.lock() == shared_from_this()) {
+        client->map();
+    } else {
+        client->unmap();
+    }
     mClients.append(client);
-    if (sActive.lock() == shared_from_this())
-        update();
+    client->updateWorkspace(shared_from_this());
 }
 
 inline void Workspace::removeClient(const Client::SharedPtr& client)
@@ -69,21 +72,10 @@ inline void Workspace::removeClient(const Client::SharedPtr& client)
     while (it != end) {
         if (it->lock() == client) {
             mClients.erase(it);
-            if (sActive.lock() == shared_from_this())
-                update();
             return;
         }
         ++it;
     }
-}
-
-inline void Workspace::activate()
-{
-    if (Workspace::SharedPtr old = sActive.lock()) {
-        old->deactivate();
-    }
-    sActive = shared_from_this();
-    update();
 }
 
 #endif

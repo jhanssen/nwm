@@ -1,5 +1,6 @@
 #include "Commands.h"
 #include "WindowManager.h"
+#include "Workspace.h"
 
 Hash<String, std::function<void(const List<String>&)> > Commands::sCmds;
 
@@ -55,5 +56,28 @@ void Commands::initBuiltins()
             if (!parent)
                 return;
             parent->adjust(10);
+        });
+    add("workspace.moveTo", [](const List<String>& args) {
+            if (args.isEmpty())
+                return;
+            const int32_t ws = args[0].toLong();
+            const List<Workspace::SharedPtr>& wss = WindowManager::instance()->workspaces();
+            if (ws < 0 || ws >= wss.size())
+                return;
+            Workspace::SharedPtr dst = wss[ws];
+            Workspace::SharedPtr src = Workspace::active();
+            if (dst == src)
+                return;
+            Client::SharedPtr client = src->focusedClient();
+            dst->addClient(client);
+        });
+    add("workspace.select", [](const List<String>& args) {
+            if (args.isEmpty())
+                return;
+            const int32_t ws = args[0].toLong();
+            const List<Workspace::SharedPtr>& wss = WindowManager::instance()->workspaces();
+            if (ws < 0 || ws >= wss.size())
+                return;
+            wss[ws]->activate();
         });
 }

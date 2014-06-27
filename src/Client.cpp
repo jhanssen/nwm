@@ -97,6 +97,26 @@ Client::~Client()
     }
 }
 
+void Client::clearWorkspace()
+{
+    mLayout.reset();
+    mWorkspace.reset();
+}
+
+void Client::updateWorkspace(const Workspace::SharedPtr& workspace)
+{
+    Workspace::SharedPtr old = mWorkspace.lock();
+    if (workspace == old)
+        return;
+    if (old)
+        old->removeClient(shared_from_this());
+    mLayout = workspace->layout()->add(Size({ mRequestedSize.width, mRequestedSize.height }));
+    mLayout->rectChanged().connect(std::bind(&Client::onLayoutChanged, this, std::placeholders::_1));
+    mWorkspace = workspace;
+
+    onLayoutChanged(mLayout->rect());
+}
+
 void Client::updateState(xcb_connection_t* conn)
 {
     const xcb_get_geometry_cookie_t geomCookie = xcb_get_geometry_unchecked(conn, mWindow);

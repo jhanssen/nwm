@@ -1,3 +1,5 @@
+workspaces = 2
+
 keybind "Ctrl-A" {
   command = "layout.toggleOrientation"
 }
@@ -20,4 +22,20 @@ keybind "Ctrl-Left" {
 
 keybind "Ctrl-Right" {
   command = {"layout.adjust", "20"}
+}
+
+keybind "Ctrl-1" {
+  command = {"workspace.select", "0"}
+}
+
+keybind "Ctrl-2" {
+  command = {"workspace.select", "1"}
+}
+
+keybind "Ctrl-Shift-1" {
+  command = {"workspace.moveTo", "0"}
+}
+
+keybind "Ctrl-Shift-2" {
+  command = {"workspace.moveTo", "1"}
 }

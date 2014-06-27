@@ -37,8 +37,14 @@ public:
 
     bool noFocus() const { return mNoFocus; }
 
+    std::shared_ptr<Workspace> workspace() const { return mWorkspace.lock(); }
+
     const Layout::SharedPtr& layout() const { return mLayout; }
     xcb_window_t window() const { return mWindow; }
+
+private:
+    void clearWorkspace();
+    void updateWorkspace(const std::shared_ptr<Workspace>& workspace);
 
 private:
     Client(xcb_window_t win);
@@ -71,6 +77,8 @@ private:
     Set<xcb_atom_t> mProtocols;
 
     static Hash<xcb_window_t, Client::SharedPtr> sClients;
+
+    friend class Workspace;
 };
 
 #endif
