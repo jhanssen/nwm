@@ -24,7 +24,10 @@ void handleConfigureRequest(const xcb_configure_request_event_t* event)
 
     Client::SharedPtr client = Client::client(event->window);
     if (client) {
-        // stuff
+#warning need to restack here
+
+        // I know better than you, go away
+        client->configure();
     } else {
         // configure
         uint16_t windowMask = 0;
@@ -154,8 +157,10 @@ void handleMapRequest(const xcb_map_request_event_t* event)
     if (!reply)
         return;
     if (reply->override_redirect) {
+        error() << "override_redirect";
         return;
     }
+    error() << "managing?";
     Client::SharedPtr client = Client::client(event->window);
     if (client) {
         // stuff

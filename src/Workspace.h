@@ -15,8 +15,10 @@ public:
     typedef std::shared_ptr<Workspace> SharedPtr;
     typedef std::weak_ptr<Workspace> WeakPtr;
 
-    Workspace(const Size& size, const String& name = String());
+    Workspace(const Rect& rect, const String& name = String());
     ~Workspace();
+
+    void setRect(const Rect& rect);
 
     void activate();
 
@@ -27,7 +29,7 @@ public:
     Client::SharedPtr focusedClient() const;
 
     String name() const { return mName; }
-    Size size() const { return mSize; }
+    Rect rect() const { return mRect; }
     Layout::SharedPtr layout() const { return mLayout; }
 
     static SharedPtr active() { return sActive.lock(); }
@@ -36,7 +38,7 @@ private:
     void deactivate();
 
 private:
-    Size mSize;
+    Rect mRect;
     String mName;
     Layout::SharedPtr mLayout;
     // ordered by focus
@@ -56,13 +58,15 @@ inline Client::SharedPtr Workspace::focusedClient() const
 
 inline void Workspace::addClient(const Client::SharedPtr& client)
 {
-    if (sActive.lock() == shared_from_this()) {
-        client->map();
-    } else {
-        client->unmap();
+    Workspace::SharedPtr that = shared_from_this();
+    if (client->updateWorkspace(that)) {
+        if (sActive.lock() == shared_from_this()) {
+            client->map();
+        } else {
+            client->unmap();
+        }
+        mClients.append(client);
     }
-    mClients.append(client);
-    client->updateWorkspace(shared_from_this());
 }
 
 inline void Workspace::removeClient(const Client::SharedPtr& client)

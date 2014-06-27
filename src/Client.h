@@ -7,6 +7,7 @@
 #include <rct/Set.h>
 #include <xcb/xcb.h>
 #include <xcb/xcb_icccm.h>
+#include <xcb/xcb_ewmh.h>
 #include <memory>
 
 class Workspace;
@@ -34,6 +35,7 @@ public:
     void unmap();
     void focus();
     void destroy();
+    void configure();
 
     bool noFocus() const { return mNoFocus; }
 
@@ -44,19 +46,22 @@ public:
 
 private:
     void clearWorkspace();
-    void updateWorkspace(const std::shared_ptr<Workspace>& workspace);
+    bool updateWorkspace(const std::shared_ptr<Workspace>& workspace);
 
 private:
     Client(xcb_window_t win);
 
     void onLayoutChanged(const Rect& rect);
-    void updateState(xcb_connection_t* conn);
+    void updateState(xcb_ewmh_connection_t* conn);
     void updateSize(xcb_connection_t* conn, xcb_get_geometry_cookie_t cookie);
     void updateNormalHints(xcb_connection_t* conn, xcb_get_property_cookie_t cookie);
     void updateTransient(xcb_connection_t* conn, xcb_get_property_cookie_t cookie);
     void updateHints(xcb_connection_t* conn, xcb_get_property_cookie_t cookie);
     void updateClass(xcb_connection_t* conn, xcb_get_property_cookie_t cookie);
     void updateProtocols(xcb_connection_t* conn, xcb_get_property_cookie_t cookie);
+    void updateStrut(xcb_ewmh_connection_t* conn, xcb_get_property_cookie_t cookie);
+    void updatePartialStrut(xcb_ewmh_connection_t* conn, xcb_get_property_cookie_t cookie);
+    void updateEwmhState(xcb_ewmh_connection_t* conn, xcb_get_property_cookie_t cookie);
 
 private:
     xcb_window_t mWindow;
@@ -66,7 +71,7 @@ private:
     Layout::SharedPtr mLayout;
     std::weak_ptr<Workspace> mWorkspace;
 
-    Size mRequestedSize;
+    Rect mRequestedGeom;
     xcb_size_hints_t mNormalHints;
     xcb_window_t mTransientFor;
     xcb_icccm_wm_hints_t mWmHints;
@@ -75,6 +80,8 @@ private:
         String className;
     } mClass;
     Set<xcb_atom_t> mProtocols;
+    Set<xcb_atom_t> mEwmhState;
+    xcb_ewmh_wm_strut_partial_t mStrut;
 
     static Hash<xcb_window_t, Client::SharedPtr> sClients;
 

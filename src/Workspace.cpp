@@ -3,14 +3,20 @@
 
 Workspace::WeakPtr Workspace::sActive;
 
-Workspace::Workspace(const Size& size, const String& name)
-    : mSize(size), mName(name)
+Workspace::Workspace(const Rect& rect, const String& name)
+    : mRect(rect), mName(name)
 {
-    mLayout = std::make_shared<Layout>(mSize);
+    mLayout = std::make_shared<Layout>(mRect);
 }
 
 Workspace::~Workspace()
 {
+}
+
+void Workspace::setRect(const Rect& rect)
+{
+    mRect = rect;
+    mLayout->setRect(rect);
 }
 
 void Workspace::updateFocus(const Client::SharedPtr& client)

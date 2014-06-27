@@ -45,6 +45,7 @@ pkg_check_modules(XKBCOMMON_X11 REQUIRED xkbcommon-x11)
 pkg_check_modules(XCB REQUIRED xcb)
 pkg_check_modules(XCB_UTIL REQUIRED xcb-util)
 pkg_check_modules(XCB_ICCCM REQUIRED xcb-icccm)
+pkg_check_modules(XCB_EWMH REQUIRED xcb-ewmh)
 pkg_check_modules(XCB_XKB REQUIRED xcb-xkb)
 pkg_check_modules(XCB_KEYSYMS REQUIRED xcb-keysyms)
 pkg_check_modules(MOZJS REQUIRED mozjs-24)
@@ -54,6 +55,7 @@ include_directories(${CMAKE_CURRENT_LIST_DIR}
                     ${XCB_INCLUDE_DIRS}
                     ${XCB_UTIL_INCLUDE_DIRS}
                     ${XCB_ICCCM_INCLUDE_DIRS}
+                    ${XCB_EWMH_INCLUDE_DIRS}
                     ${XCB_XKB_INCLUDE_DIRS}
                     ${XCB_KEYSYMS_INCLUDE_DIRS}
                     ${XKBCOMMON_INCLUDE_DIRS}
@@ -70,6 +72,7 @@ target_link_libraries(nwm
                       ${XCB_LIBRARIES}
                       ${XCB_UTIL_LIBRARIES}
                       ${XCB_ICCCM_LIBRARIES}
+                      ${XCB_EWMH_LIBRARIES}
                       ${XCB_XKB_LIBRARIES}
                       ${XCB_KEYSYMS_LIBRARIES}
                       ${XKBCOMMON_LIBRARIES}

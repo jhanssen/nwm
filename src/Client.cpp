@@ -13,15 +13,50 @@ Client::Client(xcb_window_t win)
     error() << "making client";
     WindowManager::SharedPtr wm = WindowManager::instance();
     xcb_connection_t* conn = wm->connection();
-    updateState(conn);
+    xcb_ewmh_connection_t* ewmhConn = wm->ewmhConnection();
+    updateState(ewmhConn);
     wm->rebindKeys(win);
-    error() << "valid client" << mRequestedSize.width << mRequestedSize.height;
+    error() << "valid client" << mRequestedGeom.width << mRequestedGeom.height;
     mValid = true;
-    mLayout = Workspace::active()->layout()->add(Size({ mRequestedSize.width, mRequestedSize.height }));
-    const Rect& layoutRect = mLayout->rect();
-    error() << "laid out at" << layoutRect;
-    Workspace::active()->layout()->dump();
-    mLayout->rectChanged().connect(std::bind(&Client::onLayoutChanged, this, std::placeholders::_1));
+    Rect layoutRect;
+    if (mEwmhState.contains(ewmhConn->_NET_WM_STATE_STICKY)) {
+        // don't put in layout
+#warning support strut windows in layouts (reserved space)
+#warning support partial struts
+        Rect rect = wm->rect();
+        if (mStrut.left) {
+            if (mRequestedGeom.width != mStrut.left)
+                mRequestedGeom.width = mStrut.left;
+            mRequestedGeom.x = rect.x;
+            rect.x += mRequestedGeom.width;
+            rect.width -= mRequestedGeom.width;
+        } else if (mStrut.right) {
+            if (mRequestedGeom.width != mStrut.right)
+                mRequestedGeom.width = mStrut.right;
+            mRequestedGeom.x = rect.x + rect.width - mStrut.right;
+            rect.width -= mStrut.right;
+        } else if (mStrut.top) {
+            if (mRequestedGeom.height != mStrut.top)
+                mRequestedGeom.height = mStrut.top;
+            mRequestedGeom.y = rect.y;
+            rect.y += mRequestedGeom.height;
+            rect.height -= mRequestedGeom.height;
+        } else if (mStrut.bottom) {
+            if (mRequestedGeom.height != mStrut.bottom)
+                mRequestedGeom.height = mStrut.bottom;
+            mRequestedGeom.y = rect.y + rect.height - mStrut.bottom;
+            rect.height -= mStrut.bottom;
+        }
+        wm->setRect(rect);
+        layoutRect = mRequestedGeom;
+        error() << "fixed at" << layoutRect;
+    } else {
+        mLayout = Workspace::active()->layout()->add(Size({ mRequestedGeom.width, mRequestedGeom.height }));
+        layoutRect = mLayout->rect();
+        error() << "laid out at" << layoutRect;
+        Workspace::active()->layout()->dump();
+        mLayout->rectChanged().connect(std::bind(&Client::onLayoutChanged, this, std::placeholders::_1));
+    }
 #warning do startup-notification stuff here
     xcb_change_save_set(conn, XCB_SET_MODE_INSERT, win);
     xcb_screen_t* screen = WindowManager::instance()->screen();
@@ -60,11 +95,11 @@ Client::Client(xcb_window_t win)
         uint16_t windowMask = 0;
         uint32_t windowValues[3];
         int i = 0;
-        if (mRequestedSize.width != layoutRect.width) {
+        if (mRequestedGeom.width != layoutRect.width) {
             windowMask |= XCB_CONFIG_WINDOW_WIDTH;
             windowValues[i++] = layoutRect.width;
         }
-        if (mRequestedSize.height != layoutRect.height) {
+        if (mRequestedGeom.height != layoutRect.height) {
             windowMask |= XCB_CONFIG_WINDOW_HEIGHT;
             windowValues[i++] = layoutRect.height;
         }
@@ -103,28 +138,34 @@ void Client::clearWorkspace()
     mWorkspace.reset();
 }
 
-void Client::updateWorkspace(const Workspace::SharedPtr& workspace)
+bool Client::updateWorkspace(const Workspace::SharedPtr& workspace)
 {
     Workspace::SharedPtr old = mWorkspace.lock();
+    if (!old)
+        return false;
     if (workspace == old)
-        return;
-    if (old)
-        old->removeClient(shared_from_this());
-    mLayout = workspace->layout()->add(Size({ mRequestedSize.width, mRequestedSize.height }));
+        return true;
+    old->removeClient(shared_from_this());
+    mLayout = workspace->layout()->add(Size({ mRequestedGeom.width, mRequestedGeom.height }));
     mLayout->rectChanged().connect(std::bind(&Client::onLayoutChanged, this, std::placeholders::_1));
     mWorkspace = workspace;
 
     onLayoutChanged(mLayout->rect());
+    return true;
 }
 
-void Client::updateState(xcb_connection_t* conn)
+void Client::updateState(xcb_ewmh_connection_t* ewmhConn)
 {
+    xcb_connection_t* conn = ewmhConn->connection;
     const xcb_get_geometry_cookie_t geomCookie = xcb_get_geometry_unchecked(conn, mWindow);
     const xcb_get_property_cookie_t normalHintsCookie = xcb_icccm_get_wm_normal_hints(conn, mWindow);
     const xcb_get_property_cookie_t transientCookie = xcb_icccm_get_wm_transient_for(conn, mWindow);
     const xcb_get_property_cookie_t hintsCookie = xcb_icccm_get_wm_hints(conn, mWindow);
     const xcb_get_property_cookie_t classCookie = xcb_icccm_get_wm_class(conn, mWindow);
     const xcb_get_property_cookie_t protocolsCookie = xcb_icccm_get_wm_protocols(conn, mWindow, Atoms::WM_PROTOCOLS);
+    const xcb_get_property_cookie_t strutCookie = xcb_ewmh_get_wm_strut(ewmhConn, mWindow);
+    const xcb_get_property_cookie_t partialStrutCookie = xcb_ewmh_get_wm_strut_partial(ewmhConn, mWindow);
+    const xcb_get_property_cookie_t stateCookie = xcb_ewmh_get_wm_state(ewmhConn, mWindow);
 
     updateSize(conn, geomCookie);
     updateNormalHints(conn, normalHintsCookie);
@@ -132,14 +173,16 @@ void Client::updateState(xcb_connection_t* conn)
     updateHints(conn, hintsCookie);
     updateClass(conn, classCookie);
     updateProtocols(conn, protocolsCookie);
+    updateStrut(ewmhConn, strutCookie);
+    updatePartialStrut(ewmhConn, partialStrutCookie);
+    updateEwmhState(ewmhConn, stateCookie);
 }
 
 void Client::updateSize(xcb_connection_t* conn, xcb_get_geometry_cookie_t cookie)
 {
     xcb_get_geometry_reply_t* geom = xcb_get_geometry_reply(conn, cookie, 0);
     FreeScope freeGeom(geom);
-    mRequestedSize.width = geom->width;
-    mRequestedSize.height = geom->height;
+    mRequestedGeom = { static_cast<uint32_t>(geom->x), static_cast<uint32_t>(geom->y), geom->width, geom->height };
 }
 
 void Client::updateNormalHints(xcb_connection_t* conn, xcb_get_property_cookie_t cookie)
@@ -148,8 +191,12 @@ void Client::updateNormalHints(xcb_connection_t* conn, xcb_get_property_cookie_t
         // overwrite the response from xcb_get_geometry_unchecked
         if (mNormalHints.flags & XCB_ICCCM_SIZE_HINT_US_SIZE
             || mNormalHints.flags & XCB_ICCCM_SIZE_HINT_P_SIZE) {
-            mRequestedSize.width = mNormalHints.width;
-            mRequestedSize.height = mNormalHints.height;
+            mRequestedGeom.width = mNormalHints.width;
+            mRequestedGeom.height = mNormalHints.height;
+        }
+        if (mNormalHints.flags & XCB_ICCCM_SIZE_HINT_P_POSITION) {
+            mRequestedGeom.x = mNormalHints.x;
+            mRequestedGeom.y = mNormalHints.y;
         }
     } else {
         memset(&mNormalHints, '\0', sizeof(mNormalHints));
@@ -199,6 +246,44 @@ void Client::updateProtocols(xcb_connection_t* conn, xcb_get_property_cookie_t c
     }
 }
 
+void Client::updateStrut(xcb_ewmh_connection_t* conn, xcb_get_property_cookie_t cookie)
+{
+    memset(&mStrut, '\0', sizeof(mStrut));
+    xcb_ewmh_get_extents_reply_t struts;
+    if (xcb_ewmh_get_wm_strut_reply(conn, cookie, &struts, 0)) {
+        mStrut.left = struts.left;
+        mStrut.right = struts.right;
+        mStrut.top = struts.top;
+        mStrut.bottom = struts.bottom;
+        xcb_screen_t* screen = WindowManager::instance()->screen();
+        mStrut.left_end_y = mStrut.right_end_y = screen->height_in_pixels;
+        mStrut.top_end_x = mStrut.bottom_end_x = screen->width_in_pixels;
+    }
+}
+
+void Client::updatePartialStrut(xcb_ewmh_connection_t* conn, xcb_get_property_cookie_t cookie)
+{
+    if (!xcb_ewmh_get_wm_strut_partial_reply(conn, cookie, &mStrut, 0)) {
+        memset(&mStrut, '\0', sizeof(mStrut));
+    }
+}
+
+void Client::updateEwmhState(xcb_ewmh_connection_t* conn, xcb_get_property_cookie_t cookie)
+{
+    error() << "updating ewmh state";
+    mEwmhState.clear();
+    xcb_ewmh_get_atoms_reply_t prop;
+    if (xcb_ewmh_get_wm_state_reply(conn, cookie, &prop, 0)) {
+        for (uint32_t i = 0; i < prop.atoms_len; ++i) {
+            error() << "ewmh state has" << Atoms::name(prop.atoms[i]);
+            mEwmhState.insert(prop.atoms[i]);
+        }
+        xcb_ewmh_get_atoms_reply_wipe(&prop);
+    } else {
+        error() << "boo!";
+    }
+}
+
 void Client::onLayoutChanged(const Rect& rect)
 {
     error() << "layout changed" << rect;
@@ -222,13 +307,13 @@ Client::SharedPtr Client::manage(xcb_window_t window)
     if (!ptr->isValid()) {
         return SharedPtr();
     }
-    {
+    if (ptr->mLayout) {
         Workspace::SharedPtr ws = Workspace::active();
         assert(ws);
         ptr->mWorkspace = ws;
         ws->addClient(ptr);
+        ptr->focus();
     }
-    ptr->focus();
     sClients[window] = ptr;
     return ptr;
 }
@@ -294,4 +379,23 @@ void Client::destroy()
     unmap();
     release(mWindow);
     mWindow = 0;
+}
+
+void Client::configure()
+{
+    const Rect& layoutRect = mLayout ? mLayout->rect() : mRequestedGeom;
+    xcb_connection_t* conn = WindowManager::instance()->connection();
+
+    xcb_configure_notify_event_t ce;
+    ce.response_type = XCB_CONFIGURE_NOTIFY;
+    ce.event = mWindow;
+    ce.window = mWindow;
+    ce.x = layoutRect.x;
+    ce.y = layoutRect.y;
+    ce.width = layoutRect.width;
+    ce.height = layoutRect.height;
+    ce.border_width = 0;
+    ce.above_sibling = XCB_NONE;
+    ce.override_redirect = false;
+    xcb_send_event(conn, false, mWindow, XCB_EVENT_MASK_STRUCTURE_NOTIFY, reinterpret_cast<char*>(&ce));
 }

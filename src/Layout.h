@@ -18,6 +18,8 @@ public:
     Layout(const Size& size);
     ~Layout();
 
+    void setRect(const Rect& rect) { mRect = rect; relayout(); }
+
     SharedPtr add(const Size& size);
     SharedPtr parent() const { return mParent; }
     void dump();

@@ -3,11 +3,13 @@
 
 #include "Client.h"
 #include "Keybinding.h"
+#include "Rect.h"
 #include "Workspace.h"
 #include <rct/List.h>
 #include <memory>
 #include <xcb/xcb.h>
 #include <xcb/xcb_keysyms.h>
+#include <xcb/xcb_ewmh.h>
 #include <stdlib.h>
 
 struct xkb_context;
@@ -37,6 +39,7 @@ public:
     xcb_timestamp_t timestamp() const { return mTimestamp; }
 
     xcb_connection_t* connection() const { return mConn; }
+    xcb_ewmh_connection_t* ewmhConnection() const { return mEwmhConn; }
     xcb_screen_t* screen() const { return mScreen; }
 
     xcb_key_symbols_t* keySymbols() const { return mSyms; }
@@ -54,6 +57,9 @@ public:
 
     const List<Workspace::SharedPtr>& workspaces() const { return mWorkspaces; }
 
+    const Rect& rect() const { return mRect; }
+    void setRect(const Rect& rect);
+
 private:
     void rebindKeys();
 
@@ -68,6 +74,7 @@ private:
     String mDisplay;
 
     xcb_connection_t* mConn;
+    xcb_ewmh_connection_t* mEwmhConn;
     xcb_screen_t* mScreen;
     int mScreenNo;
     uint8_t mXkbEvent;
@@ -75,6 +82,7 @@ private:
     List<Keybinding> mKeybindings;
     List<Workspace::SharedPtr> mWorkspaces;
     xcb_timestamp_t mTimestamp;
+    Rect mRect;
 
     static SharedPtr sInstance;
 };

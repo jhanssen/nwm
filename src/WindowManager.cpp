@@ -48,7 +48,7 @@ static inline void handleXkb(_xkb_event* event)
 WindowManager::SharedPtr WindowManager::sInstance;
 
 WindowManager::WindowManager(int workspaces)
-    : mConn(0), mScreen(0), mScreenNo(0), mXkbEvent(0), mTimestamp(XCB_CURRENT_TIME)
+    : mConn(0), mEwmhConn(0), mScreen(0), mScreenNo(0), mXkbEvent(0), mTimestamp(XCB_CURRENT_TIME)
 {
     memset(&mXkb, '\0', sizeof(mXkb));
     assert(workspaces > 0);
@@ -70,8 +70,17 @@ WindowManager::~WindowManager()
             const int fd = xcb_get_file_descriptor(mConn);
             eventLoop->unregisterSocket(fd);
         }
+
+        if (mEwmhConn) {
+            xcb_ewmh_connection_wipe(mEwmhConn);
+            delete mEwmhConn;
+            mEwmhConn = 0;
+        }
+
         xcb_disconnect(mConn);
         mConn = 0;
+    } else {
+        assert(!mEwmhConn);
     }
 }
 
@@ -85,12 +94,33 @@ bool WindowManager::install(const String& display)
         sInstance.reset();
         return false;
     }
+    mEwmhConn = new xcb_ewmh_connection_t;
+    xcb_intern_atom_cookie_t* ewmhCookies = xcb_ewmh_init_atoms(mConn, mEwmhConn);
+    if (!ewmhCookies) {
+        error() << "unable to init ewmh";
+        sInstance.reset();
+        xcb_disconnect(mConn);
+        mConn = 0;
+        delete mEwmhConn;
+        mEwmhConn = 0;
+        return false;
+    }
+    if (!xcb_ewmh_init_atoms_replies(mEwmhConn, ewmhCookies, 0)) {
+        error() << "unable to get ewmh reply";
+        sInstance.reset();
+        xcb_disconnect(mConn);
+        mConn = 0;
+        delete mEwmhConn;
+        mEwmhConn = 0;
+        return false;
+    }
 
     mScreen = xcb_aux_get_screen(mConn, mScreenNo);
+    mRect = Rect({ 0, 0, mScreen->width_in_pixels, mScreen->height_in_pixels });
 
     assert(mWorkspaces.size() > 0);
     for (int w = 0; w < mWorkspaces.size(); ++w) {
-        mWorkspaces[w] = std::make_shared<Workspace>(Size({ mScreen->width_in_pixels, mScreen->height_in_pixels }));
+        mWorkspaces[w] = std::make_shared<Workspace>(mRect);
     }
     mWorkspaces[0]->activate();
 
@@ -210,53 +240,54 @@ bool WindowManager::install(const String& display)
     }
 
     const xcb_atom_t atom[] = {
-        Atoms::_NET_SUPPORTED,
-        Atoms::_NET_SUPPORTING_WM_CHECK,
-        Atoms::_NET_STARTUP_ID,
-        Atoms::_NET_CLIENT_LIST,
-        Atoms::_NET_CLIENT_LIST_STACKING,
-        Atoms::_NET_NUMBER_OF_DESKTOPS,
-        Atoms::_NET_CURRENT_DESKTOP,
-        Atoms::_NET_DESKTOP_NAMES,
-        Atoms::_NET_ACTIVE_WINDOW,
-        Atoms::_NET_CLOSE_WINDOW,
-        Atoms::_NET_WM_NAME,
-        Atoms::_NET_WM_STRUT_PARTIAL,
-        Atoms::_NET_WM_ICON_NAME,
-        Atoms::_NET_WM_VISIBLE_ICON_NAME,
-        Atoms::_NET_WM_DESKTOP,
-        Atoms::_NET_WM_WINDOW_TYPE,
-        Atoms::_NET_WM_WINDOW_TYPE_DESKTOP,
-        Atoms::_NET_WM_WINDOW_TYPE_DOCK,
-        Atoms::_NET_WM_WINDOW_TYPE_TOOLBAR,
-        Atoms::_NET_WM_WINDOW_TYPE_MENU,
-        Atoms::_NET_WM_WINDOW_TYPE_UTILITY,
-        Atoms::_NET_WM_WINDOW_TYPE_SPLASH,
-        Atoms::_NET_WM_WINDOW_TYPE_DIALOG,
-        Atoms::_NET_WM_WINDOW_TYPE_DROPDOWN_MENU,
-        Atoms::_NET_WM_WINDOW_TYPE_POPUP_MENU,
-        Atoms::_NET_WM_WINDOW_TYPE_TOOLTIP,
-        Atoms::_NET_WM_WINDOW_TYPE_NOTIFICATION,
-        Atoms::_NET_WM_WINDOW_TYPE_COMBO,
-        Atoms::_NET_WM_WINDOW_TYPE_DND,
-        Atoms::_NET_WM_WINDOW_TYPE_NORMAL,
-        Atoms::_NET_WM_ICON,
-        Atoms::_NET_WM_PID,
-        Atoms::_NET_WM_STATE,
-        Atoms::_NET_WM_STATE_STICKY,
-        Atoms::_NET_WM_STATE_SKIP_TASKBAR,
-        Atoms::_NET_WM_STATE_FULLSCREEN,
-        Atoms::_NET_WM_STATE_MAXIMIZED_HORZ,
-        Atoms::_NET_WM_STATE_MAXIMIZED_VERT,
-        Atoms::_NET_WM_STATE_ABOVE,
-        Atoms::_NET_WM_STATE_BELOW,
-        Atoms::_NET_WM_STATE_MODAL,
-        Atoms::_NET_WM_STATE_HIDDEN,
-        Atoms::_NET_WM_STATE_DEMANDS_ATTENTION
+        mEwmhConn->_NET_SUPPORTED,
+        // Atoms::_NET_SUPPORTING_WM_CHECK,
+        // Atoms::_NET_STARTUP_ID,
+        // Atoms::_NET_CLIENT_LIST,
+        // Atoms::_NET_CLIENT_LIST_STACKING,
+        // Atoms::_NET_NUMBER_OF_DESKTOPS,
+        // Atoms::_NET_CURRENT_DESKTOP,
+        // Atoms::_NET_DESKTOP_NAMES,
+        // Atoms::_NET_ACTIVE_WINDOW,
+        // Atoms::_NET_CLOSE_WINDOW,
+        // Atoms::_NET_WM_NAME,
+        mEwmhConn->_NET_WM_STRUT,
+        mEwmhConn->_NET_WM_STRUT_PARTIAL,
+        // Atoms::_NET_WM_ICON_NAME,
+        // Atoms::_NET_WM_VISIBLE_ICON_NAME,
+        // Atoms::_NET_WM_DESKTOP,
+        // Atoms::_NET_WM_WINDOW_TYPE,
+        // Atoms::_NET_WM_WINDOW_TYPE_DESKTOP,
+        // Atoms::_NET_WM_WINDOW_TYPE_DOCK,
+        // Atoms::_NET_WM_WINDOW_TYPE_TOOLBAR,
+        // Atoms::_NET_WM_WINDOW_TYPE_MENU,
+        // Atoms::_NET_WM_WINDOW_TYPE_UTILITY,
+        // Atoms::_NET_WM_WINDOW_TYPE_SPLASH,
+        // Atoms::_NET_WM_WINDOW_TYPE_DIALOG,
+        // Atoms::_NET_WM_WINDOW_TYPE_DROPDOWN_MENU,
+        // Atoms::_NET_WM_WINDOW_TYPE_POPUP_MENU,
+        // Atoms::_NET_WM_WINDOW_TYPE_TOOLTIP,
+        // Atoms::_NET_WM_WINDOW_TYPE_NOTIFICATION,
+        // Atoms::_NET_WM_WINDOW_TYPE_COMBO,
+        // Atoms::_NET_WM_WINDOW_TYPE_DND,
+        // Atoms::_NET_WM_WINDOW_TYPE_NORMAL,
+        // Atoms::_NET_WM_ICON,
+        // Atoms::_NET_WM_PID,
+        mEwmhConn->_NET_WM_STATE,
+        mEwmhConn->_NET_WM_STATE_STICKY
+        // Atoms::_NET_WM_STATE_SKIP_TASKBAR,
+        // Atoms::_NET_WM_STATE_FULLSCREEN,
+        // Atoms::_NET_WM_STATE_MAXIMIZED_HORZ,
+        // Atoms::_NET_WM_STATE_MAXIMIZED_VERT,
+        // Atoms::_NET_WM_STATE_ABOVE,
+        // Atoms::_NET_WM_STATE_BELOW,
+        // Atoms::_NET_WM_STATE_MODAL,
+        // Atoms::_NET_WM_STATE_HIDDEN,
+        // Atoms::_NET_WM_STATE_DEMANDS_ATTENTION
     };
 
     cookie = xcb_change_property(mConn, XCB_PROP_MODE_REPLACE,
-                                 mScreen->root, Atoms::_NET_SUPPORTED, XCB_ATOM_ATOM, 32,
+                                 mScreen->root, mEwmhConn->_NET_SUPPORTED, XCB_ATOM_ATOM, 32,
                                  Rct::countof(atom), atom);
     err = xcb_request_check(mConn, cookie);
     if (err) {
@@ -481,5 +512,13 @@ void WindowManager::addKeybinding(const Keybinding& binding)
     const List<Client::SharedPtr>& clients = Client::clients();
     for (const Client::SharedPtr& client : clients) {
         binding.rebind(mConn, client->window());
+    }
+}
+
+void WindowManager::setRect(const Rect& rect)
+{
+    mRect = rect;
+    for (const Workspace::SharedPtr& ws : mWorkspaces) {
+        ws->setRect(rect);
     }
 }
