@@ -48,7 +48,7 @@ static inline void handleXkb(_xkb_event* event)
 WindowManager::SharedPtr WindowManager::sInstance;
 
 WindowManager::WindowManager(int workspaces)
-    : mConn(0), mEwmhConn(0), mScreen(0), mScreenNo(0), mXkbEvent(0), mTimestamp(XCB_CURRENT_TIME)
+    : mConn(0), mEwmhConn(0), mScreen(0), mScreenNo(0), mXkbEvent(0), mSyms(0), mTimestamp(XCB_CURRENT_TIME)
 {
     memset(&mXkb, '\0', sizeof(mXkb));
     assert(workspaces > 0);
@@ -62,7 +62,8 @@ WindowManager::~WindowManager()
         xkb_keymap_unref(mXkb.keymap);
         xkb_context_unref(mXkb.ctx);
     }
-    xcb_key_symbols_free(mSyms);
+    if (mSyms)
+        xcb_key_symbols_free(mSyms);
 
     Client::clear();
     if (mConn) {
@@ -462,6 +463,7 @@ void WindowManager::updateXkbState(xcb_xkb_state_notify_event_t* state)
 
 void WindowManager::updateXkbMap(xcb_xkb_map_notify_event_t* map)
 {
+    assert(mSyms);
     xcb_key_symbols_free(mSyms);
     mSyms = xcb_key_symbols_alloc(mConn);
     rebindKeys();

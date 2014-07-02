@@ -2,6 +2,7 @@
 #define WINDOWMANAGER_H
 
 #include "Client.h"
+#include "JavaScript.h"
 #include "Keybinding.h"
 #include "Rect.h"
 #include "Workspace.h"
@@ -60,6 +61,8 @@ public:
     const Rect& rect() const { return mRect; }
     void setRect(const Rect& rect);
 
+    JavaScript& js() { return mJS; }
+
 private:
     void rebindKeys();
 
@@ -83,6 +86,7 @@ private:
     List<Workspace::SharedPtr> mWorkspaces;
     xcb_timestamp_t mTimestamp;
     Rect mRect;
+    JavaScript mJS;
 
     static SharedPtr sInstance;
 };

@@ -129,6 +129,10 @@ void handleKeyPress(const xcb_key_press_event_t* event)
         error() << "no keybind for" << sym << buf;
         return;
     }
+    const String& js = binding->js();
+    if (!js.isEmpty()) {
+        wm->js().execute(js);
+    }
     const String& exec = binding->exec();
     if (!exec.isEmpty()) {
         error() << "launching" << exec;

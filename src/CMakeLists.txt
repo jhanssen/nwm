@@ -31,6 +31,7 @@ set(NWM_SOURCES
     Client.cpp
     Commands.cpp
     Handlers.cpp
+    JavaScript.cpp
     Keybinding.cpp
     Layout.cpp
     Util.cpp

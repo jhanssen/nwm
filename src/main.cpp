@@ -4,6 +4,7 @@
 #include <rct/EventLoop.h>
 #include <rct/Log.h>
 #include <rct/Path.h>
+#include <rct/ScriptEngine.h>
 #include <confuse.h>
 
 // static int validateKeybind(cfg_t *cfg, cfg_opt_t *opt)
@@ -35,6 +36,7 @@ int main(int argc, char** argv)
         // ewww. fixed recent versions of confuse I believe
         CFG_STR_LIST(const_cast<char*>("command"), const_cast<char*>("{}"), CFGF_NONE),
         CFG_STR(const_cast<char*>("exec"), 0, CFGF_NODEFAULT),
+        CFG_STR(const_cast<char*>("javascript"), 0, CFGF_NODEFAULT),
         CFG_END()
     };
     cfg_opt_t opts[] = {
@@ -71,12 +73,13 @@ int main(int argc, char** argv)
             keybind = cfg_getnsec(cfg, "keybind", i);
             const List<String> cmd = readStringList(keybind, "command");
             const char* exec = cfg_getstr(keybind, "exec");
-            if (cmd.isEmpty() && !exec) {
-                error() << "no command or exec for" << cfg_title(keybind);
+            const char* js = cfg_getstr(keybind, "javascript");
+            if (cmd.isEmpty() && !exec && !js) {
+                error() << "no command, exec or javascript for" << cfg_title(keybind);
                 continue;
             }
 
-            Keybinding keybinding(cfg_title(keybind), cmd, exec);
+            Keybinding keybinding(cfg_title(keybind), cmd, exec, js);
             if (!keybinding.isValid()) {
                 error() << "keybind not valid" << cfg_title(keybind);
                 continue;

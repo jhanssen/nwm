@@ -13,7 +13,7 @@ class Keybinding
 {
 public:
     Keybinding() { };
-    Keybinding(const String& key, const List<String>& cmd, const String& exec);
+    Keybinding(const String& key, const List<String>& cmd, const String& exec, const String& js);
 
     bool isValid() const { return !mSeq.empty(); };
     void recreate();
@@ -29,6 +29,7 @@ public:
     const List<Sequence>& sequence() const { return mSeq; }
     List<String> command() const { return mCmd; }
     String exec() const { return mExec; }
+    String js() const { return mJS; }
 
     void rebind(xcb_connection_t* conn, xcb_window_t win) const;
 
@@ -39,7 +40,7 @@ private:
 private:
     List<Sequence> mSeq;
     List<String> mCmd;
-    String mExec;
+    String mExec, mJS;
 };
 
 inline void Keybinding::rebind(xcb_connection_t* conn, xcb_window_t win) const
