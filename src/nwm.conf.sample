@@ -1,4 +1,10 @@
 workspaces = 3
+if (uname === "lgmac-abakken2")
+   bindKey("Ctrl-A", layout.toggleOrientation);
+else
+keybind "Ctrl-A" {
+  command = "layout.toggleOrientation"
+}
 
 keybind "Ctrl-A" {
   command = "layout.toggleOrientation"

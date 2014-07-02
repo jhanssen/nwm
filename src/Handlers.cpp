@@ -131,7 +131,7 @@ void handleKeyPress(const xcb_key_press_event_t* event)
     }
     const String& js = binding->js();
     if (!js.isEmpty()) {
-        wm->js().execute(js);
+        wm->js().evaluate(js);
     }
     const String& exec = binding->exec();
     if (!exec.isEmpty()) {

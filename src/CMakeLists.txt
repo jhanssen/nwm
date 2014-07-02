@@ -39,7 +39,6 @@ set(NWM_SOURCES
     Workspace.cpp)
 
 include(FindPkgConfig)
-pkg_check_modules(CONFUSE REQUIRED libconfuse)
 pkg_check_modules(XKBCOMMON REQUIRED xkbcommon)
 pkg_check_modules(XKBCOMMON_X11 REQUIRED xkbcommon-x11)
 pkg_check_modules(XCB REQUIRED xcb)
@@ -50,7 +49,6 @@ pkg_check_modules(XCB_XKB REQUIRED xcb-xkb)
 pkg_check_modules(XCB_KEYSYMS REQUIRED xcb-keysyms)
 
 include_directories(${CMAKE_CURRENT_LIST_DIR}
-                    ${CONFUSE_INCLUDE_DIRS}
                     ${XCB_INCLUDE_DIRS}
                     ${XCB_UTIL_INCLUDE_DIRS}
                     ${XCB_ICCCM_INCLUDE_DIRS}
@@ -74,5 +72,4 @@ target_link_libraries(nwm
                       ${XCB_XKB_LIBRARIES}
                       ${XCB_KEYSYMS_LIBRARIES}
                       ${XKBCOMMON_LIBRARIES}
-                      ${XKBCOMMON_X11_LIBRARIES}
-                      ${CONFUSE_LIBRARIES})
+                      ${XKBCOMMON_X11_LIBRARIES})

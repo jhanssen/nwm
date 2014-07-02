@@ -5,7 +5,6 @@
 #include <rct/Log.h>
 #include <rct/Path.h>
 #include <rct/ScriptEngine.h>
-#include <confuse.h>
 
 // static int validateKeybind(cfg_t *cfg, cfg_opt_t *opt)
 // {
@@ -14,23 +13,19 @@
 //     return 0;
 // }
 
-static inline List<String> readStringList(cfg_t* cfg, const char* key)
-{
-    List<String> list;
-    const int sz = cfg_size(cfg, key);
-    for (int i = 0; i < sz; ++i) {
-        list.append(cfg_getnstr(cfg, key, i));
-    }
-    return list;
-}
+// static inline List<String> readStringList(cfg_t* cfg, const char* key)
+// {
+//     List<String> list;
+//     const int sz = cfg_size(cfg, key);
+//     for (int i = 0; i < sz; ++i) {
+//         list.append(cfg_getnstr(cfg, key, i));
+//     }
+//     return list;
+// }
 
 int main(int argc, char** argv)
 {
-    if (!initLogging(argv[0], LogStderr, 0, 0, 0)) {
-        fprintf(stderr, "Can't initialize logging\n");
-        return 1;
-    }
-
+#if 0
     // setup confuse parser
     cfg_opt_t keybindOpts[] = {
         // ewww. fixed recent versions of confuse I believe
@@ -56,43 +51,14 @@ int main(int argc, char** argv)
         error() << "Unable to parse" << (Path::home() + "/.nwm.conf");
         return 3;
     }
+#endif
 
-    WindowManager::SharedPtr manager;
-    {
-        EventLoop::SharedPtr loop = std::make_shared<EventLoop>();
-        loop->init(EventLoop::MainEventLoop|EventLoop::EnableSigIntHandler);
-
-        const int workspaces = cfg_getint(cfg, "workspaces");
-        manager = std::make_shared<WindowManager>(workspaces);
-        if (!manager->install(argc > 1 ? argv[1] : 0)) {
-            error() << "Unable to install nwm. Another window manager already running?";
-            return 2;
-        }
-
-        for (unsigned int i = 0; i < cfg_size(cfg, "keybind"); ++i) {
-            keybind = cfg_getnsec(cfg, "keybind", i);
-            const List<String> cmd = readStringList(keybind, "command");
-            const char* exec = cfg_getstr(keybind, "exec");
-            const char* js = cfg_getstr(keybind, "javascript");
-            if (cmd.isEmpty() && !exec && !js) {
-                error() << "no command, exec or javascript for" << cfg_title(keybind);
-                continue;
-            }
-
-            Keybinding keybinding(cfg_title(keybind), cmd, exec, js);
-            if (!keybinding.isValid()) {
-                error() << "keybind not valid" << cfg_title(keybind);
-                continue;
-            }
-            manager->addKeybinding(keybinding);
-        }
-
-        Commands::initBuiltins();
-
-        loop->exec();
-    }
-
-    cfg_free(cfg);
+    WindowManager::SharedPtr manager = std::make_shared<WindowManager>();
+    if (!manager->init(argc, argv))
+        return 1;
+    EventLoop::SharedPtr loop = std::make_shared<EventLoop>();
+    loop->init(EventLoop::MainEventLoop|EventLoop::EnableSigIntHandler);
+    loop->exec();
 
     if (manager) {
         WindowManager::release();

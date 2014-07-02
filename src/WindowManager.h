@@ -25,8 +25,10 @@ public:
     typedef std::shared_ptr<WindowManager> SharedPtr;
     typedef std::weak_ptr<WindowManager> WeakPtr;
 
-    WindowManager(int workspaces);
+    WindowManager();
     ~WindowManager();
+
+    bool init(int &argc, char **argv);
 
     bool install(const String& display = String());
     void addKeybinding(const Keybinding& binding);

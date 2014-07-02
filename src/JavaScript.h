@@ -5,20 +5,13 @@
 #include <rct/ScriptEngine.h>
 #include <rct/String.h>
 
-class JavaScript
+class JavaScript : public ScriptEngine
 {
 public:
     JavaScript();
     ~JavaScript();
 
-    void execute(const String& code);
-
-private:
-    void setup();
-
-#ifdef HAVE_SCRIPTENGINE
-    ScriptEngine engine;
-#endif
+    Value evaluateFile(const Path &path, String *error);
 };
 
 #endif

@@ -12,6 +12,7 @@
 #include <xcb/xcb_keysyms.h>
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-x11.h>
+#include <getopt.h>
 // Really XCB?? This is awful, awful!
 #define explicit _explicit
 #include <xcb/xkb.h>
@@ -47,12 +48,137 @@ static inline void handleXkb(_xkb_event* event)
 
 WindowManager::SharedPtr WindowManager::sInstance;
 
-WindowManager::WindowManager(int workspaces)
+WindowManager::WindowManager()
     : mConn(0), mEwmhConn(0), mScreen(0), mScreenNo(0), mXkbEvent(0), mSyms(0), mTimestamp(XCB_CURRENT_TIME)
 {
     memset(&mXkb, '\0', sizeof(mXkb));
+}
+
+static inline void usage(FILE *out)
+{
+    fprintf(out,
+            "nwm [...options...]\n"
+            "  -h|--help                   Display this help\n"
+            "  -v|--verbose                Be more verbose\n"
+            "  -S|--silent                 Don't log\n"
+            "  -l|--logfile [file]         Log to this file\n"
+            "  -c|--config [file]          Use this config file instead of ~/.config/nwmrc.js\n"
+            "  -N|--no-system-config       Don't load /etc/xdg/nwmrc.js\n"
+            "  -n|--no-user-config         Don't load ~/.config/nwmrc.js\n");
+}
+
+bool WindowManager::init(int &argc, char **argv)
+{
+    struct option opts[] = {
+        { "help", no_argument, 0, 'h' },
+        { "verbose", no_argument, 0, 'b' },
+        { "config-file", required_argument, 0, 'c' },
+        { "no-system-config", no_argument, 0, 'N' },
+        { "no-user-config", no_argument, 0, 'n' },
+        { "silent", no_argument, 0, 'S' },
+        { "logfile", required_argument, 0, 'l' },
+        { 0, no_argument, 0, 0 }
+    };
+
+    const String shortOptions = Rct::shortOptions(opts);
+
+    List<Path> configFiles;
+    bool systemConfig = true;
+    bool userConfig = true;
+    int logLevel = 0;
+    char *logFile = 0;
+
+    while (true) {
+        const int c = getopt_long(argc, argv, shortOptions.constData(), opts, 0);
+        if (c == -1)
+            break;
+        switch (c) {
+        case 'h':
+            usage(stdout);
+            exit(0);
+        case 'n':
+            userConfig = false;
+            break;
+        case 'S':
+            logLevel = -1;
+            break;
+        case 'v':
+            if (logLevel >= 0)
+                ++logLevel;
+            break;
+        case 'N':
+            systemConfig = false;
+            break;
+        case 'l':
+            logFile = optarg;
+            break;
+        case 'c': {
+            userConfig = false;
+            const Path cfg(optarg);
+            if (!cfg.isFile()) {
+                fprintf(stderr, "%s doesn't seem to exist\n", optarg);
+                return false;
+            }
+            configFiles << cfg;
+            break; }
+        default:
+            break;
+        }
+    }
+    if (!initLogging(argv[0], LogStderr, logLevel, logFile, 0)) {
+        fprintf(stderr, "Can't initialize logging\n");
+        return false;
+    }
+
+    if (userConfig)
+        configFiles << Path::home() + ".config/nwmrc.js";
+    if (systemConfig)
+        configFiles << "/etc/xdg/nwmrc.js";
+
+    for (int i=configFiles.size() - 1; i>=0; --i) {
+        const String contents = configFiles[i].readAll();
+        if (!contents.isEmpty()) {
+            String err;
+            mJS.evaluate(contents, configFiles[i], &err);
+            if (!err.isEmpty()) {
+                error() << err;
+                return false;
+            }
+        }
+    }
+
+    // const int workspaces = cfg_getint(cfg, "workspaces");
+    // manager = std::make_shared<WindowManager>(workspaces);
+    // if (!manager->install(argc > 1 ? argv[1] : 0)) {
+    //     error() << "Unable to install nwm. Another window manager already running?";
+    //     return 2;
+    // }
+
+    // for (unsigned int i = 0; i < cfg_size(cfg, "keybind"); ++i) {
+    //     keybind = cfg_getnsec(cfg, "keybind", i);
+    //     const List<String> cmd = readStringList(keybind, "command");
+    //     const char* exec = cfg_getstr(keybind, "exec");
+    //     const char* js = cfg_getstr(keybind, "javascript");
+    //     if (cmd.isEmpty() && !exec && !js) {
+    //         error() << "no command, exec or javascript for" << cfg_title(keybind);
+    //         continue;
+    //     }
+
+    //     Keybinding keybinding(cfg_title(keybind), cmd, exec, js);
+    //     if (!keybinding.isValid()) {
+    //         error() << "keybind not valid" << cfg_title(keybind);
+    //         continue;
+    //     }
+    //     manager->addKeybinding(keybinding);
+    // }
+
+    // Commands::initBuiltins();
+
+    auto workspaces = 1;
+
     assert(workspaces > 0);
     mWorkspaces.resize(workspaces);
+    return true;
 }
 
 WindowManager::~WindowManager()

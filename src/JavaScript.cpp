@@ -4,18 +4,9 @@
 #include <rct/Log.h>
 
 JavaScript::JavaScript()
+    : ScriptEngine()
 {
-    setup();
-}
-
-JavaScript::~JavaScript()
-{
-}
-
-void JavaScript::setup()
-{
-#ifdef HAVE_SCRIPTENGINE
-    auto global = engine.globalObject();
+    auto global = globalObject();
     auto nwm = global->child("nwm");
     nwm->registerFunction("exec", [](const List<Value>& args) -> Value {
             if (args.size() != 1) {
@@ -47,16 +38,21 @@ void JavaScript::setup()
             }
             return Value();
         });
-#endif
+
+
 }
 
-void JavaScript::execute(const String& code)
+JavaScript::~JavaScript()
 {
-#ifdef HAVE_SCRIPTENGINE
-    String err;
-    engine.evaluate(code, Path(), &err);
-    if (!err.isEmpty()) {
-        error() << err;
+}
+
+Value JavaScript::evaluateFile(const Path &file, String *err)
+{
+    if (!file.isFile()) {
+        if (err)
+            *err = String::format<128>("Can't open %s for reading", file.constData());
+        return Value();
     }
-#endif
+    const String code = file.readAll();
+    return evaluate(code, Path(), err);
 }
