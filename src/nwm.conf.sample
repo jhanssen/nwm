@@ -9,7 +9,7 @@ keybind "Shift-A" {
 }
 
 keybind "Alt-A" {
-  javascript = "console.log('Alt-A pressed');"
+  javascript = "console.log('Alt-A pressed', 29);"
 }
 
 keybind "Ctrl-Up" {

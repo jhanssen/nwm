@@ -39,7 +39,11 @@ void JavaScript::setup()
             }
             const Log& log = error();
             for (const Value& arg : args) {
-                log << arg;
+                const String& str = arg.toString();
+                if (str.isEmpty())
+                    log << arg;
+                else
+                    log << str;
             }
             return Value();
         });
