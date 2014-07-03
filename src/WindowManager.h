@@ -66,6 +66,7 @@ public:
     JavaScript& js() { return mJS; }
 private:
     bool install();
+    bool manage();
     void rebindKeys();
 
 private:

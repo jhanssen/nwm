@@ -1,2 +1,3 @@
+nwm.workspace.count = 3;
 var kbd = nwm.kbd;
-kbd.add("Ctrl-A", function() { console.log("test"); });
+kbd.set("Ctrl-A", function() { console.log("test"); });

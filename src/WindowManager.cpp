@@ -142,6 +142,21 @@ bool WindowManager::init(int &argc, char **argv)
     if (systemConfig)
         configFiles << "/etc/xdg/nwm.js";
 
+    if (display) {
+        mDisplay = display;
+    } else if (mDisplay.isEmpty()) {
+        mDisplay = getenv("DISPLAY");
+    }
+    if (mDisplay.isEmpty()) {
+        error() << "No display set";
+        return false;
+    }
+
+    if (!install()) {
+        error() << "Unable to install nwm. Another window manager already running?";
+        return false;
+    }
+
     mJS.init();
     for (int i=configFiles.size() - 1; i>=0; --i) {
         const String contents = configFiles[i].readAll();
@@ -155,23 +170,19 @@ bool WindowManager::init(int &argc, char **argv)
         }
     }
 
-    if (display) {
-        mDisplay = display;
-    } else if (mDisplay.isEmpty()) {
-        mDisplay = getenv("DISPLAY");
-    }
-    if (mDisplay.isEmpty()) {
-        error() << "No display set";
-        return false;
-    }
-
     if (mWorkspaces.isEmpty()) {
-        error() << "No workspace";
+        error() << "No workspaces";
         return false;
     }
 
-    if (!install()) {
-        error() << "Unable to install nwm. Another window manager already running?";
+    assert(mWorkspaces.size() > 0);
+    for (int w = 0; w < mWorkspaces.size(); ++w) {
+        mWorkspaces[w] = std::make_shared<Workspace>(mRect);
+    }
+    mWorkspaces[0]->activate();
+
+    if (!manage()) {
+        error() << "Unable to manage existing windows";
         return false;
     }
 
@@ -208,6 +219,54 @@ WindowManager::~WindowManager()
     }
 }
 
+bool WindowManager::manage()
+{
+    // Manage all existing windows
+    xcb_generic_error_t* err;
+    xcb_query_tree_cookie_t treeCookie = xcb_query_tree(mConn, mScreen->root);
+    xcb_query_tree_reply_t* treeReply = xcb_query_tree_reply(mConn, treeCookie, &err);
+    FreeScope scope(treeReply);
+    if (err) {
+        LOG_ERROR(err, "Unable to query window tree");
+        free(err);
+        sInstance.reset();
+        return false;
+    }
+    xcb_window_t* clients = xcb_query_tree_children(treeReply);
+    if (clients) {
+        const int clientLength = xcb_query_tree_children_length(treeReply);
+
+        std::vector<xcb_get_window_attributes_cookie_t> attrs;
+        std::vector<xcb_get_property_cookie_t> states;
+        attrs.reserve(clientLength);
+        states.reserve(clientLength);
+
+        for (int i = 0; i < clientLength; ++i) {
+            attrs.push_back(xcb_get_window_attributes_unchecked(mConn, clients[i]));
+            states.push_back(xcb_get_property_unchecked(mConn, false, clients[i], Atoms::WM_STATE, Atoms::WM_STATE, 0L, 2L));
+        }
+        for (int i = 0; i < clientLength; ++i) {
+            xcb_get_window_attributes_reply_t* attr = xcb_get_window_attributes_reply(mConn, attrs[i], 0);
+            FreeScope scope(attr);
+            xcb_get_property_reply_t* state = xcb_get_property_reply(mConn, states[i], 0);
+            uint32_t stateValue = XCB_ICCCM_WM_STATE_NORMAL;
+            if (state) {
+                if (xcb_get_property_value_length(state))
+                    stateValue = *static_cast<uint32_t*>(xcb_get_property_value(state));
+                free(state);
+            }
+
+            if (!attr || attr->override_redirect || attr->map_state == XCB_MAP_STATE_UNMAPPED
+                || stateValue == XCB_ICCCM_WM_STATE_WITHDRAWN) {
+                continue;
+            }
+            Client::SharedPtr client = Client::manage(clients[i]);
+            client->map();
+        }
+    }
+    return true;
+}
+
 bool WindowManager::install()
 {
     assert(!mDisplay.isEmpty());
@@ -239,12 +298,6 @@ bool WindowManager::install()
 
     mScreen = xcb_aux_get_screen(mConn, mScreenNo);
     mRect = Rect({ 0, 0, mScreen->width_in_pixels, mScreen->height_in_pixels });
-
-    assert(mWorkspaces.size() > 0);
-    for (int w = 0; w < mWorkspaces.size(); ++w) {
-        mWorkspaces[w] = std::make_shared<Workspace>(mRect);
-    }
-    mWorkspaces[0]->activate();
 
     Atoms::setup(mConn);
 
@@ -417,51 +470,6 @@ bool WindowManager::install()
         free(err);
         sInstance.reset();
         return false;
-    }
-
-    // Manage all existing windows
-    {
-        xcb_query_tree_cookie_t treeCookie = xcb_query_tree(mConn, mScreen->root);
-        xcb_query_tree_reply_t* treeReply = xcb_query_tree_reply(mConn, treeCookie, &err);
-        FreeScope scope(treeReply);
-        if (err) {
-            LOG_ERROR(err, "Unable to query window tree");
-            free(err);
-            sInstance.reset();
-            return false;
-        }
-        xcb_window_t* clients = xcb_query_tree_children(treeReply);
-        if (clients) {
-            const int clientLength = xcb_query_tree_children_length(treeReply);
-
-            std::vector<xcb_get_window_attributes_cookie_t> attrs;
-            std::vector<xcb_get_property_cookie_t> states;
-            attrs.reserve(clientLength);
-            states.reserve(clientLength);
-
-            for (int i = 0; i < clientLength; ++i) {
-                attrs.push_back(xcb_get_window_attributes_unchecked(mConn, clients[i]));
-                states.push_back(xcb_get_property_unchecked(mConn, false, clients[i], Atoms::WM_STATE, Atoms::WM_STATE, 0L, 2L));
-            }
-            for (int i = 0; i < clientLength; ++i) {
-                xcb_get_window_attributes_reply_t* attr = xcb_get_window_attributes_reply(mConn, attrs[i], 0);
-                FreeScope scope(attr);
-                xcb_get_property_reply_t* state = xcb_get_property_reply(mConn, states[i], 0);
-                uint32_t stateValue = XCB_ICCCM_WM_STATE_NORMAL;
-                if (state) {
-                    if (xcb_get_property_value_length(state))
-                        stateValue = *static_cast<uint32_t*>(xcb_get_property_value(state));
-                    free(state);
-                }
-
-                if (!attr || attr->override_redirect || attr->map_state == XCB_MAP_STATE_UNMAPPED
-                    || stateValue == XCB_ICCCM_WM_STATE_WITHDRAWN) {
-                    continue;
-                }
-                Client::SharedPtr client = Client::manage(clients[i]);
-                client->map();
-            }
-        }
     }
 
     // Get events
@@ -649,6 +657,5 @@ void WindowManager::setRect(const Rect& rect)
 void WindowManager::setWorkspaceCount(int count)
 {
     assert(mWorkspaces.isEmpty());
-    assert(!mConn);
     mWorkspaces.resize(count);
 }
