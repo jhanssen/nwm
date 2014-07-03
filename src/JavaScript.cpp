@@ -27,6 +27,22 @@ static inline Layout::SharedPtr parentOfFocus()
     return parent;
 }
 
+static inline void logValues(FILE* file, const List<Value>& args)
+{
+    String str;
+    {
+        Log log(&str);
+        for (const Value& arg : args) {
+            const String& str = arg.toString();
+            if (str.isEmpty())
+                log << arg;
+            else
+                log << str;
+        }
+    }
+    fprintf(file, "%s\n", str.constData());
+}
+
 void JavaScript::init()
 {
     auto global = globalObject();
@@ -37,14 +53,14 @@ void JavaScript::init()
             if (args.isEmpty()) {
                 return ScriptEngine::instance()->throwException("No arguments passed to console.log");
             }
-            const Log& log = error();
-            for (const Value& arg : args) {
-                const String& str = arg.toString();
-                if (str.isEmpty())
-                    log << arg;
-                else
-                    log << str;
+            logValues(stdout, args);
+            return Value();
+       });
+    console->registerFunction("error", [](const List<Value>& args) -> Value {
+            if (args.isEmpty()) {
+                return ScriptEngine::instance()->throwException("No arguments passed to console.log");
             }
+            logValues(stderr, args);
             return Value();
         });
 
