@@ -4,6 +4,10 @@
 #include "Handlers.h"
 #include "Types.h"
 #include <rct/EventLoop.h>
+#include <rct/Message.h>
+#include <rct/Messages.h>
+#include <rct/Connection.h>
+#include <rct/SocketClient.h>
 #include <rct/Rct.h>
 #include <rct/Log.h>
 #include <xcb/xcb_atom.h>
@@ -13,10 +17,19 @@
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-x11.h>
 #include <getopt.h>
+#include <signal.h>
 // Really XCB?? This is awful, awful!
 #define explicit _explicit
 #include <xcb/xkb.h>
 #undef explicit
+
+Path crashHandlerSocketPath;
+
+static void crashHandler(int)
+{
+    Path::rm(crashHandlerSocketPath);
+    _exit(666);
+}
 
 typedef union {
     /* All XKB events share these fields. */
@@ -46,11 +59,28 @@ static inline void handleXkb(_xkb_event* event)
     }
 }
 
-WindowManager::SharedPtr WindowManager::sInstance;
+class JavascriptMessage : public Message
+{
+public:
+    enum { MessageId = 100 };
+    JavascriptMessage(const List<String> &scripts = List<String>())
+        : Message(MessageId), mScripts(scripts)
+    {}
+
+    List<String> scripts() const { return mScripts; }
+
+    virtual void encode(Serializer &serializer) const { serializer << mScripts; }
+    virtual void decode(Deserializer &deserializer) { deserializer >> mScripts; }
+private:
+    List<String> mScripts;
+};
+
+WindowManager *WindowManager::sInstance;
 
 WindowManager::WindowManager()
     : mConn(0), mEwmhConn(0), mScreen(0), mScreenNo(0), mXkbEvent(0), mSyms(0), mTimestamp(XCB_CURRENT_TIME)
 {
+    Messages::registerMessage<JavascriptMessage>();
     memset(&mXkb, '\0', sizeof(mXkb));
 }
 
@@ -65,12 +95,19 @@ static inline void usage(FILE *out)
             "  -c|--config [file]          Use this config file instead of ~/.config/nwm.js\n"
             "  -N|--no-system-config       Don't load /etc/xdg/nwm.js\n"
             "  -d|--display [display]      Use this display\n"
+            "  -s|--socket-path [path]     Unix socket path (default ~/.nwm.sock)\n"
+            "  -j|--javascript [code]      Evaluate javascript remotely\n"
+            "  -J|--javascript-file [file] Evaluate javascript remotely from file\n"
+            "  -t|--connect-timeout [ms]   Max time to wait for connection\n"
             "  -n|--no-user-config         Don't load ~/.config/nwm.js\n");
 }
 
 bool WindowManager::init(int &argc, char **argv)
 {
-    sInstance = shared_from_this();
+    signal(SIGSEGV, crashHandler);
+    signal(SIGABRT, crashHandler);
+    signal(SIGBUS, crashHandler);
+    sInstance = this;
     struct option opts[] = {
         { "help", no_argument, 0, 'h' },
         { "verbose", no_argument, 0, 'b' },
@@ -80,6 +117,10 @@ bool WindowManager::init(int &argc, char **argv)
         { "silent", no_argument, 0, 'S' },
         { "logfile", required_argument, 0, 'l' },
         { "display", required_argument, 0, 'd' },
+        { "socket-path", required_argument, 0, 's' },
+        { "javascript", required_argument, 0, 'j' },
+        { "javascript-file", required_argument, 0, 'J' },
+        { "connect-timeout", required_argument, 0, 't' },
         { 0, no_argument, 0, 0 }
     };
 
@@ -91,6 +132,9 @@ bool WindowManager::init(int &argc, char **argv)
     int logLevel = 0;
     char *logFile = 0;
     char *display = 0;
+    Path socketPath = Path::home() + ".nwm.sock";
+    List<String> scripts;
+    int connectTimeout = 0;
 
     while (true) {
         const int c = getopt_long(argc, argv, shortOptions.constData(), opts, 0);
@@ -100,6 +144,28 @@ bool WindowManager::init(int &argc, char **argv)
         case 'h':
             usage(stdout);
             exit(0);
+        case 't': {
+            bool ok;
+            connectTimeout = String(optarg).toLong(&ok);
+            if (!ok || connectTimeout < 0) {
+                fprintf(stderr, "%s is not a valid positive integer", optarg);
+                return false;
+            }
+            break; }
+        case 's':
+            socketPath = optarg;
+            break;
+        case 'J': {
+            const Path file(optarg);
+            if (!file.isFile()) {
+                fprintf(stderr, "%s doesn't seem to be a file\n", optarg);
+                return false;
+            }
+            scripts.append(file.readAll());
+            break; }
+        case 'j': {
+            scripts.append(optarg);
+            break; }
         case 'n':
             userConfig = false;
             break;
@@ -132,6 +198,7 @@ bool WindowManager::init(int &argc, char **argv)
             break;
         }
     }
+
     if (!initLogging(argv[0], LogStderr, logLevel, logFile, 0)) {
         fprintf(stderr, "Can't initialize logging\n");
         return false;
@@ -152,38 +219,129 @@ bool WindowManager::init(int &argc, char **argv)
         return false;
     }
 
-    if (!install()) {
-        error() << "Unable to install nwm. Another window manager already running?";
+    assert(!mDisplay.isEmpty());
+    mConn = xcb_connect(mDisplay.constData(), &mScreenNo);
+    if (!mConn || xcb_connection_has_error(mConn)) {
+        return false;
+    }
+    mEwmhConn = new xcb_ewmh_connection_t;
+    xcb_intern_atom_cookie_t* ewmhCookies = xcb_ewmh_init_atoms(mConn, mEwmhConn);
+    if (!ewmhCookies) {
+        error() << "unable to init ewmh";
+        xcb_disconnect(mConn);
+        mConn = 0;
+        delete mEwmhConn;
+        mEwmhConn = 0;
+        return false;
+    }
+    if (!xcb_ewmh_init_atoms_replies(mEwmhConn, ewmhCookies, 0)) {
+        error() << "unable to get ewmh reply";
+        xcb_disconnect(mConn);
+        mConn = 0;
+        delete mEwmhConn;
+        mEwmhConn = 0;
         return false;
     }
 
-    mJS.init();
-    for (int i=configFiles.size() - 1; i>=0; --i) {
-        const String contents = configFiles[i].readAll();
-        if (!contents.isEmpty()) {
+    mScreen = xcb_aux_get_screen(mConn, mScreenNo);
+
+    if (!isRunning()) {
+        if (!install()) {
+            error() << "Unable to install nwm. Another window manager already running?";
+            return false;
+        }
+        ::crashHandlerSocketPath = socketPath;
+
+        mJS.init();
+        for (int i=configFiles.size() - 1; i>=0; --i) {
+            const String contents = configFiles[i].readAll();
+            if (!contents.isEmpty()) {
+                String err;
+                mJS.evaluate(contents, configFiles[i], &err);
+                if (!err.isEmpty()) {
+                    error() << err;
+                    return false;
+                }
+            }
+        }
+
+        if (mWorkspaces.isEmpty()) {
+            error() << "No workspaces";
+            return false;
+        }
+
+        assert(mWorkspaces.size() > 0);
+        for (int w = 0; w < mWorkspaces.size(); ++w) {
+            mWorkspaces[w] = std::make_shared<Workspace>(mRect);
+        }
+        mWorkspaces[0]->activate();
+
+        if (!manage()) {
+            error() << "Unable to manage existing windows";
+            return false;
+        }
+        for (const auto &script : scripts) {
             String err;
-            mJS.evaluate(contents, configFiles[i], &err);
+            mJS.evaluate(script, "<message>", &err);
             if (!err.isEmpty()) {
-                error() << err;
+                error("Javascript error: %s", err.constData());
                 return false;
             }
         }
-    }
+        mServer.newConnection().connect([this](SocketServer *server) {
+                SocketClient::SharedPtr client;
+                while ((client = server->nextConnection())) {
+                    Connection *conn = new Connection(client);
+                    conn->newMessage().connect([this](Message *msg, Connection *c) {
+                            if (msg->messageId() != JavascriptMessage::MessageId) {
+                                c->write<128>("Invalid message id: %d", msg->messageId());
+                                c->finish();
+                                return;
+                            }
+                            const List<String> scripts = static_cast<JavascriptMessage*>(msg)->scripts();
+                            for (const auto &script : scripts) {
+                                String error;
+                                const Value ret = mJS.evaluate(script, "<message>", &error);
+                                if (!error.isEmpty()) {
+                                    c->write<128>("Javascript error: %s", error.constData());
+                                } else {
+                                    c->write<128>("%s", ret.toJSON(true).constData());
+                                }
+                            }
+                            c->finish();
+                        });
 
-    if (mWorkspaces.isEmpty()) {
-        error() << "No workspaces";
+                    conn->disconnected().connect([](Connection *c) {
+                            c->disconnected().disconnect();
+                            EventLoop::deleteLater(c);
+                        });
+                }
+            });
+        mServer.listen(socketPath);
+        return true;
+    } else if (scripts.isEmpty()) {
+        error() << "nwm is already running on display" << mDisplay;
         return false;
-    }
-
-    assert(mWorkspaces.size() > 0);
-    for (int w = 0; w < mWorkspaces.size(); ++w) {
-        mWorkspaces[w] = std::make_shared<Workspace>(mRect);
-    }
-    mWorkspaces[0]->activate();
-
-    if (!manage()) {
-        error() << "Unable to manage existing windows";
-        return false;
+    } else {
+        Connection *connection = new Connection;
+        connection->newMessage().connect([](Message *msg, Connection *c) {
+                if (msg->messageId() != Message::ResponseId) {
+                    error() << "Invalid message" << msg->messageId();
+                    c->close();
+                    EventLoop::eventLoop()->quit();
+                    return;
+                }
+                printf("%s\n", static_cast<ResponseMessage*>(msg)->data().constData());
+            });
+        connection->finished().connect([](Connection *, int){ EventLoop::eventLoop()->quit(); });
+        connection->disconnected().connect([](Connection *){ EventLoop::eventLoop()->quit(); });
+        if (!connection->connectUnix(socketPath, connectTimeout)) {
+            delete connection;
+            error("Can't seem to connect to server");
+            return false;
+        }
+        connection->send(JavascriptMessage(scripts));
+        return true;
     }
 
     return true;
@@ -191,6 +349,8 @@ bool WindowManager::init(int &argc, char **argv)
 
 WindowManager::~WindowManager()
 {
+    assert(sInstance == this);
+    sInstance = 0;
     if (mXkb.ctx) {
         xkb_state_unref(mXkb.state);
         xkb_keymap_unref(mXkb.keymap);
@@ -229,7 +389,6 @@ bool WindowManager::manage()
     if (err) {
         LOG_ERROR(err, "Unable to query window tree");
         free(err);
-        sInstance.reset();
         return false;
     }
     xcb_window_t* clients = xcb_query_tree_children(treeReply);
@@ -269,34 +428,6 @@ bool WindowManager::manage()
 
 bool WindowManager::install()
 {
-    assert(!mDisplay.isEmpty());
-    mConn = xcb_connect(mDisplay.constData(), &mScreenNo);
-    if (!mConn || xcb_connection_has_error(mConn)) {
-        sInstance.reset();
-        return false;
-    }
-    mEwmhConn = new xcb_ewmh_connection_t;
-    xcb_intern_atom_cookie_t* ewmhCookies = xcb_ewmh_init_atoms(mConn, mEwmhConn);
-    if (!ewmhCookies) {
-        error() << "unable to init ewmh";
-        sInstance.reset();
-        xcb_disconnect(mConn);
-        mConn = 0;
-        delete mEwmhConn;
-        mEwmhConn = 0;
-        return false;
-    }
-    if (!xcb_ewmh_init_atoms_replies(mEwmhConn, ewmhCookies, 0)) {
-        error() << "unable to get ewmh reply";
-        sInstance.reset();
-        xcb_disconnect(mConn);
-        mConn = 0;
-        delete mEwmhConn;
-        mEwmhConn = 0;
-        return false;
-    }
-
-    mScreen = xcb_aux_get_screen(mConn, mScreenNo);
     mRect = Rect({ 0, 0, mScreen->width_in_pixels, mScreen->height_in_pixels });
 
     Atoms::setup(mConn);
@@ -314,7 +445,6 @@ bool WindowManager::install()
         if (err) {
             LOG_ERROR(err, "Unable to change window attributes 1");
             free(err);
-            sInstance.reset();
             return false;
         }
     }
@@ -330,27 +460,23 @@ bool WindowManager::install()
                                                     0, 0, 0, 0);
         if (!ret) {
             error() << "Unable to setup XKB extension";
-            sInstance.reset();
             return false;
         }
         xkb_context* ctx = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
         if (!ctx) {
             error() << "Unable to create new xkb_context";
-            sInstance.reset();
             return false;
         }
         const int32_t deviceId = xkb_x11_get_core_keyboard_device_id(mConn);
         if (deviceId == -1) {
             error() << "Unable to get device id from core keyboard device";
             xkb_context_unref(ctx);
-            sInstance.reset();
             return false;
         }
         xkb_keymap* keymap = xkb_x11_keymap_new_from_device(ctx, mConn, deviceId, XKB_KEYMAP_COMPILE_NO_FLAGS);
         if (!keymap) {
             error() << "Unable to get keymap from device";
             xkb_context_unref(ctx);
-            sInstance.reset();
             return false;
         }
         xkb_state* state = xkb_x11_state_new_from_device(keymap, mConn, deviceId);
@@ -358,7 +484,6 @@ bool WindowManager::install()
             error() << "Unable to get state from keymap/device";
             xkb_keymap_unref(keymap);
             xkb_context_unref(ctx);
-            sInstance.reset();
             return false;
         }
 
@@ -368,7 +493,6 @@ bool WindowManager::install()
             xkb_state_unref(state);
             xkb_keymap_unref(keymap);
             xkb_context_unref(ctx);
-            sInstance.reset();
             return false;
         }
 
@@ -394,7 +518,6 @@ bool WindowManager::install()
             xkb_state_unref(state);
             xkb_keymap_unref(keymap);
             xkb_context_unref(ctx);
-            sInstance.reset();
             return false;
         }
 
@@ -410,7 +533,6 @@ bool WindowManager::install()
     if (err) {
         LOG_ERROR(err, "Unable to change window attributes 2");
         free(err);
-        sInstance.reset();
         return false;
     }
 
@@ -468,9 +590,11 @@ bool WindowManager::install()
     if (err) {
         LOG_ERROR(err, "Unable to change _NET_SUPPORTED property on root window");
         free(err);
-        sInstance.reset();
         return false;
     }
+
+    xcb_ewmh_set_wm_pid(mEwmhConn, mScreen->root, getpid());
+    xcb_flush(mConn);
 
     // Get events
     xcb_connection_t* conn = mConn;
@@ -558,10 +682,14 @@ bool WindowManager::install()
     return true;
 }
 
-void WindowManager::release()
+bool WindowManager::isRunning()
 {
-    Client::clear();
-    sInstance.reset();
+    xcb_get_property_cookie_t cookie = xcb_ewmh_get_wm_pid(mEwmhConn, mScreen->root);
+    uint32_t pid;
+    if (!xcb_ewmh_get_wm_pid_reply(mEwmhConn, cookie, &pid, 0))
+        return false;
+
+    return !kill(pid, 0);
 }
 
 String WindowManager::keycodeToString(xcb_keycode_t code)

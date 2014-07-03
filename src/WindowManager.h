@@ -12,6 +12,7 @@
 #include <xcb/xcb_keysyms.h>
 #include <xcb/xcb_ewmh.h>
 #include <stdlib.h>
+#include <rct/SocketServer.h>
 
 struct xkb_context;
 struct xkb_keymap;
@@ -34,8 +35,7 @@ public:
 
     String displayString() const { return mDisplay; }
 
-    static SharedPtr instance() { return sInstance; }
-    static void release();
+    static SharedPtr instance() { return sInstance ? sInstance->shared_from_this() : SharedPtr(); }
 
     void updateTimestamp(xcb_timestamp_t timestamp) { mTimestamp = timestamp; }
     xcb_timestamp_t timestamp() const { return mTimestamp; }
@@ -66,6 +66,7 @@ public:
     JavaScript& js() { return mJS; }
 private:
     bool install();
+    bool isRunning();
     bool manage();
     void rebindKeys();
 
@@ -91,7 +92,9 @@ private:
     Rect mRect;
     JavaScript mJS;
 
-    static SharedPtr sInstance;
+    SocketServer mServer;
+
+    static WindowManager *sInstance;
 };
 
 class FreeScope

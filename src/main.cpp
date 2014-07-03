@@ -14,10 +14,8 @@ int main(int argc, char** argv)
     loop->exec();
 
     if (manager) {
-        WindowManager::release();
         manager.reset();
     }
     cleanupLogging();
-    error() << "nwm done.";
     return 0;
 }

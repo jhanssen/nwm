@@ -36,48 +36,50 @@ static void setupAtoms(Atom (&atoms)[Count], xcb_connection_t* conn)
 
 namespace Atoms
 {
-xcb_atom_t UTF8_STRING;
 xcb_atom_t COMPOUND_TEXT;
-xcb_atom_t WM_PROTOCOLS;
+xcb_atom_t ESETROOT_PMAP_ID;
+xcb_atom_t MANAGER;
+xcb_atom_t UTF8_STRING;
+xcb_atom_t WM_CHANGE_STATE;
+xcb_atom_t WM_CLIENT_LEADER;
 xcb_atom_t WM_DELETE_WINDOW;
+xcb_atom_t WM_PROTOCOLS;
+xcb_atom_t WM_STATE;
+xcb_atom_t WM_TAKE_FOCUS;
+xcb_atom_t WM_WINDOW_ROLE;
+xcb_atom_t XSEL_DATA;
+xcb_atom_t _KDE_NET_WM_SYSTEM_TRAY_WINDOW_FOR;
+xcb_atom_t _NET_SYSTEM_TRAY_OPCODE;
+xcb_atom_t _NET_SYSTEM_TRAY_ORIENTATION;
+xcb_atom_t _NET_WM_WINDOW_OPACITY;
+xcb_atom_t _NWM_PID;
 xcb_atom_t _XEMBED;
 xcb_atom_t _XEMBED_INFO;
-xcb_atom_t _NET_SYSTEM_TRAY_OPCODE;
-xcb_atom_t _KDE_NET_WM_SYSTEM_TRAY_WINDOW_FOR;
-xcb_atom_t MANAGER;
 xcb_atom_t _XROOTPMAP_ID;
-xcb_atom_t ESETROOT_PMAP_ID;
-xcb_atom_t WM_STATE;
-xcb_atom_t _NET_WM_WINDOW_OPACITY;
-xcb_atom_t _NET_SYSTEM_TRAY_ORIENTATION;
-xcb_atom_t WM_CHANGE_STATE;
-xcb_atom_t WM_WINDOW_ROLE;
-xcb_atom_t WM_CLIENT_LEADER;
-xcb_atom_t XSEL_DATA;
-xcb_atom_t WM_TAKE_FOCUS;
 
 bool setup(xcb_connection_t* conn)
 {
     Atom atoms[] = {
-        { "UTF8_STRING", UTF8_STRING },
         { "COMPOUND_TEXT", COMPOUND_TEXT },
-        { "WM_PROTOCOLS", WM_PROTOCOLS },
+        { "ESETROOT_PMAP_ID", ESETROOT_PMAP_ID },
+        { "MANAGER", MANAGER },
+        { "UTF8_STRING", UTF8_STRING },
+        { "WM_CHANGE_STATE", WM_CHANGE_STATE },
+        { "WM_CLIENT_LEADER", WM_CLIENT_LEADER },
         { "WM_DELETE_WINDOW", WM_DELETE_WINDOW },
+        { "WM_PROTOCOLS", WM_PROTOCOLS },
+        { "WM_STATE", WM_STATE },
+        { "WM_TAKE_FOCUS", WM_TAKE_FOCUS },
+        { "WM_WINDOW_ROLE", WM_WINDOW_ROLE },
+        { "XSEL_DATA", XSEL_DATA },
+        { "_KDE_NET_WM_SYSTEM_TRAY_WINDOW_FOR", _KDE_NET_WM_SYSTEM_TRAY_WINDOW_FOR },
+        { "_NWM_PID", _NWM_PID },
+        { "_NET_SYSTEM_TRAY_OPCODE", _NET_SYSTEM_TRAY_OPCODE },
+        { "_NET_SYSTEM_TRAY_ORIENTATION", _NET_SYSTEM_TRAY_ORIENTATION },
+        { "_NET_WM_WINDOW_OPACITY", _NET_WM_WINDOW_OPACITY },
         { "_XEMBED", _XEMBED },
         { "_XEMBED_INFO", _XEMBED_INFO },
-        { "_NET_SYSTEM_TRAY_OPCODE", _NET_SYSTEM_TRAY_OPCODE },
-        { "_KDE_NET_WM_SYSTEM_TRAY_WINDOW_FOR", _KDE_NET_WM_SYSTEM_TRAY_WINDOW_FOR },
-        { "MANAGER", MANAGER },
-        { "_XROOTPMAP_ID", _XROOTPMAP_ID },
-        { "ESETROOT_PMAP_ID", ESETROOT_PMAP_ID },
-        { "WM_STATE", WM_STATE },
-        { "_NET_WM_WINDOW_OPACITY", _NET_WM_WINDOW_OPACITY },
-        { "_NET_SYSTEM_TRAY_ORIENTATION", _NET_SYSTEM_TRAY_ORIENTATION },
-        { "WM_CHANGE_STATE", WM_CHANGE_STATE },
-        { "WM_WINDOW_ROLE", WM_WINDOW_ROLE },
-        { "WM_CLIENT_LEADER", WM_CLIENT_LEADER },
-        { "XSEL_DATA", XSEL_DATA },
-        { "WM_TAKE_FOCUS", WM_TAKE_FOCUS }
+        { "_XROOTPMAP_ID", _XROOTPMAP_ID }
     };
     setupAtoms(atoms, conn);
     return true;
