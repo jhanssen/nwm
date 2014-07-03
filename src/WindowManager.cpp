@@ -175,26 +175,6 @@ bool WindowManager::init(int &argc, char **argv)
         return false;
     }
 
-    // for (unsigned int i = 0; i < cfg_size(cfg, "keybind"); ++i) {
-    //     keybind = cfg_getnsec(cfg, "keybind", i);
-    //     const List<String> cmd = readStringList(keybind, "command");
-    //     const char* exec = cfg_getstr(keybind, "exec");
-    //     const char* js = cfg_getstr(keybind, "javascript");
-    //     if (cmd.isEmpty() && !exec && !js) {
-    //         error() << "no command, exec or javascript for" << cfg_title(keybind);
-    //         continue;
-    //     }
-
-    //     Keybinding keybinding(cfg_title(keybind), cmd, exec, js);
-    //     if (!keybinding.isValid()) {
-    //         error() << "keybind not valid" << cfg_title(keybind);
-    //         continue;
-    //     }
-    //     manager->addKeybinding(keybinding);
-    // }
-
-    // Commands::initBuiltins();
-
     return true;
 }
 

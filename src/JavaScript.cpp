@@ -1,5 +1,6 @@
 #include "JavaScript.h"
 #include "Util.h"
+#include "Keybinding.h"
 #include "WindowManager.h"
 #include <rct/Log.h>
 
@@ -31,7 +32,6 @@ void JavaScript::init()
     auto global = globalObject();
 
     // --------------- console ---------------
-
     auto console = global->child("console");
     console->registerFunction("log", [](const List<Value>& args) -> Value {
             if (args.isEmpty()) {
@@ -49,7 +49,6 @@ void JavaScript::init()
         });
 
     // --------------- nwm ---------------
-
     auto nwm = global->child("nwm");
     nwm->registerFunction("exec", [](const List<Value>& args) -> Value {
             if (args.size() != 1) {
@@ -65,9 +64,7 @@ void JavaScript::init()
         });
 
     // --------------- nwm.workspace ---------------
-
     auto workspace = nwm->child("workspace");
-
     workspace->registerProperty("count",
                                 []() -> Value { return WindowManager::instance()->workspaces().size(); },
                                 [](const Value &value) {
@@ -77,8 +74,6 @@ void JavaScript::init()
                                     }
                                     WindowManager::instance()->setWorkspaceCount(count);
                                 });
-
-
     workspace->registerFunction("moveTo", [](const List<Value>& args) -> Value {
             if (args.isEmpty())
                 return Value();
@@ -94,7 +89,6 @@ void JavaScript::init()
             dst->addClient(client);
             return Value();
         });
-
     workspace->registerFunction("select", [](const List<Value>& args) -> Value{
             if (args.isEmpty())
                 return Value();
@@ -107,9 +101,7 @@ void JavaScript::init()
         });
 
     // --------------- nwm.layout ---------------
-
     auto layout = nwm->child("layout");
-
     layout->registerFunction("toggleOrientation", [](const List<Value>&) -> Value {
             Layout::SharedPtr parent = parentOfFocus();
             if (!parent)
@@ -126,7 +118,6 @@ void JavaScript::init()
             parent->dump();
             return Value();
         });
-
     layout->registerFunction("adjust", [](const List<Value>& args) -> Value {
             Layout::SharedPtr parent = parentOfFocus();
             if (!parent)
@@ -135,7 +126,6 @@ void JavaScript::init()
             parent->adjust(adjust);
             return Value();
         });
-
     layout->registerFunction("adjustLeft", [](const List<Value>&) -> Value {
             Layout::SharedPtr parent = parentOfFocus();
             if (!parent)
@@ -143,7 +133,6 @@ void JavaScript::init()
             parent->adjust(-10);
             return Value();
         });
-
     layout->registerFunction("adjustRight", [](const List<Value>&) -> Value {
             Layout::SharedPtr parent = parentOfFocus();
             if (!parent)
@@ -153,14 +142,22 @@ void JavaScript::init()
         });
 
     // --------------- nwm.kbd ---------------
-
     auto kbd = nwm->child("kbd");
-
     kbd->registerFunction("set", [](const List<Value> &args) -> Value {
-            if (args.size() != 2) {
-
-            }
-
+            if (args.size() != 2)
+                return ScriptEngine::instance()->throwException("Invalid number of arguments to kbd.set, 2 required");
+            const Value& key = args.at(0);
+            const Value& func = args.at(1);
+            if (key.type() != Value::Type_String)
+                return ScriptEngine::instance()->throwException("Invalid first argument to kbd set, needs to be a string");
+            if (func.type() != Value::Type_Custom)
+                return ScriptEngine::instance()->throwException("Invalid first argument to kbd set, needs to be a JS function");
+            Keybinding binding(key.toString(), func);
+            if (!binding.isValid())
+                return ScriptEngine::instance()->throwException(String::format<64>("Couldn't parse keybind for %s",
+                                                                                   key.toString().constData()));
+            WindowManager::instance()->addKeybinding(binding);
+            return Value();
         });
 }
 

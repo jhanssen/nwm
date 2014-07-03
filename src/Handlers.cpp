@@ -1,7 +1,6 @@
 #include "Handlers.h"
 #include "Atoms.h"
 #include "Client.h"
-#include "Commands.h"
 #include "Util.h"
 #include "WindowManager.h"
 #include <xkbcommon/xkbcommon.h>
@@ -129,22 +128,12 @@ void handleKeyPress(const xcb_key_press_event_t* event)
         error() << "no keybind for" << sym << buf;
         return;
     }
-    const String& js = binding->js();
-    if (!js.isEmpty()) {
-        wm->js().evaluate(js);
-    }
-    const String& exec = binding->exec();
-    if (!exec.isEmpty()) {
-        error() << "launching" << exec;
-        Util::launch(exec, wm->displayString());
-    } else {
-        error() << "no exec" << sym;
-    }
-    List<String> cmdArgs = binding->command();
-    if (!cmdArgs.isEmpty()) {
-        const String cmd = cmdArgs.takeFirst();
-        error() << "execing" << cmd << cmdArgs;
-        Commands::exec(cmd, cmdArgs);
+    const Value& func = binding->function();
+    if (func.type() == Value::Type_Custom) {
+        JavaScript& engine = wm->js();
+        std::shared_ptr<ScriptEngine::Object> obj = engine.toObject(func);
+        assert(obj);
+        obj->call();
     }
 }
 

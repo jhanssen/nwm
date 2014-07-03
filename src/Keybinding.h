@@ -3,6 +3,7 @@
 
 #include <rct/String.h>
 #include <rct/List.h>
+#include <rct/Value.h>
 #include <xcb/xcb.h>
 #include <xcb/xcb_keysyms.h>
 
@@ -13,7 +14,7 @@ class Keybinding
 {
 public:
     Keybinding() { };
-    Keybinding(const String& key, const List<String>& cmd, const String& exec, const String& js);
+    Keybinding(const String& key, const Value& func);
 
     bool isValid() const { return !mSeq.empty(); };
     void recreate();
@@ -27,9 +28,7 @@ public:
         void recreate(xcb_key_symbols_t* syms);
     };
     const List<Sequence>& sequence() const { return mSeq; }
-    List<String> command() const { return mCmd; }
-    String exec() const { return mExec; }
-    String js() const { return mJS; }
+    const Value& function() const { return mFunc; }
 
     void rebind(xcb_connection_t* conn, xcb_window_t win) const;
 
@@ -39,8 +38,7 @@ private:
 
 private:
     List<Sequence> mSeq;
-    List<String> mCmd;
-    String mExec, mJS;
+    Value mFunc;
 };
 
 inline void Keybinding::rebind(xcb_connection_t* conn, xcb_window_t win) const
