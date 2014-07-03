@@ -30,7 +30,6 @@ public:
 
     bool init(int &argc, char **argv);
 
-    bool install(const String& display = String());
     void addKeybinding(const Keybinding& binding);
 
     String displayString() const { return mDisplay; }
@@ -59,13 +58,14 @@ public:
     const Keybinding* lookupKeybinding(xkb_keysym_t sym, uint16_t mods);
 
     const List<Workspace::SharedPtr>& workspaces() const { return mWorkspaces; }
+    void setWorkspaceCount(int count);
 
     const Rect& rect() const { return mRect; }
     void setRect(const Rect& rect);
 
     JavaScript& js() { return mJS; }
-
 private:
+    bool install();
     void rebindKeys();
 
 private:

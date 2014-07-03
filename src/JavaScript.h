@@ -11,6 +11,7 @@ public:
     JavaScript();
     ~JavaScript();
 
+    void init();
     Value evaluateFile(const Path &path, String *error);
 };
 

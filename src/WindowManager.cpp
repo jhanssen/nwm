@@ -62,13 +62,15 @@ static inline void usage(FILE *out)
             "  -v|--verbose                Be more verbose\n"
             "  -S|--silent                 Don't log\n"
             "  -l|--logfile [file]         Log to this file\n"
-            "  -c|--config [file]          Use this config file instead of ~/.config/nwmrc.js\n"
-            "  -N|--no-system-config       Don't load /etc/xdg/nwmrc.js\n"
-            "  -n|--no-user-config         Don't load ~/.config/nwmrc.js\n");
+            "  -c|--config [file]          Use this config file instead of ~/.config/nwm.js\n"
+            "  -N|--no-system-config       Don't load /etc/xdg/nwm.js\n"
+            "  -d|--display [display]      Use this display\n"
+            "  -n|--no-user-config         Don't load ~/.config/nwm.js\n");
 }
 
 bool WindowManager::init(int &argc, char **argv)
 {
+    sInstance = shared_from_this();
     struct option opts[] = {
         { "help", no_argument, 0, 'h' },
         { "verbose", no_argument, 0, 'b' },
@@ -77,6 +79,7 @@ bool WindowManager::init(int &argc, char **argv)
         { "no-user-config", no_argument, 0, 'n' },
         { "silent", no_argument, 0, 'S' },
         { "logfile", required_argument, 0, 'l' },
+        { "display", required_argument, 0, 'd' },
         { 0, no_argument, 0, 0 }
     };
 
@@ -87,6 +90,7 @@ bool WindowManager::init(int &argc, char **argv)
     bool userConfig = true;
     int logLevel = 0;
     char *logFile = 0;
+    char *display = 0;
 
     while (true) {
         const int c = getopt_long(argc, argv, shortOptions.constData(), opts, 0);
@@ -101,6 +105,9 @@ bool WindowManager::init(int &argc, char **argv)
             break;
         case 'S':
             logLevel = -1;
+            break;
+        case 'd':
+            display = optarg;
             break;
         case 'v':
             if (logLevel >= 0)
@@ -131,10 +138,11 @@ bool WindowManager::init(int &argc, char **argv)
     }
 
     if (userConfig)
-        configFiles << Path::home() + ".config/nwmrc.js";
+        configFiles << Path::home() + ".config/nwm.js";
     if (systemConfig)
-        configFiles << "/etc/xdg/nwmrc.js";
+        configFiles << "/etc/xdg/nwm.js";
 
+    mJS.init();
     for (int i=configFiles.size() - 1; i>=0; --i) {
         const String contents = configFiles[i].readAll();
         if (!contents.isEmpty()) {
@@ -147,12 +155,25 @@ bool WindowManager::init(int &argc, char **argv)
         }
     }
 
-    // const int workspaces = cfg_getint(cfg, "workspaces");
-    // manager = std::make_shared<WindowManager>(workspaces);
-    // if (!manager->install(argc > 1 ? argv[1] : 0)) {
-    //     error() << "Unable to install nwm. Another window manager already running?";
-    //     return 2;
-    // }
+    if (display) {
+        mDisplay = display;
+    } else if (mDisplay.isEmpty()) {
+        mDisplay = getenv("DISPLAY");
+    }
+    if (mDisplay.isEmpty()) {
+        error() << "No display set";
+        return false;
+    }
+
+    if (mWorkspaces.isEmpty()) {
+        error() << "No workspace";
+        return false;
+    }
+
+    if (!install()) {
+        error() << "Unable to install nwm. Another window manager already running?";
+        return false;
+    }
 
     // for (unsigned int i = 0; i < cfg_size(cfg, "keybind"); ++i) {
     //     keybind = cfg_getnsec(cfg, "keybind", i);
@@ -174,10 +195,6 @@ bool WindowManager::init(int &argc, char **argv)
 
     // Commands::initBuiltins();
 
-    auto workspaces = 1;
-
-    assert(workspaces > 0);
-    mWorkspaces.resize(workspaces);
     return true;
 }
 
@@ -211,12 +228,10 @@ WindowManager::~WindowManager()
     }
 }
 
-bool WindowManager::install(const String& display)
+bool WindowManager::install()
 {
-    sInstance = shared_from_this();
-    mDisplay = display;
-
-    mConn = xcb_connect(display.constData(), &mScreenNo);
+    assert(!mDisplay.isEmpty());
+    mConn = xcb_connect(mDisplay.constData(), &mScreenNo);
     if (!mConn || xcb_connection_has_error(mConn)) {
         sInstance.reset();
         return false;
@@ -649,4 +664,11 @@ void WindowManager::setRect(const Rect& rect)
     for (const Workspace::SharedPtr& ws : mWorkspaces) {
         ws->setRect(rect);
     }
+}
+
+void WindowManager::setWorkspaceCount(int count)
+{
+    assert(mWorkspaces.isEmpty());
+    assert(!mConn);
+    mWorkspaces.resize(count);
 }
