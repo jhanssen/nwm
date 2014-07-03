@@ -96,31 +96,11 @@ void handleFocusIn(const xcb_focus_in_event_t* event)
 
 void handleKeyPress(const xcb_key_press_event_t* event)
 {
-    /*
-    const char* mods[] = {
-        "Shift", "Lock", "Ctrl", "Alt",
-        "Mod2", "Mod3", "Mod4", "Mod5",
-        "Button1", "Button2", "Button3", "Button4", "Button5"
-    };
-
-    uint32_t mask = event->state;
-    List<String> modifiers;
-    for (const char **mod = mods; mask; mask >>= 1, ++mod) {
-        if (mask & 1) {
-            modifiers.append(*mod);
-        }
-    }
-
-    const String key = WindowManager::instance()->keycodeToString(event->detail);
-    error() << "got key" << String::join(modifiers, "-") << key;
-    error() << "sym" << WindowManager::instance()->keycodeToKeysym(event->detail);
-    */
     WindowManager::SharedPtr wm = WindowManager::instance();
     wm->updateTimestamp(event->time);
     //const int col = (event->state & XCB_MOD_MASK_SHIFT);
     const int col = 0;
     const xcb_keysym_t sym = xcb_key_press_lookup_keysym(wm->keySymbols(), const_cast<xcb_key_press_event_t*>(event), col);
-    //const xkb_keysym_t sym = wm->keycodeToKeysym(event->detail);
     const Keybinding* binding = wm->lookupKeybinding(sym, event->state);
     if (!binding) {
         char buf[256];
@@ -129,12 +109,15 @@ void handleKeyPress(const xcb_key_press_event_t* event)
         return;
     }
     const Value& func = binding->function();
-    if (func.type() == Value::Type_Custom) {
-        JavaScript& engine = wm->js();
-        std::shared_ptr<ScriptEngine::Object> obj = engine.toObject(func);
-        assert(obj);
-        obj->call();
+    assert(func.type() == Value::Type_Custom);
+    JavaScript& engine = wm->js();
+    std::shared_ptr<ScriptEngine::Object> obj = engine.toObject(func);
+    if (!obj) {
+        error() << "couldn't get object for key bind" << wm->keycodeToString(event->detail);
+        return;
     }
+    assert(obj);
+    obj->call();
 }
 
 void handleMappingNotify(const xcb_mapping_notify_event_t* event)
