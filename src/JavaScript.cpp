@@ -3,6 +3,7 @@
 #include "Keybinding.h"
 #include "WindowManager.h"
 #include <rct/Log.h>
+#include <rct/Process.h>
 
 JavaScript::JavaScript()
     : ScriptEngine()
@@ -66,17 +67,54 @@ void JavaScript::init()
 
     // --------------- nwm ---------------
     auto nwm = global->child("nwm");
-    nwm->registerFunction("exec", [](const List<Value>& args) -> Value {
+    nwm->registerFunction("launch", [](const List<Value>& args) -> Value {
             if (args.size() != 1) {
-                return ScriptEngine::instance()->throwException("Invalid number of arguments to exec, 1 required");
+                return ScriptEngine::instance()->throwException("Invalid number of arguments to launch, 1 required");
             }
             const Value& arg = args.front();
             if (arg.type() != Value::Type_String) {
-                return ScriptEngine::instance()->throwException("Argument to exec needs to be a string");
+                return ScriptEngine::instance()->throwException("Argument to launch needs to be a string");
             }
             WindowManager::SharedPtr wm = WindowManager::instance();
             Util::launch(arg.toString(), wm->displayString());
             return true;
+        });
+    nwm->registerFunction("exec", [](const List<Value>& args) -> Value {
+            if (args.size() < 1) {
+                return ScriptEngine::instance()->throwException("Invalid number of arguments to exec, at least 1 required");
+            }
+            const Value& arg = args.front();
+            if (arg.type() != Value::Type_String) {
+                return ScriptEngine::instance()->throwException("First argument to exec needs to be a string");
+            }
+            List<String> processArgs;
+            for (int i = 1; i < args.size(); ++i) {
+                if (args[i].type() != Value::Type_String) {
+                    return ScriptEngine::instance()->throwException("All arguments to exec needs to be a string");
+                }
+                processArgs.append(args[i].toString());
+            }
+            List<String> environ = Process::environment();
+            // remove "DISPLAY" if it's present
+            {
+                auto it = environ.begin();
+                const auto end = environ.cend();
+                while (it != end) {
+                    if (it->startsWith("DISPLAY=")) {
+                        environ.erase(it);
+                        break;
+                    }
+                    ++it;
+                }
+            }
+            // reinsert "DISPLAY"
+            environ.append("DISPLAY=" + WindowManager::instance()->displayString());
+
+            const Path path = arg.toString();
+            Process proc;
+            if (proc.exec(path, processArgs, environ) != Process::Done)
+                return ScriptEngine::instance()->throwException("exec failed for " + path);
+            return proc.readAllStdOut();
         });
 
     // --------------- nwm.workspace ---------------

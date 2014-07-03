@@ -1,7 +1,7 @@
 nwm.workspace.count = 4;
 var kbd = nwm.kbd;
 kbd.set("Ctrl-A", function() { console.log("test"); });
-kbd.set("Shift-A", function() { nwm.exec("xterm"); });
+kbd.set("Shift-A", function() { nwm.launch("xterm"); });
 
 kbd.set("Ctrl-Left", function() { nwm.layout.adjust(-20); });
 kbd.set("Ctrl-Right", function() { nwm.layout.adjust(20); });
@@ -14,3 +14,5 @@ kbd.set("Ctrl-3", function() { nwm.workspace.select(2); });
 kbd.set("Ctrl-Shift-3", function() { nwm.workspace.moveTo(2); });
 kbd.set("Ctrl-4", function() { nwm.workspace.select(3); });
 kbd.set("Ctrl-Shift-4", function() { nwm.workspace.moveTo(3); });
+
+console.log(nwm.exec("/bin/uname", "-a"));
