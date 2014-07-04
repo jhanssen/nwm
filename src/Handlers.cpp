@@ -102,14 +102,10 @@ void handleKeyPress(const xcb_key_press_event_t* event)
     const int col = 0;
     const xcb_keysym_t sym = xcb_key_press_lookup_keysym(wm->keySymbols(), const_cast<xcb_key_press_event_t*>(event), col);
     Keybindings& bindings = wm->bindings();
-    bindings.feed(sym, event->state);
-    const Keybinding* binding = bindings.current();
-    if (!binding) {
-        char buf[256];
-        xkb_keysym_get_name(sym, buf, sizeof(buf));
-        error() << "no keybind for" << sym << buf;
+    if (!bindings.feed(sym, event->state))
         return;
-    }
+    const Keybinding* binding = bindings.current();
+    assert(binding);
     const Value& func = binding->function();
     assert(func.type() == Value::Type_Custom);
     JavaScript& engine = wm->js();

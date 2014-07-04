@@ -3,6 +3,7 @@
 
 #include "Keybinding.h"
 #include <rct/List.h>
+#include <rct/Set.h>
 #include <memory>
 #include <xcb/xcb.h>
 
@@ -21,9 +22,14 @@ public:
     void rebind(xcb_window_t win);
 
 private:
-    List<Keybinding> mKeybindings;
-    xkb_keysym_t mCurSym;
-    uint16_t mCurMods;
+    void rebind(const Keybinding& binding, xcb_connection_t* conn, xcb_window_t win);
+
+private:
+    Set<Keybinding> mKeybindings;
+    Set<Keybinding::Sequence> mPrefixes;
+
+    Keybinding mFeed;
+    bool mGrabbed;
 };
 
 #endif

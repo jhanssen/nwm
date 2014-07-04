@@ -15,4 +15,9 @@ kbd.set("Ctrl-Shift-3", function() { nwm.workspace.moveTo(2); });
 kbd.set("Ctrl-4", function() { nwm.workspace.select(3); });
 kbd.set("Ctrl-Shift-4", function() { nwm.workspace.moveTo(3); });
 
+kbd.set("Insert A", function() { console.log("Got Insert A"); });
+kbd.set("Insert B", function() { console.log("Got Insert B"); });
+kbd.set("Insert C A", function() { console.log("Got Insert C A"); });
+kbd.set("Insert C D", function() { console.log("Got Insert C D"); });
+
 console.log(nwm.exec("/bin/uname", "-a"));
