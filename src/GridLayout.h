@@ -1,22 +1,22 @@
-#ifndef LAYOUT_H
-#define LAYOUT_H
+#ifndef GRIDLAYOUT_H
+#define GRIDLAYOUT_H
 
 #include <Rect.h>
 #include <rct/SignalSlot.h>
 #include <memory>
 #include <utility>
 
-class Layout : public std::enable_shared_from_this<Layout>
+class GridLayout : public std::enable_shared_from_this<GridLayout>
 {
 public:
-    typedef std::shared_ptr<Layout> SharedPtr;
-    typedef std::weak_ptr<Layout> WeakPtr;
+    typedef std::shared_ptr<GridLayout> SharedPtr;
+    typedef std::weak_ptr<GridLayout> WeakPtr;
 
     enum Direction { LeftRight, TopBottom };
 
-    Layout(const Rect& rect);
-    Layout(const Size& size);
-    ~Layout();
+    GridLayout(const Rect& rect);
+    GridLayout(const Size& size);
+    ~GridLayout();
 
     void setRect(const Rect& rect) { mRect = rect; relayout(); }
 
@@ -36,7 +36,7 @@ public:
 private:
     int children(SharedPtr& first, SharedPtr& second);
     void relayout();
-    static void dumpHelper(const Layout::SharedPtr&, int indent);
+    static void dumpHelper(const GridLayout::SharedPtr&, int indent);
 
     bool forEach(const std::function<bool(const SharedPtr& layout)>& func);
     SharedPtr clone() const;

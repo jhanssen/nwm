@@ -33,7 +33,7 @@ set(NWM_SOURCES
     JavaScript.cpp
     Keybinding.cpp
     Keybindings.cpp
-    Layout.cpp
+    GridLayout.cpp
     Util.cpp
     WindowManager.cpp
     Workspace.cpp)

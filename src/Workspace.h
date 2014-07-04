@@ -2,7 +2,7 @@
 #define WORKSPACE_H
 
 #include "Client.h"
-#include "Layout.h"
+#include "GridLayout.h"
 #include "Rect.h"
 #include <rct/String.h>
 #include <rct/LinkedList.h>
@@ -30,7 +30,7 @@ public:
 
     String name() const { return mName; }
     Rect rect() const { return mRect; }
-    Layout::SharedPtr layout() const { return mLayout; }
+    GridLayout::SharedPtr layout() const { return mGridLayout; }
 
     static SharedPtr active() { return sActive.lock(); }
 
@@ -40,7 +40,7 @@ private:
 private:
     Rect mRect;
     String mName;
-    Layout::SharedPtr mLayout;
+    GridLayout::SharedPtr mGridLayout;
     // ordered by focus
     LinkedList<Client::WeakPtr> mClients;
 

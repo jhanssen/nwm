@@ -6,7 +6,7 @@ Workspace::WeakPtr Workspace::sActive;
 Workspace::Workspace(const Rect& rect, const String& name)
     : mRect(rect), mName(name)
 {
-    mLayout = std::make_shared<Layout>(mRect);
+    mGridLayout = std::make_shared<GridLayout>(mRect);
 }
 
 Workspace::~Workspace()
@@ -16,7 +16,7 @@ Workspace::~Workspace()
 void Workspace::setRect(const Rect& rect)
 {
     mRect = rect;
-    mLayout->setRect(rect);
+    mGridLayout->setRect(rect);
 }
 
 void Workspace::updateFocus(const Client::SharedPtr& client)

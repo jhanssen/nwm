@@ -11,20 +11,20 @@ JavaScript::JavaScript()
 }
 
 
-static inline Layout::SharedPtr parentOfFocus()
+static inline GridLayout::SharedPtr parentOfFocus()
 {
     WindowManager::SharedPtr wm = WindowManager::instance();
     if (!wm)
-        return Layout::SharedPtr();
+        return GridLayout::SharedPtr();
     Client::SharedPtr current = Workspace::active()->focusedClient();
     if (!current)
-        return Layout::SharedPtr();
-    const Layout::SharedPtr& layout = current->layout();
+        return GridLayout::SharedPtr();
+    const GridLayout::SharedPtr& layout = current->layout();
     if (!layout)
-        return Layout::SharedPtr();
-    const Layout::SharedPtr& parent = layout->parent();
+        return GridLayout::SharedPtr();
+    const GridLayout::SharedPtr& parent = layout->parent();
     if (!parent)
-        return Layout::SharedPtr();
+        return GridLayout::SharedPtr();
     return parent;
 }
 
@@ -157,23 +157,23 @@ void JavaScript::init()
     // --------------- nwm.layout ---------------
     auto layout = nwm->child("layout");
     layout->registerFunction("toggleOrientation", [](const List<Value>&) -> Value {
-            Layout::SharedPtr parent = parentOfFocus();
+            GridLayout::SharedPtr parent = parentOfFocus();
             if (!parent)
                 return Value();
-            const Layout::Direction dir = parent->direction();
+            const GridLayout::Direction dir = parent->direction();
             switch (dir) {
-            case Layout::LeftRight:
-                parent->setDirection(Layout::TopBottom);
+            case GridLayout::LeftRight:
+                parent->setDirection(GridLayout::TopBottom);
                 break;
-            case Layout::TopBottom:
-                parent->setDirection(Layout::LeftRight);
+            case GridLayout::TopBottom:
+                parent->setDirection(GridLayout::LeftRight);
                 break;
             }
             parent->dump();
             return Value();
         });
     layout->registerFunction("adjust", [](const List<Value>& args) -> Value {
-            Layout::SharedPtr parent = parentOfFocus();
+            GridLayout::SharedPtr parent = parentOfFocus();
             if (!parent)
                 return Value();
             const int adjust = args.isEmpty() ? 10 : args[0].toInteger();
@@ -181,14 +181,14 @@ void JavaScript::init()
             return Value();
         });
     layout->registerFunction("adjustLeft", [](const List<Value>&) -> Value {
-            Layout::SharedPtr parent = parentOfFocus();
+            GridLayout::SharedPtr parent = parentOfFocus();
             if (!parent)
                 return Value();
             parent->adjust(-10);
             return Value();
         });
     layout->registerFunction("adjustRight", [](const List<Value>&) -> Value {
-            Layout::SharedPtr parent = parentOfFocus();
+            GridLayout::SharedPtr parent = parentOfFocus();
             if (!parent)
                 return Value();
             parent->adjust(10);
