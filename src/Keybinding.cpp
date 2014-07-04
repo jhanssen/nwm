@@ -84,7 +84,7 @@ void Keybinding::Sequence::recreate(xcb_key_symbols_t* syms)
         return;
     }
     for (xcb_keycode_t* code = keycodes; *code; ++code) {
-        codes.append(*code);
+        codes.insert(*code);
     }
     free(keycodes);
 }

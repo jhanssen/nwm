@@ -32,6 +32,7 @@ set(NWM_SOURCES
     Handlers.cpp
     JavaScript.cpp
     Keybinding.cpp
+    Keybindings.cpp
     Layout.cpp
     Util.cpp
     WindowManager.cpp

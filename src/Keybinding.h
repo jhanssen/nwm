@@ -3,6 +3,7 @@
 
 #include <rct/String.h>
 #include <rct/List.h>
+#include <rct/Set.h>
 #include <rct/Value.h>
 #include <xcb/xcb.h>
 #include <xcb/xcb_keysyms.h>
@@ -13,6 +14,9 @@ typedef uint8_t xcb_keycode_t;
 class Keybinding
 {
 public:
+    typedef std::shared_ptr<Keybinding> SharedPtr;
+    typedef std::weak_ptr<Keybinding> WeakPtr;
+
     Keybinding() { };
     Keybinding(const String& key, const Value& func);
 
@@ -22,7 +26,7 @@ public:
     struct Sequence
     {
         uint16_t mods;
-        List<xcb_keycode_t> codes;
+        Set<xcb_keycode_t> codes;
 
         xkb_keysym_t sym;
         void recreate(xcb_key_symbols_t* syms);

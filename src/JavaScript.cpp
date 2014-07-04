@@ -210,7 +210,7 @@ void JavaScript::init()
             if (!binding.isValid())
                 return ScriptEngine::instance()->throwException(String::format<64>("Couldn't parse keybind for %s",
                                                                                    key.toString().constData()));
-            WindowManager::instance()->addKeybinding(binding);
+            WindowManager::instance()->bindings().add(binding);
             return Value();
         });
 }

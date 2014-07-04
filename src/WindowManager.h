@@ -3,7 +3,7 @@
 
 #include "Client.h"
 #include "JavaScript.h"
-#include "Keybinding.h"
+#include "Keybindings.h"
 #include "Rect.h"
 #include "Workspace.h"
 #include <rct/List.h>
@@ -31,7 +31,7 @@ public:
 
     bool init(int &argc, char **argv);
 
-    void addKeybinding(const Keybinding& binding);
+    Keybindings& bindings() { return mBindings; }
 
     String displayString() const { return mDisplay; }
 
@@ -54,9 +54,6 @@ public:
     String keycodeToString(xcb_keycode_t code);
     xkb_keysym_t keycodeToKeysym(xcb_keycode_t code);
 
-    void rebindKeys(xcb_window_t win);
-    const Keybinding* lookupKeybinding(xkb_keysym_t sym, uint16_t mods);
-
     const List<Workspace::SharedPtr>& workspaces() const { return mWorkspaces; }
     void setWorkspaceCount(int count);
 
@@ -68,7 +65,6 @@ private:
     bool install();
     bool isRunning();
     bool manage();
-    void rebindKeys();
 
 private:
     struct Xkb {
@@ -86,11 +82,11 @@ private:
     int mScreenNo;
     uint8_t mXkbEvent;
     xcb_key_symbols_t* mSyms;
-    List<Keybinding> mKeybindings;
     List<Workspace::SharedPtr> mWorkspaces;
     xcb_timestamp_t mTimestamp;
     Rect mRect;
     JavaScript mJS;
+    Keybindings mBindings;
 
     SocketServer mServer;
 

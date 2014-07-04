@@ -15,7 +15,7 @@ Client::Client(xcb_window_t win)
     xcb_connection_t* conn = wm->connection();
     xcb_ewmh_connection_t* ewmhConn = wm->ewmhConnection();
     updateState(ewmhConn);
-    wm->rebindKeys(win);
+    wm->bindings().rebind(win);
     error() << "valid client" << mRequestedGeom.width << mRequestedGeom.height;
     mValid = true;
     Rect layoutRect;

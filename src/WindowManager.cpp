@@ -723,55 +723,8 @@ void WindowManager::updateXkbMap(xcb_xkb_map_notify_event_t* map)
     assert(mSyms);
     xcb_key_symbols_free(mSyms);
     mSyms = xcb_key_symbols_alloc(mConn);
-    rebindKeys();
+    mBindings.rebindAll();
 #warning requery xkb core device and recreate state here?
-}
-
-const Keybinding* WindowManager::lookupKeybinding(xkb_keysym_t sym, uint16_t mods)
-{
-    for (const Keybinding& binding : mKeybindings) {
-        const List<Keybinding::Sequence>& seqs = binding.sequence();
-        for (const Keybinding::Sequence& seq : seqs) {
-            if (seq.sym == sym && seq.mods == mods)
-                return &binding;
-        }
-    }
-    return 0;
-}
-
-void WindowManager::rebindKeys(xcb_window_t win)
-{
-    xcb_ungrab_key(mConn, XCB_GRAB_ANY, win, XCB_BUTTON_MASK_ANY);
-    for (const Keybinding& binding : mKeybindings) {
-        binding.rebind(mConn, win);
-    }
-}
-
-void WindowManager::rebindKeys()
-{
-    const List<Client::SharedPtr>& clients = Client::clients();
-
-    xcb_ungrab_key(mConn, XCB_GRAB_ANY, mScreen->root, XCB_BUTTON_MASK_ANY);
-    for (const Client::SharedPtr& client : clients) {
-        xcb_ungrab_key(mConn, XCB_GRAB_ANY, client->window(), XCB_BUTTON_MASK_ANY);
-    }
-
-    for (const Keybinding& binding : mKeybindings) {
-        binding.rebind(mConn, mScreen->root);
-        for (const Client::SharedPtr& client : clients) {
-            binding.rebind(mConn, client->window());
-        }
-    }
-}
-
-void WindowManager::addKeybinding(const Keybinding& binding)
-{
-    mKeybindings.append(binding);
-    binding.rebind(mConn, mScreen->root);
-    const List<Client::SharedPtr>& clients = Client::clients();
-    for (const Client::SharedPtr& client : clients) {
-        binding.rebind(mConn, client->window());
-    }
 }
 
 void WindowManager::setRect(const Rect& rect)

@@ -101,7 +101,9 @@ void handleKeyPress(const xcb_key_press_event_t* event)
     //const int col = (event->state & XCB_MOD_MASK_SHIFT);
     const int col = 0;
     const xcb_keysym_t sym = xcb_key_press_lookup_keysym(wm->keySymbols(), const_cast<xcb_key_press_event_t*>(event), col);
-    const Keybinding* binding = wm->lookupKeybinding(sym, event->state);
+    Keybindings& bindings = wm->bindings();
+    bindings.feed(sym, event->state);
+    const Keybinding* binding = bindings.current();
     if (!binding) {
         char buf[256];
         xkb_keysym_get_name(sym, buf, sizeof(buf));
