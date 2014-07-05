@@ -30,6 +30,7 @@ public:
 
     enum RaiseMode { Next, Last };
     void raise(RaiseMode mode);
+    void notifyRaised(const Client::SharedPtr& client);
 
     String name() const { return mName; }
     Rect rect() const { return mRect; }

@@ -20,12 +20,15 @@ public:
     void add(const std::shared_ptr<Client>& client) { mClients.append(client); }
     const List<std::weak_ptr<Client> >& clients() const { return mClients; }
 
-    void raise();
+    xcb_window_t leader() const { return mLeader; }
+
+    void raise(const std::shared_ptr<Client>& client);
 
 private:
-    ClientGroup() { }
+    ClientGroup(xcb_window_t leader) : mLeader(leader) { }
 
 private:
+    xcb_window_t mLeader;
     List<std::weak_ptr<Client> > mClients;
 
     static Map<xcb_window_t, WeakPtr> sGroups;
@@ -40,7 +43,7 @@ inline ClientGroup::SharedPtr ClientGroup::clientGroup(xcb_window_t leader)
         }
         sGroups.erase(it);
     }
-    SharedPtr ptr(new ClientGroup);
+    SharedPtr ptr(new ClientGroup(leader));
     sGroups[leader] = ptr;
     return ptr;
 }

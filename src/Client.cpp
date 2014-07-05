@@ -178,6 +178,7 @@ void Client::updateState(xcb_ewmh_connection_t* ewmhConn)
     xcb_connection_t* conn = ewmhConn->connection;
     const xcb_get_geometry_cookie_t geomCookie = xcb_get_geometry_unchecked(conn, mWindow);
     const xcb_get_property_cookie_t normalHintsCookie = xcb_icccm_get_wm_normal_hints(conn, mWindow);
+    const xcb_get_property_cookie_t leaderCookie = xcb_get_property(conn, 0, mWindow, Atoms::WM_CLIENT_LEADER, XCB_ATOM_WINDOW, 0, 1);
     const xcb_get_property_cookie_t transientCookie = xcb_icccm_get_wm_transient_for(conn, mWindow);
     const xcb_get_property_cookie_t hintsCookie = xcb_icccm_get_wm_hints(conn, mWindow);
     const xcb_get_property_cookie_t classCookie = xcb_icccm_get_wm_class(conn, mWindow);
@@ -186,10 +187,10 @@ void Client::updateState(xcb_ewmh_connection_t* ewmhConn)
     const xcb_get_property_cookie_t partialStrutCookie = xcb_ewmh_get_wm_strut_partial(ewmhConn, mWindow);
     const xcb_get_property_cookie_t stateCookie = xcb_ewmh_get_wm_state(ewmhConn, mWindow);
     const xcb_get_property_cookie_t typeCookie = xcb_ewmh_get_wm_window_type(ewmhConn, mWindow);
-    const xcb_get_property_cookie_t leaderCookie = xcb_get_property(conn, 0, mWindow, Atoms::WM_CLIENT_LEADER, XCB_ATOM_WINDOW, 0, 1);
 
     updateSize(conn, geomCookie);
     updateNormalHints(conn, normalHintsCookie);
+    updateLeader(conn, leaderCookie);
     updateTransient(conn, transientCookie);
     updateHints(conn, hintsCookie);
     updateClass(conn, classCookie);
@@ -198,20 +199,21 @@ void Client::updateState(xcb_ewmh_connection_t* ewmhConn)
     updatePartialStrut(ewmhConn, partialStrutCookie);
     updateEwmhState(ewmhConn, stateCookie);
     updateWindowType(ewmhConn, typeCookie);
-    updateLeader(conn, leaderCookie);
 }
 
 void Client::updateLeader(xcb_connection_t* conn, xcb_get_property_cookie_t cookie)
 {
     xcb_get_property_reply_t* leader = xcb_get_property_reply(conn, cookie, 0);
     FreeScope freeLeader(leader);
-    if (!leader || leader->type != XCB_ATOM_WINDOW || leader->format != 32 || !leader->length)
+    if (!leader || leader->type != XCB_ATOM_WINDOW || leader->format != 32 || !leader->length) {
+        mGroup = ClientGroup::clientGroup(mWindow);
+        mGroup->add(shared_from_this());
         return;
+    }
 
     const xcb_window_t win = *static_cast<xcb_window_t *>(xcb_get_property_value(leader));
     mGroup = ClientGroup::clientGroup(win);
     mGroup->add(shared_from_this());
-    error() << "got group" << mGroup.get() << "leader(" << win << ") for" << mWindow;
 }
 
 void Client::updateSize(xcb_connection_t* conn, xcb_get_geometry_cookie_t cookie)
@@ -243,6 +245,31 @@ void Client::updateTransient(xcb_connection_t* conn, xcb_get_property_cookie_t c
 {
     if (!xcb_icccm_get_wm_transient_for_reply(conn, cookie, &mTransientFor, 0)) {
         mTransientFor = XCB_NONE;
+    } else {
+        const xcb_window_t root = WindowManager::instance()->screen()->root;
+        if (mTransientFor == XCB_NONE || mTransientFor == root) {
+            // we're really transient for the group
+            if (!mGroup) {
+                // bad
+                error() << "transient-for None or root but no leader set";
+                mTransientFor = XCB_NONE;
+                return;
+            }
+            mTransientFor = mGroup->leader();
+        } else {
+            // add us to the group of the window we're transient for
+            Client::SharedPtr other = Client::client(mTransientFor);
+            if (!other) {
+                error() << "Couldn't find the client we're transient for" << mWindow << mTransientFor;
+                mTransientFor = XCB_NONE;
+                return;
+            }
+            ClientGroup::SharedPtr otherGroup = other->group();
+            if (mGroup != otherGroup) {
+                mGroup = otherGroup;
+                mGroup->add(shared_from_this());
+            }
+        }
     }
 }
 
@@ -330,6 +357,12 @@ void Client::updateWindowType(xcb_ewmh_connection_t* conn, xcb_get_property_cook
             mWindowType.insert(prop.atoms[i]);
         }
         xcb_ewmh_get_atoms_reply_wipe(&prop);
+    }
+
+    if (mWindowType.contains(conn->_NET_WM_WINDOW_TYPE_DIALOG) && mTransientFor == XCB_NONE) {
+        if (mGroup->leader() != mWindow) {
+            mTransientFor = mGroup->leader();
+        }
     }
 }
 
@@ -440,7 +473,7 @@ void Client::raise()
     error() << "raising" << this;
     // raise the client group if it exists
     if (mGroup) {
-        mGroup->raise();
+        mGroup->raise(shared_from_this());
     } else {
         xcb_connection_t* conn = WindowManager::instance()->connection();
         const uint32_t stackMode[] = { XCB_STACK_MODE_ABOVE };

@@ -43,7 +43,7 @@ public:
 
     bool noFocus() const { return mNoFocus; }
     bool isFloating() const { return mFloating; }
-    bool isDialog() const { return false; }
+    bool isDialog() const { return mTransientFor != XCB_NONE; }
 
     std::shared_ptr<Workspace> workspace() const { return mWorkspace.lock(); }
     ClientGroup::SharedPtr group() const { return mGroup; }

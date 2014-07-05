@@ -103,6 +103,24 @@ void Workspace::activate()
         client->focus();
 }
 
+void Workspace::notifyRaised(const Client::SharedPtr& client)
+{
+    mClients.prepend(client);
+    // find and remove
+    auto it = mClients.begin();
+    while (it != mClients.end()) {
+        if (Client::SharedPtr cand = it->lock()) {
+            if (cand == client) {
+                mClients.erase(it);
+                break;
+            }
+            ++it;
+        } else {
+            it = mClients.erase(it);
+        }
+    }
+}
+
 void Workspace::raise(RaiseMode mode)
 {
     if (mClients.empty())
