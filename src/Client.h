@@ -1,6 +1,7 @@
 #ifndef CLIENT_H
 #define CLIENT_H
 
+#include "ClientGroup.h"
 #include "Layout.h"
 #include "Rect.h"
 #include <rct/Hash.h>
@@ -41,6 +42,7 @@ public:
     bool noFocus() const { return mNoFocus; }
 
     std::shared_ptr<Workspace> workspace() const { return mWorkspace.lock(); }
+    ClientGroup::SharedPtr group() const { return mGroup; }
 
     const Layout::SharedPtr& layout() const { return mLayout; }
     xcb_window_t window() const { return mWindow; }
@@ -48,9 +50,11 @@ public:
 private:
     void clearWorkspace();
     bool updateWorkspace(const std::shared_ptr<Workspace>& workspace);
+    bool shouldLayout();
 
 private:
     Client(xcb_window_t win);
+    void init();
 
     void onLayoutChanged(const Rect& rect);
     void updateState(xcb_ewmh_connection_t* conn);
@@ -63,6 +67,8 @@ private:
     void updateStrut(xcb_ewmh_connection_t* conn, xcb_get_property_cookie_t cookie);
     void updatePartialStrut(xcb_ewmh_connection_t* conn, xcb_get_property_cookie_t cookie);
     void updateEwmhState(xcb_ewmh_connection_t* conn, xcb_get_property_cookie_t cookie);
+    void updateWindowType(xcb_ewmh_connection_t* conn, xcb_get_property_cookie_t cookie);
+    void updateLeader(xcb_connection_t* conn, xcb_get_property_cookie_t cookie);
 
 private:
     xcb_window_t mWindow;
@@ -82,7 +88,9 @@ private:
     } mClass;
     Set<xcb_atom_t> mProtocols;
     Set<xcb_atom_t> mEwmhState;
+    Set<xcb_atom_t> mWindowType;
     xcb_ewmh_wm_strut_partial_t mStrut;
+    ClientGroup::SharedPtr mGroup;
 
     static Hash<xcb_window_t, Client::SharedPtr> sClients;
 

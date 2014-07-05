@@ -29,6 +29,7 @@ set(NWM_SOURCES
     API.cpp
     Atoms.cpp
     Client.cpp
+    ClientGroup.cpp
     GridLayout.cpp
     Handlers.cpp
     JavaScript.cpp

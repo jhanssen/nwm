@@ -11,11 +11,32 @@ Client::Client(xcb_window_t win)
     : mWindow(win), mValid(false), mNoFocus(false)
 {
     error() << "making client";
+}
+
+Client::~Client()
+{
+    xcb_connection_t* conn = WindowManager::instance()->connection();
+    xcb_screen_t* screen = WindowManager::instance()->screen();
+    if (mWindow)
+        xcb_reparent_window(conn, mWindow, screen->root, 0, 0);
+    xcb_destroy_window(conn, mFrame);
+
+    if (EventLoop::SharedPtr loop = EventLoop::eventLoop()) {
+        Workspace::WeakPtr workspace = mWorkspace;
+        loop->callLater([workspace]() {
+                if (Workspace::SharedPtr ws = workspace.lock())
+                    ws->updateFocus();
+            });
+    }
+}
+
+void Client::init()
+{
     WindowManager::SharedPtr wm = WindowManager::instance();
     xcb_connection_t* conn = wm->connection();
     xcb_ewmh_connection_t* ewmhConn = wm->ewmhConnection();
     updateState(ewmhConn);
-    wm->bindings().rebind(win);
+    wm->bindings().rebind(mWindow);
     error() << "valid client" << mRequestedGeom.width << mRequestedGeom.height;
     mValid = true;
     Rect layoutRect;
@@ -51,14 +72,23 @@ Client::Client(xcb_window_t win)
         layoutRect = mRequestedGeom;
         error() << "fixed at" << layoutRect;
     } else {
-        mLayout = Workspace::active()->layout()->add(Size({ mRequestedGeom.width, mRequestedGeom.height }));
-        layoutRect = mLayout->rect();
-        error() << "laid out at" << layoutRect;
-        Workspace::active()->layout()->dump();
-        mLayout->rectChanged().connect(std::bind(&Client::onLayoutChanged, this, std::placeholders::_1));
+        if (shouldLayout()) {
+            mLayout = Workspace::active()->layout()->add(Size({ mRequestedGeom.width, mRequestedGeom.height }));
+            layoutRect = mLayout->rect();
+            error() << "laid out at" << layoutRect;
+            Workspace::active()->layout()->dump();
+            mLayout->rectChanged().connect(std::bind(&Client::onLayoutChanged, this, std::placeholders::_1));
+        } else {
+            layoutRect = mRequestedGeom;
+        }
+        Workspace::SharedPtr ws = Workspace::active();
+        assert(ws);
+        mWorkspace = ws;
+        ws->addClient(shared_from_this());
+        focus();
     }
 #warning do startup-notification stuff here
-    xcb_change_save_set(conn, XCB_SET_MODE_INSERT, win);
+    xcb_change_save_set(conn, XCB_SET_MODE_INSERT, mWindow);
     xcb_screen_t* screen = WindowManager::instance()->screen();
     mFrame = xcb_generate_id(conn);
     const uint32_t values[] = {
@@ -115,23 +145,6 @@ Client::Client(xcb_window_t win)
     xcb_change_property(conn, XCB_PROP_MODE_REPLACE, mWindow, Atoms::WM_STATE, Atoms::WM_STATE, 32, 2, stateMode);
 }
 
-Client::~Client()
-{
-    xcb_connection_t* conn = WindowManager::instance()->connection();
-    xcb_screen_t* screen = WindowManager::instance()->screen();
-    if (mWindow)
-        xcb_reparent_window(conn, mWindow, screen->root, 0, 0);
-    xcb_destroy_window(conn, mFrame);
-
-    if (EventLoop::SharedPtr loop = EventLoop::eventLoop()) {
-        Workspace::WeakPtr workspace = mWorkspace;
-        loop->callLater([workspace]() {
-                if (Workspace::SharedPtr ws = workspace.lock())
-                    ws->updateFocus();
-            });
-    }
-}
-
 void Client::clearWorkspace()
 {
     mLayout.reset();
@@ -146,8 +159,10 @@ bool Client::updateWorkspace(const Workspace::SharedPtr& workspace)
     if (workspace == old)
         return true;
     old->removeClient(shared_from_this());
-    mLayout = workspace->layout()->add(Size({ mRequestedGeom.width, mRequestedGeom.height }));
-    mLayout->rectChanged().connect(std::bind(&Client::onLayoutChanged, this, std::placeholders::_1));
+    if (shouldLayout()) {
+        mLayout = workspace->layout()->add(Size({ mRequestedGeom.width, mRequestedGeom.height }));
+        mLayout->rectChanged().connect(std::bind(&Client::onLayoutChanged, this, std::placeholders::_1));
+    }
     mWorkspace = workspace;
 
     onLayoutChanged(mLayout->rect());
@@ -166,6 +181,8 @@ void Client::updateState(xcb_ewmh_connection_t* ewmhConn)
     const xcb_get_property_cookie_t strutCookie = xcb_ewmh_get_wm_strut(ewmhConn, mWindow);
     const xcb_get_property_cookie_t partialStrutCookie = xcb_ewmh_get_wm_strut_partial(ewmhConn, mWindow);
     const xcb_get_property_cookie_t stateCookie = xcb_ewmh_get_wm_state(ewmhConn, mWindow);
+    const xcb_get_property_cookie_t typeCookie = xcb_ewmh_get_wm_window_type(ewmhConn, mWindow);
+    const xcb_get_property_cookie_t leaderCookie = xcb_get_property(conn, 0, mWindow, Atoms::WM_CLIENT_LEADER, XCB_ATOM_WINDOW, 0, 1);
 
     updateSize(conn, geomCookie);
     updateNormalHints(conn, normalHintsCookie);
@@ -176,6 +193,21 @@ void Client::updateState(xcb_ewmh_connection_t* ewmhConn)
     updateStrut(ewmhConn, strutCookie);
     updatePartialStrut(ewmhConn, partialStrutCookie);
     updateEwmhState(ewmhConn, stateCookie);
+    updateWindowType(ewmhConn, typeCookie);
+    updateLeader(conn, leaderCookie);
+}
+
+void Client::updateLeader(xcb_connection_t* conn, xcb_get_property_cookie_t cookie)
+{
+    xcb_get_property_reply_t* leader = xcb_get_property_reply(conn, cookie, 0);
+    FreeScope freeLeader(leader);
+    if (!leader || leader->type != XCB_ATOM_WINDOW || leader->format != 32 || !leader->length)
+        return;
+
+    const xcb_window_t win = *static_cast<xcb_window_t *>(xcb_get_property_value(leader));
+    mGroup = ClientGroup::clientGroup(win);
+    mGroup->add(shared_from_this());
+    error() << "got group" << mGroup.get() << "leader(" << win << ") for" << mWindow;
 }
 
 void Client::updateSize(xcb_connection_t* conn, xcb_get_geometry_cookie_t cookie)
@@ -284,6 +316,18 @@ void Client::updateEwmhState(xcb_ewmh_connection_t* conn, xcb_get_property_cooki
     }
 }
 
+void Client::updateWindowType(xcb_ewmh_connection_t* conn, xcb_get_property_cookie_t cookie)
+{
+    mWindowType.clear();
+    xcb_ewmh_get_atoms_reply_t prop;
+    if (xcb_ewmh_get_wm_window_type_reply(conn, cookie, &prop, 0)) {
+        for (uint32_t i = 0; i < prop.atoms_len; ++i) {
+            mWindowType.insert(prop.atoms[i]);
+        }
+        xcb_ewmh_get_atoms_reply_wipe(&prop);
+    }
+}
+
 void Client::onLayoutChanged(const Rect& rect)
 {
     error() << "layout changed" << rect;
@@ -304,15 +348,9 @@ Client::SharedPtr Client::manage(xcb_window_t window)
 {
     assert(sClients.count(window) == 0);
     Client::SharedPtr ptr(new Client(window)); // can't use make_shared due to private c'tor
+    ptr->init();
     if (!ptr->isValid()) {
         return SharedPtr();
-    }
-    if (ptr->mLayout) {
-        Workspace::SharedPtr ws = Workspace::active();
-        assert(ws);
-        ptr->mWorkspace = ws;
-        ws->addClient(ptr);
-        ptr->focus();
     }
     sClients[window] = ptr;
     return ptr;
@@ -405,4 +443,13 @@ void Client::configure()
     ce.above_sibling = XCB_NONE;
     ce.override_redirect = false;
     xcb_send_event(conn, false, mWindow, XCB_EVENT_MASK_STRUCTURE_NOTIFY, reinterpret_cast<char*>(&ce));
+}
+
+bool Client::shouldLayout()
+{
+#warning handle transient-for here
+    if (mWindowType.isEmpty())
+        return true;
+    xcb_ewmh_connection_t* conn = WindowManager::instance()->ewmhConnection();
+    return (mWindowType.contains(conn->_NET_WM_WINDOW_TYPE_NORMAL));
 }
