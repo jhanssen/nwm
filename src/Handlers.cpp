@@ -10,7 +10,114 @@ namespace Handlers {
 
 void handleButtonPress(const xcb_button_press_event_t* event)
 {
-    WindowManager::instance()->updateTimestamp(event->time);
+    WindowManager::SharedPtr wm = WindowManager::instance();
+    wm->updateTimestamp(event->time);
+
+    Client::SharedPtr client = Client::client(event->event);
+    if (client) {
+        xcb_connection_t* conn = wm->connection();
+
+        if (event->state) {
+            const uint16_t mod = wm->moveModifierMask();
+            if (mod && (event->state & mod) == mod && client->isFloating()) {
+                const xcb_window_t root = wm->screen()->root;
+                // grab both the keyboard and the pointer
+                xcb_grab_pointer_cookie_t pointerCookie = xcb_grab_pointer(conn, false, root,
+                                                                           XCB_EVENT_MASK_BUTTON_RELEASE
+                                                                           | XCB_EVENT_MASK_POINTER_MOTION,
+                                                                           XCB_GRAB_MODE_ASYNC,
+                                                                           XCB_GRAB_MODE_ASYNC,
+                                                                           XCB_NONE, XCB_NONE,
+                                                                           XCB_CURRENT_TIME);
+                xcb_grab_pointer_reply_t* pointerReply = xcb_grab_pointer_reply(conn, pointerCookie, 0);
+                if (!pointerReply) {
+                    error() << "Unable to grab pointer for move";
+                    xcb_allow_events(conn, XCB_ALLOW_ASYNC_POINTER, event->time);
+                    return;
+                }
+                free(pointerReply);
+                xcb_grab_keyboard_cookie_t keyboardCookie = xcb_grab_keyboard(conn, false, root,
+                                                                              XCB_CURRENT_TIME,
+                                                                              XCB_GRAB_MODE_ASYNC,
+                                                                              XCB_GRAB_MODE_ASYNC);
+                xcb_grab_keyboard_reply_t* keyboardReply = xcb_grab_keyboard_reply(conn, keyboardCookie, 0);
+                if (!keyboardReply) {
+                    // bad!
+                    error() << "Unable to grab keyboard for move";
+                    // ungrab pointer and move on
+                    xcb_void_cookie_t ungrabCookie = xcb_ungrab_pointer(conn, event->time);
+                    if (xcb_request_check(conn, ungrabCookie)) {
+                        // we're done
+                        error() << "Unable to ungrab pointer after successfully grabing";
+                        abort();
+                    }
+                    xcb_allow_events(conn, XCB_ALLOW_ASYNC_POINTER, event->time);
+                    return;
+                }
+                free(keyboardReply);
+                wm->startMoving(client, Point({ static_cast<unsigned int>(event->root_x),
+                                                static_cast<unsigned int>(event->root_y) }));
+            }
+            xcb_allow_events(conn, XCB_ALLOW_ASYNC_POINTER, event->time);
+            return;
+        }
+
+        //client->raise();
+
+        xcb_allow_events(conn, XCB_ALLOW_REPLAY_POINTER, event->time);
+    }
+}
+
+static inline void releaseGrab(xcb_connection_t* conn, xcb_timestamp_t time)
+{
+    // ungrab pointer and keyboard
+    xcb_void_cookie_t ungrabCookie = xcb_ungrab_pointer(conn, time);
+    if (xcb_request_check(conn, ungrabCookie)) {
+        // we're done
+        error() << "Unable to ungrab pointer after successfully grabing (release)";
+        abort();
+    }
+    ungrabCookie = xcb_ungrab_keyboard(conn, time);
+    if (xcb_request_check(conn, ungrabCookie)) {
+        // we're done
+        error() << "Unable to ungrab keyboard after successfully grabing (release)";
+        abort();
+    }
+}
+
+void handleButtonRelease(const xcb_button_release_event_t* event)
+{
+    WindowManager::SharedPtr wm = WindowManager::instance();
+    wm->updateTimestamp(event->time);
+    if (!wm->isMoving())
+        return;
+    wm->stopMoving();
+    releaseGrab(wm->connection(), event->time);
+}
+
+void handleMotionNotify(const xcb_motion_notify_event_t* event)
+{
+    WindowManager::SharedPtr wm = WindowManager::instance();
+    wm->updateTimestamp(event->time);
+    if (!wm->isMoving())
+        return;
+
+    Client::SharedPtr client = wm->moving();
+    Point origin = wm->movingOrigin();
+    if (client) {
+        // move window
+        Point point = Point({ static_cast<unsigned int>(event->root_x),
+                              static_cast<unsigned int>(event->root_y) });
+        Point current = client->position();
+        current.x += (point.x - origin.x);
+        current.y += (point.y - origin.y);
+        client->move(current);
+        wm->setMovingOrigin(point);
+    } else {
+        error() << "Client gone while moving";
+        wm->stopMoving();
+        releaseGrab(wm->connection(), event->time);
+    }
 }
 
 void handleClientMessage(const xcb_client_message_event_t* event)
@@ -153,9 +260,18 @@ void handlePropertyNotify(const xcb_property_notify_event_t* event)
 
 void handleUnmapNotify(const xcb_unmap_notify_event_t* event)
 {
-    Client::SharedPtr client = Client::client(event->window);
-    if (client)
+    WindowManager::SharedPtr wm = WindowManager::instance();
+    if (wm->isMoving()) {
+        error() << "client unmapped while moving, releasing grab";
+        wm->stopMoving();
+        releaseGrab(wm->connection(), wm->timestamp());
+    }
+
+    error() << "unmapping" << event->event << event->window;
+    Client::SharedPtr client = Client::client(event->event);
+    if (client) {
         client->unmap();
+    }
 }
 
 } // namespace Handlers

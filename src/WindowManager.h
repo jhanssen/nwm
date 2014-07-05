@@ -54,6 +54,17 @@ public:
     String keycodeToString(xcb_keycode_t code);
     xkb_keysym_t keycodeToKeysym(xcb_keycode_t code);
 
+    String moveModifier() const { return mMoveModifier; }
+    uint16_t moveModifierMask() const { return mMoveModifierMask; }
+    void setMoveModifier(const String& mod);
+
+    void startMoving(const Client::SharedPtr& client, const Point& point) { mMoving = client; mIsMoving = true; mMovingOrigin = point; }
+    void stopMoving() { mMoving.reset(); mIsMoving = false; }
+    void setMovingOrigin(const Point& point) { mMovingOrigin = point; }
+    bool isMoving() const { return mIsMoving; }
+    Client::SharedPtr moving() const { return mMoving.lock(); }
+    const Point& movingOrigin() const { return mMovingOrigin; }
+
     const List<Workspace::SharedPtr>& workspaces() const { return mWorkspaces; }
     void addWorkspace(unsigned int layoutType);
 
@@ -87,6 +98,11 @@ private:
     Rect mRect;
     JavaScript mJS;
     Keybindings mBindings;
+    String mMoveModifier;
+    uint16_t mMoveModifierMask;
+    Client::WeakPtr mMoving;
+    bool mIsMoving;
+    Point mMovingOrigin;
 
     SocketServer mServer;
 
@@ -116,11 +132,19 @@ public:
     ServerGrabScope(xcb_connection_t* conn)
         : mConn(conn)
     {
-        xcb_grab_server(mConn);
+        xcb_void_cookie_t cookie = xcb_grab_server(mConn);
+        if (xcb_request_check(mConn, cookie)) {
+            error() << "Unable to grab server";
+            abort();
+        }
     }
     ~ServerGrabScope()
     {
-        xcb_ungrab_server(mConn);
+        xcb_void_cookie_t cookie = xcb_ungrab_server(mConn);
+        if (xcb_request_check(mConn, cookie)) {
+            error() << "Unable to ungrab server";
+            abort();
+        }
     }
 
 private:

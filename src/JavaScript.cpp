@@ -117,6 +117,16 @@ void JavaScript::init()
                 return ScriptEngine::instance()->throwException("exec failed for " + path);
             return proc.readAllStdOut();
         });
+    nwm->registerProperty("moveModifier",
+                          []() -> Value {
+                              return WindowManager::instance()->moveModifier();
+                          },
+                          [](const Value& value) {
+                              if (value.type() != Value::Type_String) {
+                                  ScriptEngine::instance()->throwException("Move modifier needs to be a string");
+                              }
+                              WindowManager::instance()->setMoveModifier(value.toString());
+                          });
 
     // --------------- nwm.workspace ---------------
     auto workspace = nwm->child("workspace");

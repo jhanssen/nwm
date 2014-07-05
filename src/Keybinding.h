@@ -40,6 +40,8 @@ public:
 
     bool operator<(const Keybinding& other) const;
 
+    static uint16_t modToMask(const String& mod);
+
 private:
     void parse(const String& key);
     void add(const String& key, const List<String>& mods = List<String>());

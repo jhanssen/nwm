@@ -1,3 +1,5 @@
+nwm.moveModifier = "Alt";
+
 var ws = nwm.workspace;
 ws.add({ type: ws.Stack });
 ws.add({ type: ws.Grid });

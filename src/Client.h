@@ -38,8 +38,11 @@ public:
     void destroy();
     void configure();
     void raise();
+    Point position() const { return mRequestedGeom.point(); }
+    void move(const Point& point);
 
     bool noFocus() const { return mNoFocus; }
+    bool isFloating() const { return mFloating; }
 
     std::shared_ptr<Workspace> workspace() const { return mWorkspace.lock(); }
     ClientGroup::SharedPtr group() const { return mGroup; }
@@ -91,6 +94,7 @@ private:
     Set<xcb_atom_t> mWindowType;
     xcb_ewmh_wm_strut_partial_t mStrut;
     ClientGroup::SharedPtr mGroup;
+    bool mFloating;
 
     static Hash<xcb_window_t, Client::SharedPtr> sClients;
 

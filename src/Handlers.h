@@ -5,6 +5,8 @@
 
 namespace Handlers {
 void handleButtonPress(const xcb_button_press_event_t* event);
+void handleButtonRelease(const xcb_button_release_event_t* event);
+void handleMotionNotify(const xcb_motion_notify_event_t* event);
 void handleClientMessage(const xcb_client_message_event_t* event);
 void handleConfigureRequest(const xcb_configure_request_event_t* event);
 void handleConfigureNotify(const xcb_configure_notify_event_t* event);

@@ -78,7 +78,8 @@ private:
 WindowManager *WindowManager::sInstance;
 
 WindowManager::WindowManager()
-    : mConn(0), mEwmhConn(0), mScreen(0), mScreenNo(0), mXkbEvent(0), mSyms(0), mTimestamp(XCB_CURRENT_TIME)
+    : mConn(0), mEwmhConn(0), mScreen(0), mScreenNo(0), mXkbEvent(0), mSyms(0), mTimestamp(XCB_CURRENT_TIME),
+      mMoveModifierMask(0), mIsMoving(false)
 {
     Messages::registerMessage<JavascriptMessage>();
     memset(&mXkb, '\0', sizeof(mXkb));
@@ -246,6 +247,8 @@ bool WindowManager::init(int &argc, char **argv)
     mScreen = xcb_aux_get_screen(mConn, mScreenNo);
 
     if (!isRunning()) {
+        ServerGrabScope scope(mConn);
+
         if (!install()) {
             error() << "Unable to install nwm. Another window manager already running?";
             return false;
@@ -416,7 +419,6 @@ bool WindowManager::manage()
                 continue;
             }
             Client::SharedPtr client = Client::manage(clients[i]);
-            client->map();
         }
     }
     return true;
@@ -430,8 +432,6 @@ bool WindowManager::install()
 
     xcb_void_cookie_t cookie;
     xcb_generic_error_t* err;
-
-    ServerGrabScope scope(mConn);
 
     // check if another WM is running
     {
@@ -615,6 +615,14 @@ bool WindowManager::install()
                         error() << "button press";
                         Handlers::handleButtonPress(reinterpret_cast<xcb_button_press_event_t*>(event));
                         break;
+                    case XCB_BUTTON_RELEASE:
+                        error() << "button release";
+                        Handlers::handleButtonRelease(reinterpret_cast<xcb_button_release_event_t*>(event));
+                        break;
+                    case XCB_MOTION_NOTIFY:
+                        error() << "motion notify";
+                        Handlers::handleMotionNotify(reinterpret_cast<xcb_motion_notify_event_t*>(event));
+                        break;
                     case XCB_CLIENT_MESSAGE:
                         error() << "client message";
                         Handlers::handleClientMessage(reinterpret_cast<xcb_client_message_event_t*>(event));
@@ -734,4 +742,10 @@ void WindowManager::setRect(const Rect& rect)
 void WindowManager::addWorkspace(unsigned int layoutType)
 {
     mWorkspaces.append(std::make_shared<Workspace>(layoutType, mRect));
+}
+
+void WindowManager::setMoveModifier(const String& mod)
+{
+    mMoveModifier = mod;
+    mMoveModifierMask = Keybinding::modToMask(mod);
 }

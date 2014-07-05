@@ -32,7 +32,7 @@ void Keybinding::parse(const String& key)
     }
 }
 
-static inline uint16_t modToMask(const String& mod)
+uint16_t Keybinding::modToMask(const String& mod)
 {
     if (mod == "Shift")
         return XCB_MOD_MASK_SHIFT;
