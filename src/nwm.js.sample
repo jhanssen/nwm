@@ -1,8 +1,8 @@
 var ws = nwm.workspace;
-ws.add({ type: 0 });
-ws.add({ type: 0 });
-ws.add({ type: 0 });
-ws.add({ type: 0 });
+ws.add({ type: ws.Grid });
+ws.add({ type: ws.Grid });
+ws.add({ type: ws.Grid });
+ws.add({ type: ws.Grid });
 
 var kbd = nwm.kbd;
 kbd.set("Ctrl-A", function() { console.log("test"); });

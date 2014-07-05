@@ -120,6 +120,8 @@ void JavaScript::init()
 
     // --------------- nwm.workspace ---------------
     auto workspace = nwm->child("workspace");
+    workspace->setProperty("Stack", StackLayout::Type);
+    workspace->setProperty("Grid", GridLayout::Type);
     workspace->registerFunction("add", [](const List<Value>& args) -> Value {
             unsigned int layoutType = GridLayout::Type;
             if (!args.isEmpty()) {
