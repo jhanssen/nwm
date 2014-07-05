@@ -28,6 +28,9 @@ public:
     void updateFocus(const Client::SharedPtr& client = Client::SharedPtr());
     Client::SharedPtr focusedClient() const;
 
+    enum RaiseMode { Next, Last };
+    void raise(RaiseMode mode);
+
     String name() const { return mName; }
     Rect rect() const { return mRect; }
     Layout::SharedPtr layout() const { return mLayout; }

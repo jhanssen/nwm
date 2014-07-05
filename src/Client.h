@@ -36,6 +36,7 @@ public:
     void focus();
     void destroy();
     void configure();
+    void raise();
 
     bool noFocus() const { return mNoFocus; }
 

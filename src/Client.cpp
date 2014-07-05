@@ -381,6 +381,13 @@ void Client::destroy()
     mWindow = 0;
 }
 
+void Client::raise()
+{
+    xcb_connection_t* conn = WindowManager::instance()->connection();
+    const uint32_t stackMode[] = { XCB_STACK_MODE_ABOVE };
+    xcb_configure_window(conn, mFrame, XCB_CONFIG_WINDOW_STACK_MODE, stackMode);
+}
+
 void Client::configure()
 {
     const Rect& layoutRect = mLayout ? mLayout->rect() : mRequestedGeom;

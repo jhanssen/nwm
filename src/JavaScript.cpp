@@ -162,7 +162,7 @@ void JavaScript::init()
             dst->addClient(client);
             return Value();
         });
-    workspace->registerFunction("select", [](const List<Value>& args) -> Value{
+    workspace->registerFunction("select", [](const List<Value>& args) -> Value {
             if (args.isEmpty())
                 return Value();
             const int32_t ws = args[0].toInteger();
@@ -170,6 +170,13 @@ void JavaScript::init()
             if (ws < 0 || ws >= wss.size())
                 return ScriptEngine::instance()->throwException("Invalid workspace");
             wss[ws]->activate();
+            return Value();
+        });
+    workspace->registerFunction("raiseLast", [](const List<Value>&) -> Value {
+            Workspace::SharedPtr active = Workspace::active();
+            if (!active)
+                return Value();
+            active->raise(Workspace::Last);
             return Value();
         });
 

@@ -3,6 +3,7 @@
 #include "StackLayout.h"
 #include <rct/Log.h>
 #include <assert.h>
+#include <stdlib.h>
 
 Workspace::WeakPtr Workspace::sActive;
 
@@ -100,4 +101,69 @@ void Workspace::activate()
     }
     if (client)
         client->focus();
+}
+
+void Workspace::raise(RaiseMode mode)
+{
+    if (mClients.empty())
+        return;
+
+    int pos = 0;
+    switch (mode) {
+    case Next:
+        pos = 1;
+        break;
+    case Last:
+        pos = -1;
+        break;
+    }
+    if (!pos) {
+        // nothing to do
+        return;
+    }
+    int cur = 0;
+    if (pos > 0) {
+        auto it = mClients.begin();
+        while (it != mClients.end()) {
+            if (Client::SharedPtr client = it->lock()) {
+                if (cur == pos) {
+                    // found the one we want, take it out and reinsert at the front
+                    mClients.erase(it);
+                    mClients.prepend(client);
+                    client->raise();
+                    return;
+                }
+                ++cur;
+                ++it;
+            } else {
+                // take it out, it's dead
+                it = mClients.erase(it);
+            }
+        }
+    } else {
+        pos = abs(pos) - 1;
+        assert(pos >= 0);
+        auto it = mClients.end();
+        for (;;) {
+            assert(it != mClients.begin());
+            --it;
+            if (Client::SharedPtr client = it->lock()) {
+                if (cur == pos) {
+                    // found the one we want, take it out and reinsert at the front
+                    mClients.erase(it);
+                    mClients.prepend(client);
+                    client->raise();
+                    return;
+                }
+                ++cur;
+            } else {
+                // take it out, it's dead
+                it = mClients.erase(it);
+                if (mClients.isEmpty())
+                    return;
+            }
+            if (it == mClients.begin())
+                return;
+        }
+    }
 }

@@ -1,5 +1,5 @@
 var ws = nwm.workspace;
-ws.add({ type: ws.Grid });
+ws.add({ type: ws.Stack });
 ws.add({ type: ws.Grid });
 ws.add({ type: ws.Grid });
 ws.add({ type: ws.Grid });
@@ -11,14 +11,15 @@ kbd.set("Shift-A", function() { nwm.launch("xterm"); });
 kbd.set("Ctrl-Left", function() { nwm.layout.adjust(-20); });
 kbd.set("Ctrl-Right", function() { nwm.layout.adjust(20); });
 
-kbd.set("Ctrl-1", function() { nwm.workspace.select(0); });
-kbd.set("Ctrl-Shift-1", function() { nwm.workspace.moveTo(0); });
-kbd.set("Ctrl-2", function() { nwm.workspace.select(1); });
-kbd.set("Ctrl-Shift-2", function() { nwm.workspace.moveTo(1); });
-kbd.set("Ctrl-3", function() { nwm.workspace.select(2); });
-kbd.set("Ctrl-Shift-3", function() { nwm.workspace.moveTo(2); });
-kbd.set("Ctrl-4", function() { nwm.workspace.select(3); });
-kbd.set("Ctrl-Shift-4", function() { nwm.workspace.moveTo(3); });
+kbd.set("Ctrl-1", function() { ws.select(0); });
+kbd.set("Ctrl-Shift-1", function() { ws.moveTo(0); });
+kbd.set("Ctrl-2", function() { ws.select(1); });
+kbd.set("Ctrl-Shift-2", function() { ws.moveTo(1); });
+kbd.set("Ctrl-3", function() { ws.select(2); });
+kbd.set("Ctrl-Shift-3", function() { ws.moveTo(2); });
+kbd.set("Ctrl-4", function() { ws.select(3); });
+kbd.set("Ctrl-Shift-4", function() { ws.moveTo(3); });
+kbd.set("Alt-Tab", function() { ws.raiseLast(); });
 
 kbd.set("Insert A", function() { console.log("Got Insert A"); });
 kbd.set("Insert B", function() { console.log("Got Insert B"); });
