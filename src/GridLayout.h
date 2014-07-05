@@ -1,17 +1,15 @@
 #ifndef GRIDLAYOUT_H
 #define GRIDLAYOUT_H
 
-#include <Rect.h>
-#include <rct/SignalSlot.h>
-#include <memory>
-#include <utility>
+#include "Layout.h"
 
-class GridLayout : public std::enable_shared_from_this<GridLayout>
+class GridLayout : public Layout
 {
 public:
     typedef std::shared_ptr<GridLayout> SharedPtr;
     typedef std::weak_ptr<GridLayout> WeakPtr;
 
+    enum { Type = 0 };
     enum Direction { LeftRight, TopBottom };
 
     GridLayout(const Rect& rect);
@@ -20,9 +18,10 @@ public:
 
     void setRect(const Rect& rect) { mRect = rect; relayout(); }
 
-    SharedPtr add(const Size& size);
+    virtual Layout::SharedPtr add(const Size& size);
+
     SharedPtr parent() const { return mParent; }
-    void dump();
+    virtual void dump();
 
     const Rect& rect() const { return mRect; }
     const Size& requestedSize() const { return mRequested; }
@@ -34,23 +33,20 @@ public:
     Signal<std::function<void(const Rect&)> >& rectChanged() { return mRectChanged; }
 
 private:
+    virtual void relayout();
+
     int children(SharedPtr& first, SharedPtr& second);
-    void relayout();
     static void dumpHelper(const GridLayout::SharedPtr&, int indent);
 
     bool forEach(const std::function<bool(const SharedPtr& layout)>& func);
     SharedPtr clone() const;
 
 private:
-    Size mRequested;
-    Rect mRect;
     SharedPtr mParent;
     bool mUsed;
 
     Direction mDirection;
     std::pair<WeakPtr, WeakPtr> mChildren;
-
-    Signal<std::function<void(const Rect&)> > mRectChanged;
 };
 
 #endif

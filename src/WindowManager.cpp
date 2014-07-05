@@ -270,10 +270,6 @@ bool WindowManager::init(int &argc, char **argv)
             return false;
         }
 
-        assert(mWorkspaces.size() > 0);
-        for (int w = 0; w < mWorkspaces.size(); ++w) {
-            mWorkspaces[w] = std::make_shared<Workspace>(mRect);
-        }
         mWorkspaces[0]->activate();
 
         if (!manage()) {
@@ -735,8 +731,7 @@ void WindowManager::setRect(const Rect& rect)
     }
 }
 
-void WindowManager::setWorkspaceCount(int count)
+void WindowManager::addWorkspace(unsigned int layoutType)
 {
-    assert(mWorkspaces.isEmpty());
-    mWorkspaces.resize(count);
+    mWorkspaces.append(std::make_shared<Workspace>(layoutType, mRect));
 }

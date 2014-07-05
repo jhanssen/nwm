@@ -2,7 +2,7 @@
 #define WORKSPACE_H
 
 #include "Client.h"
-#include "GridLayout.h"
+#include "Layout.h"
 #include "Rect.h"
 #include <rct/String.h>
 #include <rct/LinkedList.h>
@@ -15,7 +15,7 @@ public:
     typedef std::shared_ptr<Workspace> SharedPtr;
     typedef std::weak_ptr<Workspace> WeakPtr;
 
-    Workspace(const Rect& rect, const String& name = String());
+    Workspace(unsigned int layoutType, const Rect& rect, const String& name = String());
     ~Workspace();
 
     void setRect(const Rect& rect);
@@ -30,7 +30,7 @@ public:
 
     String name() const { return mName; }
     Rect rect() const { return mRect; }
-    GridLayout::SharedPtr layout() const { return mGridLayout; }
+    Layout::SharedPtr layout() const { return mLayout; }
 
     static SharedPtr active() { return sActive.lock(); }
 
@@ -40,7 +40,7 @@ private:
 private:
     Rect mRect;
     String mName;
-    GridLayout::SharedPtr mGridLayout;
+    Layout::SharedPtr mLayout;
     // ordered by focus
     LinkedList<Client::WeakPtr> mClients;
 

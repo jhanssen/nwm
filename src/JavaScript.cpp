@@ -1,4 +1,6 @@
 #include "JavaScript.h"
+#include "GridLayout.h"
+#include "StackLayout.h"
 #include "Util.h"
 #include "Keybinding.h"
 #include "WindowManager.h"
@@ -10,8 +12,7 @@ JavaScript::JavaScript()
 {
 }
 
-
-static inline GridLayout::SharedPtr parentOfFocus()
+static inline GridLayout::SharedPtr gridParent()
 {
     WindowManager::SharedPtr wm = WindowManager::instance();
     if (!wm)
@@ -19,10 +20,10 @@ static inline GridLayout::SharedPtr parentOfFocus()
     Client::SharedPtr current = Workspace::active()->focusedClient();
     if (!current)
         return GridLayout::SharedPtr();
-    const GridLayout::SharedPtr& layout = current->layout();
-    if (!layout)
+    const Layout::SharedPtr& layout = current->layout();
+    if (!layout || layout->type() != GridLayout::Type)
         return GridLayout::SharedPtr();
-    const GridLayout::SharedPtr& parent = layout->parent();
+    const GridLayout::SharedPtr& parent = std::static_pointer_cast<GridLayout>(layout)->parent();
     if (!parent)
         return GridLayout::SharedPtr();
     return parent;
@@ -119,15 +120,31 @@ void JavaScript::init()
 
     // --------------- nwm.workspace ---------------
     auto workspace = nwm->child("workspace");
-    workspace->registerProperty("count",
-                                []() -> Value { return WindowManager::instance()->workspaces().size(); },
-                                [](const Value &value) {
-                                    const int count = value.toInteger();
-                                    if (count <= 0) {
-                                        return ScriptEngine::instance()->throwException<void>("Invalid workspace count");
-                                    }
-                                    WindowManager::instance()->setWorkspaceCount(count);
-                                });
+    workspace->registerFunction("add", [](const List<Value>& args) -> Value {
+            unsigned int layoutType = GridLayout::Type;
+            if (!args.isEmpty()) {
+                if (args.size() > 1)
+                    return ScriptEngine::instance()->throwException("workspace.add takes zero or one argument");
+                const Value& v = args.front();
+                if (v.type() != Value::Type_Map)
+                    return ScriptEngine::instance()->throwException("workspace.add argument needs to be an object");
+                const Value& t = v["type"];
+                if (t.type() != Value::Type_Invalid) {
+                    if (t.type() != Value::Type_Integer)
+                        return ScriptEngine::instance()->throwException("workspace.add type needs to be an integer");
+                    layoutType = t.toInteger();
+                    switch (layoutType) {
+                    case StackLayout::Type:
+                    case GridLayout::Type:
+                        break;
+                    default:
+                        return ScriptEngine::instance()->throwException("workspace.add invalid layout type");
+                    }
+                }
+            }
+            WindowManager::instance()->addWorkspace(layoutType);
+            return Value();
+        });
     workspace->registerFunction("moveTo", [](const List<Value>& args) -> Value {
             if (args.isEmpty())
                 return Value();
@@ -157,7 +174,7 @@ void JavaScript::init()
     // --------------- nwm.layout ---------------
     auto layout = nwm->child("layout");
     layout->registerFunction("toggleOrientation", [](const List<Value>&) -> Value {
-            GridLayout::SharedPtr parent = parentOfFocus();
+            GridLayout::SharedPtr parent = gridParent();
             if (!parent)
                 return Value();
             const GridLayout::Direction dir = parent->direction();
@@ -173,7 +190,7 @@ void JavaScript::init()
             return Value();
         });
     layout->registerFunction("adjust", [](const List<Value>& args) -> Value {
-            GridLayout::SharedPtr parent = parentOfFocus();
+            GridLayout::SharedPtr parent = gridParent();
             if (!parent)
                 return Value();
             const int adjust = args.isEmpty() ? 10 : args[0].toInteger();
@@ -181,14 +198,14 @@ void JavaScript::init()
             return Value();
         });
     layout->registerFunction("adjustLeft", [](const List<Value>&) -> Value {
-            GridLayout::SharedPtr parent = parentOfFocus();
+            GridLayout::SharedPtr parent = gridParent();
             if (!parent)
                 return Value();
             parent->adjust(-10);
             return Value();
         });
     layout->registerFunction("adjustRight", [](const List<Value>&) -> Value {
-            GridLayout::SharedPtr parent = parentOfFocus();
+            GridLayout::SharedPtr parent = gridParent();
             if (!parent)
                 return Value();
             parent->adjust(10);

@@ -3,16 +3,14 @@
 #include <assert.h>
 
 GridLayout::GridLayout(const Rect& rect)
-    : mRect(rect), mUsed(false)
+    : Layout(Type, rect), mUsed(false)
 {
-    mRequested = { mRect.width, mRect.height };
     mDirection = (mRect.width > mRect.height) ? LeftRight : TopBottom;
 }
 
 GridLayout::GridLayout(const Size& size)
-    : mRequested(size), mUsed(false)
+    : Layout(Type, size), mUsed(false)
 {
-    mRect = { 0, 0, size.width, size.height };
     mDirection = (mRect.width > mRect.height) ? LeftRight : TopBottom;
 }
 
@@ -43,7 +41,7 @@ int GridLayout::children(SharedPtr& first, SharedPtr& second)
 
 bool GridLayout::forEach(const std::function<bool(const SharedPtr& layout)>& func)
 {
-    if (!func(shared_from_this()))
+    if (!func(std::static_pointer_cast<GridLayout>(shared_from_this())))
         return false;
     SharedPtr first, second;
     children(first, second);
@@ -68,7 +66,7 @@ static inline Size calcSize(const GridLayout::SharedPtr& c1, const GridLayout::S
     return Size({ std::max(c1->requestedSize().width, w2), p->rect().height });
 }
 
-GridLayout::SharedPtr GridLayout::add(const Size& size)
+Layout::SharedPtr GridLayout::add(const Size& size)
 {
     // find either a child with sufficient amount of remaining space or the one
     // with the highest ratio of unused vs. used space
@@ -410,5 +408,5 @@ void GridLayout::dumpHelper(const SharedPtr& layout, int indent)
 void GridLayout::dump()
 {
     int indent = 0;
-    dumpHelper(shared_from_this(), indent);
+    dumpHelper(std::static_pointer_cast<GridLayout>(shared_from_this()), indent);
 }

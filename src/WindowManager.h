@@ -55,7 +55,7 @@ public:
     xkb_keysym_t keycodeToKeysym(xcb_keycode_t code);
 
     const List<Workspace::SharedPtr>& workspaces() const { return mWorkspaces; }
-    void setWorkspaceCount(int count);
+    void addWorkspace(unsigned int layoutType);
 
     const Rect& rect() const { return mRect; }
     void setRect(const Rect& rect);

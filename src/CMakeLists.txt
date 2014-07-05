@@ -29,11 +29,12 @@ set(NWM_SOURCES
     API.cpp
     Atoms.cpp
     Client.cpp
+    GridLayout.cpp
     Handlers.cpp
     JavaScript.cpp
     Keybinding.cpp
     Keybindings.cpp
-    GridLayout.cpp
+    StackLayout.cpp
     Util.cpp
     WindowManager.cpp
     Workspace.cpp)

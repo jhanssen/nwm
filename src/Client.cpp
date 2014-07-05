@@ -51,11 +51,11 @@ Client::Client(xcb_window_t win)
         layoutRect = mRequestedGeom;
         error() << "fixed at" << layoutRect;
     } else {
-        mGridLayout = Workspace::active()->layout()->add(Size({ mRequestedGeom.width, mRequestedGeom.height }));
-        layoutRect = mGridLayout->rect();
+        mLayout = Workspace::active()->layout()->add(Size({ mRequestedGeom.width, mRequestedGeom.height }));
+        layoutRect = mLayout->rect();
         error() << "laid out at" << layoutRect;
         Workspace::active()->layout()->dump();
-        mGridLayout->rectChanged().connect(std::bind(&Client::onGridLayoutChanged, this, std::placeholders::_1));
+        mLayout->rectChanged().connect(std::bind(&Client::onLayoutChanged, this, std::placeholders::_1));
     }
 #warning do startup-notification stuff here
     xcb_change_save_set(conn, XCB_SET_MODE_INSERT, win);
@@ -134,7 +134,7 @@ Client::~Client()
 
 void Client::clearWorkspace()
 {
-    mGridLayout.reset();
+    mLayout.reset();
     mWorkspace.reset();
 }
 
@@ -146,11 +146,11 @@ bool Client::updateWorkspace(const Workspace::SharedPtr& workspace)
     if (workspace == old)
         return true;
     old->removeClient(shared_from_this());
-    mGridLayout = workspace->layout()->add(Size({ mRequestedGeom.width, mRequestedGeom.height }));
-    mGridLayout->rectChanged().connect(std::bind(&Client::onGridLayoutChanged, this, std::placeholders::_1));
+    mLayout = workspace->layout()->add(Size({ mRequestedGeom.width, mRequestedGeom.height }));
+    mLayout->rectChanged().connect(std::bind(&Client::onLayoutChanged, this, std::placeholders::_1));
     mWorkspace = workspace;
 
-    onGridLayoutChanged(mGridLayout->rect());
+    onLayoutChanged(mLayout->rect());
     return true;
 }
 
@@ -284,7 +284,7 @@ void Client::updateEwmhState(xcb_ewmh_connection_t* conn, xcb_get_property_cooki
     }
 }
 
-void Client::onGridLayoutChanged(const Rect& rect)
+void Client::onLayoutChanged(const Rect& rect)
 {
     error() << "layout changed" << rect;
     xcb_connection_t* conn = WindowManager::instance()->connection();
@@ -307,7 +307,7 @@ Client::SharedPtr Client::manage(xcb_window_t window)
     if (!ptr->isValid()) {
         return SharedPtr();
     }
-    if (ptr->mGridLayout) {
+    if (ptr->mLayout) {
         Workspace::SharedPtr ws = Workspace::active();
         assert(ws);
         ptr->mWorkspace = ws;
@@ -383,7 +383,7 @@ void Client::destroy()
 
 void Client::configure()
 {
-    const Rect& layoutRect = mGridLayout ? mGridLayout->rect() : mRequestedGeom;
+    const Rect& layoutRect = mLayout ? mLayout->rect() : mRequestedGeom;
     xcb_connection_t* conn = WindowManager::instance()->connection();
 
     xcb_configure_notify_event_t ce;

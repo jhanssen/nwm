@@ -1,12 +1,25 @@
 #include "Workspace.h"
+#include "GridLayout.h"
+#include "StackLayout.h"
+#include <rct/Log.h>
 #include <assert.h>
 
 Workspace::WeakPtr Workspace::sActive;
 
-Workspace::Workspace(const Rect& rect, const String& name)
+Workspace::Workspace(unsigned int layoutType, const Rect& rect, const String& name)
     : mRect(rect), mName(name)
 {
-    mGridLayout = std::make_shared<GridLayout>(mRect);
+    switch (layoutType) {
+    case GridLayout::Type:
+        mLayout = std::make_shared<GridLayout>(mRect);
+        break;
+    case StackLayout::Type:
+        mLayout = std::make_shared<StackLayout>(mRect);
+        break;
+    default:
+        error() << "Invalid layout type" << layoutType << "for Workspace";
+        break;
+    }
 }
 
 Workspace::~Workspace()
@@ -16,7 +29,7 @@ Workspace::~Workspace()
 void Workspace::setRect(const Rect& rect)
 {
     mRect = rect;
-    mGridLayout->setRect(rect);
+    mLayout->setRect(rect);
 }
 
 void Workspace::updateFocus(const Client::SharedPtr& client)

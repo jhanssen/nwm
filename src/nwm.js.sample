@@ -1,4 +1,9 @@
-nwm.workspace.count = 4;
+var ws = nwm.workspace;
+ws.add({ type: 0 });
+ws.add({ type: 0 });
+ws.add({ type: 0 });
+ws.add({ type: 0 });
+
 var kbd = nwm.kbd;
 kbd.set("Ctrl-A", function() { console.log("test"); });
 kbd.set("Shift-A", function() { nwm.launch("xterm"); });

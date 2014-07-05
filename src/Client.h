@@ -1,7 +1,7 @@
 #ifndef CLIENT_H
 #define CLIENT_H
 
-#include "GridLayout.h"
+#include "Layout.h"
 #include "Rect.h"
 #include <rct/Hash.h>
 #include <rct/Set.h>
@@ -41,7 +41,7 @@ public:
 
     std::shared_ptr<Workspace> workspace() const { return mWorkspace.lock(); }
 
-    const GridLayout::SharedPtr& layout() const { return mGridLayout; }
+    const Layout::SharedPtr& layout() const { return mLayout; }
     xcb_window_t window() const { return mWindow; }
 
 private:
@@ -51,7 +51,7 @@ private:
 private:
     Client(xcb_window_t win);
 
-    void onGridLayoutChanged(const Rect& rect);
+    void onLayoutChanged(const Rect& rect);
     void updateState(xcb_ewmh_connection_t* conn);
     void updateSize(xcb_connection_t* conn, xcb_get_geometry_cookie_t cookie);
     void updateNormalHints(xcb_connection_t* conn, xcb_get_property_cookie_t cookie);
@@ -68,7 +68,7 @@ private:
     xcb_window_t mFrame;
     bool mValid;
     bool mNoFocus;
-    GridLayout::SharedPtr mGridLayout;
+    Layout::SharedPtr mLayout;
     std::weak_ptr<Workspace> mWorkspace;
 
     Rect mRequestedGeom;
