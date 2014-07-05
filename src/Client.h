@@ -43,12 +43,14 @@ public:
 
     bool noFocus() const { return mNoFocus; }
     bool isFloating() const { return mFloating; }
+    bool isDialog() const { return false; }
 
     std::shared_ptr<Workspace> workspace() const { return mWorkspace.lock(); }
     ClientGroup::SharedPtr group() const { return mGroup; }
 
     const Layout::SharedPtr& layout() const { return mLayout; }
     xcb_window_t window() const { return mWindow; }
+    xcb_window_t frame() const { return mFrame; }
 
 private:
     void clearWorkspace();

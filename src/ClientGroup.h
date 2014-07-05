@@ -20,6 +20,8 @@ public:
     void add(const std::shared_ptr<Client>& client) { mClients.append(client); }
     const List<std::weak_ptr<Client> >& clients() const { return mClients; }
 
+    void raise();
+
 private:
     ClientGroup() { }
 

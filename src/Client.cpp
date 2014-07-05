@@ -438,9 +438,14 @@ void Client::destroy()
 void Client::raise()
 {
     error() << "raising" << this;
-    xcb_connection_t* conn = WindowManager::instance()->connection();
-    const uint32_t stackMode[] = { XCB_STACK_MODE_ABOVE };
-    xcb_configure_window(conn, mFrame, XCB_CONFIG_WINDOW_STACK_MODE, stackMode);
+    // raise the client group if it exists
+    if (mGroup) {
+        mGroup->raise();
+    } else {
+        xcb_connection_t* conn = WindowManager::instance()->connection();
+        const uint32_t stackMode[] = { XCB_STACK_MODE_ABOVE };
+        xcb_configure_window(conn, mFrame, XCB_CONFIG_WINDOW_STACK_MODE, stackMode);
+    }
 }
 
 void Client::move(const Point& point)
