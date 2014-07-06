@@ -203,6 +203,8 @@ void JavaScript::init()
             if (ws < 0 || ws >= wss.size())
                 return ScriptEngine::instance()->throwException("Invalid workspace");
             wss[ws]->activate();
+            WindowManager::SharedPtr wm = WindowManager::instance();
+            xcb_ewmh_set_current_desktop(wm->ewmhConnection(), wm->screenNo(), ws);
             return Value();
         });
     workspace->registerFunction("raiseLast", [](const List<Value>&) -> Value {

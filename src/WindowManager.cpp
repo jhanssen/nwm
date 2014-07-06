@@ -274,6 +274,9 @@ bool WindowManager::init(int &argc, char **argv)
         }
 
         mWorkspaces[0]->activate();
+        // update ewmh
+        xcb_ewmh_set_number_of_desktops(mEwmhConn, mScreenNo, mWorkspaces.size());
+        xcb_ewmh_set_current_desktop(mEwmhConn, mScreenNo, 0);
 
         if (!manage()) {
             error() << "Unable to manage existing windows";
@@ -538,8 +541,8 @@ bool WindowManager::install()
         // Atoms::_NET_STARTUP_ID,
         // Atoms::_NET_CLIENT_LIST,
         // Atoms::_NET_CLIENT_LIST_STACKING,
-        // Atoms::_NET_NUMBER_OF_DESKTOPS,
-        // Atoms::_NET_CURRENT_DESKTOP,
+        mEwmhConn->_NET_NUMBER_OF_DESKTOPS,
+        mEwmhConn->_NET_CURRENT_DESKTOP,
         // Atoms::_NET_DESKTOP_NAMES,
         // Atoms::_NET_ACTIVE_WINDOW,
         // Atoms::_NET_CLOSE_WINDOW,

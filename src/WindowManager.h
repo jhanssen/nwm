@@ -43,6 +43,7 @@ public:
     xcb_connection_t* connection() const { return mConn; }
     xcb_ewmh_connection_t* ewmhConnection() const { return mEwmhConn; }
     xcb_screen_t* screen() const { return mScreen; }
+    int screenNo() const { return mScreenNo; }
 
     xcb_key_symbols_t* keySymbols() const { return mSyms; }
     int32_t xkbDevice() const { return mXkb.device; }
