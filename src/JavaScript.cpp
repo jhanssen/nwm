@@ -326,14 +326,10 @@ void JavaScript::onClient(const Client::SharedPtr& client)
     auto it = mOns.find("client");
     if (it == mOns.end())
         return;
-    Object::SharedPtr obj = mClientClass->create();
-    obj->setExtraData(Client::WeakPtr(client));
-    Value val = fromObject(obj);
-    // go call
     Object::SharedPtr func = toObject(it->second);
     if (!func || !func->isFunction()) {
         error() << "onClient is not a function";
         return;
     }
-    func->call({ val });
+    func->call({ client->jsValue() });
 }

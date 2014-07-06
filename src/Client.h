@@ -6,6 +6,7 @@
 #include "Rect.h"
 #include <rct/Hash.h>
 #include <rct/Set.h>
+#include <rct/Value.h>
 #include <xcb/xcb.h>
 #include <xcb/xcb_icccm.h>
 #include <xcb/xcb_ewmh.h>
@@ -45,6 +46,8 @@ public:
     bool isFloating() const { return mFloating; }
     bool isDialog() const { return mTransientFor != XCB_NONE; }
 
+    const Value& jsValue() { if (mJSValue.type() == Value::Type_Invalid) createJSValue(); return mJSValue; }
+
     std::shared_ptr<Workspace> workspace() const { return mWorkspace.lock(); }
     ClientGroup::SharedPtr group() const { return mGroup; }
 
@@ -56,6 +59,7 @@ private:
     void clearWorkspace();
     bool updateWorkspace(const std::shared_ptr<Workspace>& workspace);
     bool shouldLayout();
+    void createJSValue();
 
 private:
     Client(xcb_window_t win);
@@ -97,6 +101,7 @@ private:
     xcb_ewmh_wm_strut_partial_t mStrut;
     ClientGroup::SharedPtr mGroup;
     bool mFloating;
+    Value mJSValue;
 
     static Hash<xcb_window_t, Client::SharedPtr> sClients;
 

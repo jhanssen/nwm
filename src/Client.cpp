@@ -517,3 +517,11 @@ bool Client::shouldLayout()
     xcb_ewmh_connection_t* conn = WindowManager::instance()->ewmhConnection();
     return (mWindowType.contains(conn->_NET_WM_WINDOW_TYPE_NORMAL));
 }
+
+void Client::createJSValue()
+{
+    JavaScript& js = WindowManager::instance()->js();
+    ScriptEngine::Object::SharedPtr obj = js.clientClass()->create();
+    obj->setExtraData(WeakPtr(shared_from_this()));
+    mJSValue = js.fromObject(obj);
+}

@@ -18,6 +18,7 @@ public:
     Value evaluateFile(const Path &path, String *error);
 
     void onClient(const Client::SharedPtr& client);
+    const Class::SharedPtr& clientClass() const { return mClientClass; }
 
 private:
     Class::SharedPtr mClientClass;
