@@ -47,6 +47,16 @@ static inline void logValues(FILE* file, const List<Value>& args)
 
 void JavaScript::init()
 {
+    // --------------- Client class ---------------
+    mClientClass = Class::create("Client");
+    mClientClass->registerFunction("hepp", [](const List<Value>& args) -> Value {
+            error() << "hepp!!";
+            return Value();
+        });
+    mClientClass->registerProperty("ting", []() -> Value {
+            return "test ting";
+        });
+
     auto global = globalObject();
 
     // --------------- console ---------------
@@ -116,6 +126,21 @@ void JavaScript::init()
             if (proc.exec(path, processArgs, environ) != Process::Done)
                 return ScriptEngine::instance()->throwException("exec failed for " + path);
             return proc.readAllStdOut();
+        });
+    nwm->registerFunction("on", [this](const List<Value>& args) -> Value {
+            if (args.size() != 2) {
+                return ScriptEngine::instance()->throwException("Invalid number of arguments to nwm.on, 2 required");
+            }
+            const Value& name = args.at(0);
+            const Value& func = args.at(1);
+            if (name.type() != Value::Type_String) {
+                return ScriptEngine::instance()->throwException("First argument to nwm.on needs to be a string");
+            }
+            if (func.type() != Value::Type_Custom) {
+                return ScriptEngine::instance()->throwException("First argument to nwm.on needs to be a function");
+            }
+            mOns[name.toString()] = func;
+            return Value();
         });
     nwm->registerProperty("moveModifier",
                           []() -> Value {
@@ -289,4 +314,20 @@ Value JavaScript::evaluateFile(const Path &file, String *err)
     }
     const String code = file.readAll();
     return evaluate(code, Path(), err);
+}
+
+void JavaScript::onClient(const Client::SharedPtr& client)
+{
+    auto it = mOns.find("client");
+    if (it == mOns.end())
+        return;
+    Object::SharedPtr obj = mClientClass->create();
+    Value val = fromObject(obj);
+    // go call
+    Object::SharedPtr func = toObject(it->second);
+    if (!func) {
+        error() << "onClient is not a function";
+        return;
+    }
+    func->call({ val });
 }

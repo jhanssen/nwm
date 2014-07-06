@@ -390,6 +390,8 @@ Client::SharedPtr Client::manage(xcb_window_t window)
     if (!ptr->isValid()) {
         return SharedPtr();
     }
+    WindowManager::SharedPtr wm = WindowManager::instance();
+    wm->js().onClient(ptr);
     if (ptr->isFloating() || ptr->mLayout) {
         Workspace::SharedPtr ws = Workspace::active();
         assert(ws);

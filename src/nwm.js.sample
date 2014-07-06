@@ -1,5 +1,10 @@
 nwm.moveModifier = "Alt";
 nwm.focusPolicy = nwm.FocusClick;
+nwm.on("client", function(client) {
+    console.log("got client");
+    client.hepp();
+    console.log(client.ting);
+});
 
 var ws = nwm.workspace;
 ws.add({ type: ws.Stack });
