@@ -65,6 +65,10 @@ public:
     Client::SharedPtr moving() const { return mMoving.lock(); }
     const Point& movingOrigin() const { return mMovingOrigin; }
 
+    enum FocusPolicy { FocusFollowsMouse, FocusClick };
+    void setFocusPolicy(FocusPolicy policy) { mFocusPolicy = policy; }
+    FocusPolicy focusPolicy() const { return mFocusPolicy; }
+
     const List<Workspace::SharedPtr>& workspaces() const { return mWorkspaces; }
     void addWorkspace(unsigned int layoutType);
 
@@ -103,6 +107,7 @@ private:
     Client::WeakPtr mMoving;
     bool mIsMoving;
     Point mMovingOrigin;
+    FocusPolicy mFocusPolicy;
 
     SocketServer mServer;
 

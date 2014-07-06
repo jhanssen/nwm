@@ -79,7 +79,7 @@ WindowManager *WindowManager::sInstance;
 
 WindowManager::WindowManager()
     : mConn(0), mEwmhConn(0), mScreen(0), mScreenNo(0), mXkbEvent(0), mSyms(0), mTimestamp(XCB_CURRENT_TIME),
-      mMoveModifierMask(0), mIsMoving(false)
+      mMoveModifierMask(0), mIsMoving(false), mFocusPolicy(FocusFollowsMouse)
 {
     Messages::registerMessage<JavascriptMessage>();
     memset(&mXkb, '\0', sizeof(mXkb));

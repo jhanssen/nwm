@@ -1,4 +1,5 @@
 nwm.moveModifier = "Alt";
+nwm.focusPolicy = nwm.FocusClick;
 
 var ws = nwm.workspace;
 ws.add({ type: ws.Stack });

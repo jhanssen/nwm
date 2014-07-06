@@ -16,6 +16,10 @@ void handleButtonPress(const xcb_button_press_event_t* event)
     Client::SharedPtr client = Client::client(event->event);
     if (client) {
         xcb_connection_t* conn = wm->connection();
+        client->raise();
+        if (wm->focusPolicy() == WindowManager::FocusClick)
+            client->focus();
+        xcb_flush(conn);
 
         if (event->state) {
             const uint16_t mod = wm->moveModifierMask();
@@ -61,8 +65,6 @@ void handleButtonPress(const xcb_button_press_event_t* event)
             xcb_allow_events(conn, XCB_ALLOW_ASYNC_POINTER, event->time);
             return;
         }
-
-        //client->raise();
 
         xcb_allow_events(conn, XCB_ALLOW_REPLAY_POINTER, event->time);
     }
@@ -187,10 +189,13 @@ void handleDestroyNotify(const xcb_destroy_notify_event_t* event)
 
 void handleEnterNotify(const xcb_enter_notify_event_t* event)
 {
-    WindowManager::instance()->updateTimestamp(event->time);
-    Client::SharedPtr client = Client::client(event->child);
-    if (client)
-        client->focus();
+    WindowManager::SharedPtr wm = WindowManager::instance();
+    wm->updateTimestamp(event->time);
+    if (wm->focusPolicy() == WindowManager::FocusFollowsMouse) {
+        Client::SharedPtr client = Client::client(event->child);
+        if (client)
+            client->focus();
+    }
 }
 
 void handleExpose(const xcb_expose_event_t* event)

@@ -105,7 +105,6 @@ void Workspace::activate()
 
 void Workspace::notifyRaised(const Client::SharedPtr& client)
 {
-    mClients.prepend(client);
     // find and remove
     auto it = mClients.begin();
     while (it != mClients.end()) {
@@ -119,6 +118,7 @@ void Workspace::notifyRaised(const Client::SharedPtr& client)
             it = mClients.erase(it);
         }
     }
+    mClients.prepend(client);
 }
 
 void Workspace::raise(RaiseMode mode)
@@ -145,10 +145,8 @@ void Workspace::raise(RaiseMode mode)
         while (it != mClients.end()) {
             if (Client::SharedPtr client = it->lock()) {
                 if (cur == pos) {
-                    // found the one we want, take it out and reinsert at the front
-                    mClients.erase(it);
-                    mClients.prepend(client);
                     client->raise();
+                    client->focus();
                     return;
                 }
                 ++cur;
@@ -167,10 +165,8 @@ void Workspace::raise(RaiseMode mode)
             --it;
             if (Client::SharedPtr client = it->lock()) {
                 if (cur == pos) {
-                    // found the one we want, take it out and reinsert at the front
-                    mClients.erase(it);
-                    mClients.prepend(client);
                     client->raise();
+                    client->focus();
                     return;
                 }
                 ++cur;

@@ -123,10 +123,33 @@ void JavaScript::init()
                           },
                           [](const Value& value) {
                               if (value.type() != Value::Type_String) {
-                                  ScriptEngine::instance()->throwException("Move modifier needs to be a string");
+                                  return ScriptEngine::instance()->throwException<void>("Move modifier needs to be a string");
                               }
                               WindowManager::instance()->setMoveModifier(value.toString());
+                              if (WindowManager::instance()->moveModifierMask() == XCB_NO_SYMBOL) {
+                                  ScriptEngine::instance()->throwException<void>("Invalid move modifier");
+                              }
                           });
+    nwm->registerProperty("focusPolicy",
+                          []() -> Value {
+                              return WindowManager::instance()->focusPolicy();
+                          },
+                          [](const Value& value) {
+                              if (value.type() != Value::Type_Integer) {
+                                  return ScriptEngine::instance()->throwException<void>("Focus policy needs to be an integer");
+                              }
+                              const int fp = value.toInteger();
+                              switch (fp) {
+                              case WindowManager::FocusFollowsMouse:
+                              case WindowManager::FocusClick:
+                                  break;
+                              default:
+                                  return ScriptEngine::instance()->throwException<void>("Invalid focus policy");
+                              }
+                              WindowManager::instance()->setFocusPolicy(static_cast<WindowManager::FocusPolicy>(fp));
+                          });
+    nwm->setProperty("FocusFollowsMouse", WindowManager::FocusFollowsMouse);
+    nwm->setProperty("FocusClick", WindowManager::FocusClick);
 
     // --------------- nwm.workspace ---------------
     auto workspace = nwm->child("workspace");
