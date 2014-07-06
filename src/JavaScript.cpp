@@ -331,7 +331,7 @@ void JavaScript::onClient(const Client::SharedPtr& client)
     Value val = fromObject(obj);
     // go call
     Object::SharedPtr func = toObject(it->second);
-    if (!func) {
+    if (!func || !func->isFunction()) {
         error() << "onClient is not a function";
         return;
     }
