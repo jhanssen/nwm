@@ -49,11 +49,16 @@ void JavaScript::init()
 {
     // --------------- Client class ---------------
     mClientClass = Class::create("Client");
-    mClientClass->registerFunction("hepp", [](const List<Value>& args) -> Value {
-            error() << "hepp!!";
+    mClientClass->registerFunction("hepp", [](const ScriptEngine::Object::SharedPtr& obj, const List<Value>& args) -> Value {
+            Client::WeakPtr weak = obj->extraData<Client::WeakPtr>();
+            if (Client::SharedPtr client = weak.lock()) {
+                error() << "hepp!!" << client->window();
+            } else {
+                error() << "hepp with no client";
+            }
             return Value();
         });
-    mClientClass->registerProperty("ting", []() -> Value {
+    mClientClass->registerProperty("ting", [](const ScriptEngine::Object::SharedPtr&) -> Value {
             return "test ting";
         });
 
@@ -61,14 +66,14 @@ void JavaScript::init()
 
     // --------------- console ---------------
     auto console = global->child("console");
-    console->registerFunction("log", [](const List<Value>& args) -> Value {
+    console->registerFunction("log", [](const ScriptEngine::Object::SharedPtr&, const List<Value>& args) -> Value {
             if (args.isEmpty()) {
                 return ScriptEngine::instance()->throwException("No arguments passed to console.log");
             }
             logValues(stdout, args);
             return Value();
        });
-    console->registerFunction("error", [](const List<Value>& args) -> Value {
+    console->registerFunction("error", [](const ScriptEngine::Object::SharedPtr&, const List<Value>& args) -> Value {
             if (args.isEmpty()) {
                 return ScriptEngine::instance()->throwException("No arguments passed to console.log");
             }
@@ -78,7 +83,7 @@ void JavaScript::init()
 
     // --------------- nwm ---------------
     auto nwm = global->child("nwm");
-    nwm->registerFunction("launch", [](const List<Value>& args) -> Value {
+    nwm->registerFunction("launch", [](const ScriptEngine::Object::SharedPtr&, const List<Value>& args) -> Value {
             if (args.size() != 1) {
                 return ScriptEngine::instance()->throwException("Invalid number of arguments to launch, 1 required");
             }
@@ -90,7 +95,7 @@ void JavaScript::init()
             Util::launch(arg.toString(), wm->displayString());
             return true;
         });
-    nwm->registerFunction("exec", [](const List<Value>& args) -> Value {
+    nwm->registerFunction("exec", [](const ScriptEngine::Object::SharedPtr&, const List<Value>& args) -> Value {
             if (args.size() < 1) {
                 return ScriptEngine::instance()->throwException("Invalid number of arguments to exec, at least 1 required");
             }
@@ -127,7 +132,7 @@ void JavaScript::init()
                 return ScriptEngine::instance()->throwException("exec failed for " + path);
             return proc.readAllStdOut();
         });
-    nwm->registerFunction("on", [this](const List<Value>& args) -> Value {
+    nwm->registerFunction("on", [this](const ScriptEngine::Object::SharedPtr&, const List<Value>& args) -> Value {
             if (args.size() != 2) {
                 return ScriptEngine::instance()->throwException("Invalid number of arguments to nwm.on, 2 required");
             }
@@ -143,10 +148,10 @@ void JavaScript::init()
             return Value();
         });
     nwm->registerProperty("moveModifier",
-                          []() -> Value {
+                          [](const ScriptEngine::Object::SharedPtr&) -> Value {
                               return WindowManager::instance()->moveModifier();
                           },
-                          [](const Value& value) {
+                          [](const ScriptEngine::Object::SharedPtr&, const Value& value) {
                               if (value.type() != Value::Type_String) {
                                   return ScriptEngine::instance()->throwException<void>("Move modifier needs to be a string");
                               }
@@ -156,10 +161,10 @@ void JavaScript::init()
                               }
                           });
     nwm->registerProperty("focusPolicy",
-                          []() -> Value {
+                          [](const ScriptEngine::Object::SharedPtr&) -> Value {
                               return WindowManager::instance()->focusPolicy();
                           },
-                          [](const Value& value) {
+                          [](const ScriptEngine::Object::SharedPtr&, const Value& value) {
                               if (value.type() != Value::Type_Integer) {
                                   return ScriptEngine::instance()->throwException<void>("Focus policy needs to be an integer");
                               }
@@ -180,7 +185,7 @@ void JavaScript::init()
     auto workspace = nwm->child("workspace");
     workspace->setProperty("Stack", StackLayout::Type);
     workspace->setProperty("Grid", GridLayout::Type);
-    workspace->registerFunction("add", [](const List<Value>& args) -> Value {
+    workspace->registerFunction("add", [](const ScriptEngine::Object::SharedPtr&, const List<Value>& args) -> Value {
             unsigned int layoutType = GridLayout::Type;
             if (!args.isEmpty()) {
                 if (args.size() > 1)
@@ -205,7 +210,7 @@ void JavaScript::init()
             WindowManager::instance()->addWorkspace(layoutType);
             return Value();
         });
-    workspace->registerFunction("moveTo", [](const List<Value>& args) -> Value {
+    workspace->registerFunction("moveTo", [](const ScriptEngine::Object::SharedPtr&, const List<Value>& args) -> Value {
             if (args.isEmpty())
                 return Value();
             const int32_t ws = args[0].toInteger();
@@ -220,7 +225,7 @@ void JavaScript::init()
             dst->addClient(client);
             return Value();
         });
-    workspace->registerFunction("select", [](const List<Value>& args) -> Value {
+    workspace->registerFunction("select", [](const ScriptEngine::Object::SharedPtr&, const List<Value>& args) -> Value {
             if (args.isEmpty())
                 return Value();
             const int32_t ws = args[0].toInteger();
@@ -232,7 +237,7 @@ void JavaScript::init()
             xcb_ewmh_set_current_desktop(wm->ewmhConnection(), wm->screenNo(), ws);
             return Value();
         });
-    workspace->registerFunction("raiseLast", [](const List<Value>&) -> Value {
+    workspace->registerFunction("raiseLast", [](const ScriptEngine::Object::SharedPtr&, const List<Value>&) -> Value {
             Workspace::SharedPtr active = Workspace::active();
             if (!active)
                 return Value();
@@ -242,7 +247,7 @@ void JavaScript::init()
 
     // --------------- nwm.layout ---------------
     auto layout = nwm->child("layout");
-    layout->registerFunction("toggleOrientation", [](const List<Value>&) -> Value {
+    layout->registerFunction("toggleOrientation", [](const ScriptEngine::Object::SharedPtr&, const List<Value>&) -> Value {
             GridLayout::SharedPtr parent = gridParent();
             if (!parent)
                 return Value();
@@ -258,7 +263,7 @@ void JavaScript::init()
             parent->dump();
             return Value();
         });
-    layout->registerFunction("adjust", [](const List<Value>& args) -> Value {
+    layout->registerFunction("adjust", [](const ScriptEngine::Object::SharedPtr&, const List<Value>& args) -> Value {
             GridLayout::SharedPtr parent = gridParent();
             if (!parent)
                 return Value();
@@ -266,14 +271,14 @@ void JavaScript::init()
             parent->adjust(adjust);
             return Value();
         });
-    layout->registerFunction("adjustLeft", [](const List<Value>&) -> Value {
+    layout->registerFunction("adjustLeft", [](const ScriptEngine::Object::SharedPtr&, const List<Value>&) -> Value {
             GridLayout::SharedPtr parent = gridParent();
             if (!parent)
                 return Value();
             parent->adjust(-10);
             return Value();
         });
-    layout->registerFunction("adjustRight", [](const List<Value>&) -> Value {
+    layout->registerFunction("adjustRight", [](const ScriptEngine::Object::SharedPtr&, const List<Value>&) -> Value {
             GridLayout::SharedPtr parent = gridParent();
             if (!parent)
                 return Value();
@@ -283,7 +288,7 @@ void JavaScript::init()
 
     // --------------- nwm.kbd ---------------
     auto kbd = nwm->child("kbd");
-    kbd->registerFunction("set", [](const List<Value> &args) -> Value {
+    kbd->registerFunction("set", [](const ScriptEngine::Object::SharedPtr&, const List<Value> &args) -> Value {
             if (args.size() != 2)
                 return ScriptEngine::instance()->throwException("Invalid number of arguments to kbd.set, 2 required");
             const Value& key = args.at(0);
@@ -322,6 +327,7 @@ void JavaScript::onClient(const Client::SharedPtr& client)
     if (it == mOns.end())
         return;
     Object::SharedPtr obj = mClientClass->create();
+    obj->setExtraData(Client::WeakPtr(client));
     Value val = fromObject(obj);
     // go call
     Object::SharedPtr func = toObject(it->second);

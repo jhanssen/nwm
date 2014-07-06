@@ -113,7 +113,7 @@ void Client::init()
         const uint32_t noValue[] = { 0 };
         xcb_change_window_attributes(conn, screen->root, XCB_CW_EVENT_MASK, noValue);
         xcb_reparent_window(conn, mWindow, mFrame, 0, 0);
-        error() << "created and mapped parent client for frame" << mFrame;
+        error() << "created and mapped parent client for frame" << mFrame << "with window" << mWindow;
         const uint32_t rootEvent[] = { Types::RootEventMask };
         xcb_change_window_attributes(conn, screen->root, XCB_CW_EVENT_MASK, rootEvent);
         xcb_grab_button(conn, false, mWindow, XCB_EVENT_MASK_BUTTON_PRESS,
