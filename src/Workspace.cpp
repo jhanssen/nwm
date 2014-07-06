@@ -1,6 +1,7 @@
 #include "Workspace.h"
 #include "GridLayout.h"
 #include "StackLayout.h"
+#include "WindowManager.h"
 #include <rct/Log.h>
 #include <assert.h>
 #include <stdlib.h>
@@ -70,6 +71,11 @@ void Workspace::updateFocus(const Client::SharedPtr& client)
                 }
             }
         }
+        // No window to focus, focus the root window instead
+        WindowManager::SharedPtr wm = WindowManager::instance();
+        const xcb_window_t root = wm->screen()->root;
+        xcb_set_input_focus(wm->connection(), XCB_INPUT_FOCUS_PARENT, root, wm->timestamp());
+        xcb_ewmh_set_active_window(wm->ewmhConnection(), wm->screenNo(), root);
     }
 }
 
