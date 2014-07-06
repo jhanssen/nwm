@@ -124,6 +124,22 @@ void handleMotionNotify(const xcb_motion_notify_event_t* event)
 
 void handleClientMessage(const xcb_client_message_event_t* event)
 {
+    WindowManager::SharedPtr wm = WindowManager::instance();
+    xcb_ewmh_connection_t* ewmhConn = wm->ewmhConnection();
+    if (event->type == ewmhConn->_NET_ACTIVE_WINDOW) {
+        Client::SharedPtr client = Client::client(event->window);
+        if (client) {
+            client->raise();
+            client->focus();
+        }
+    } else if (event->type == ewmhConn->_NET_CURRENT_DESKTOP) {
+        const uint32_t ws = event->data.data32[0];
+        const List<Workspace::SharedPtr>& wss = wm->workspaces();
+        if (ws >= static_cast<uint32_t>(wss.size()))
+            return;
+        wss[ws]->activate();
+        xcb_ewmh_set_current_desktop(ewmhConn, wm->screenNo(), ws);
+    }
 }
 
 void handleConfigureRequest(const xcb_configure_request_event_t* event)

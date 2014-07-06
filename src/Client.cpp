@@ -457,6 +457,7 @@ void Client::focus()
                        reinterpret_cast<char*>(&event));
     }
     xcb_set_input_focus(wm->connection(), XCB_INPUT_FOCUS_PARENT, mWindow, wm->timestamp());
+    xcb_ewmh_set_active_window(wm->ewmhConnection(), wm->screenNo(), mWindow);
     if (Workspace::SharedPtr ws = mWorkspace.lock())
         ws->updateFocus(shared_from_this());
 }

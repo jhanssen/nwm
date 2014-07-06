@@ -544,7 +544,7 @@ bool WindowManager::install()
         mEwmhConn->_NET_NUMBER_OF_DESKTOPS,
         mEwmhConn->_NET_CURRENT_DESKTOP,
         // Atoms::_NET_DESKTOP_NAMES,
-        // Atoms::_NET_ACTIVE_WINDOW,
+        mEwmhConn->_NET_ACTIVE_WINDOW,
         // Atoms::_NET_CLOSE_WINDOW,
         // Atoms::_NET_WM_NAME,
         mEwmhConn->_NET_WM_STRUT,
