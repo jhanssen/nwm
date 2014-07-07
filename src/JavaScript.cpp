@@ -98,11 +98,14 @@ void JavaScript::init()
         []() -> Value {
             return List<Value>() << "title" << "class" << "instance" << "floating" << "dialog" << "window";
         });
-    mClientClass->registerFunction("toString",
+    mClientClass->registerFunction("raise", [](const Object::SharedPtr &obj, const List<Value> &) -> Value {
+            Client::WeakPtr weak = obj->extraData<Client::WeakPtr>();
+            if (Client::SharedPtr client = weak.lock()) {
+                client->raise();
+            }
+            return Value::undefined();
+        });
 
-                                   [](const Object::SharedPtr &obj, const List<Value> &) -> Value {
-                                       return "foobar";
-                                   });
 
     auto global = globalObject();
 
