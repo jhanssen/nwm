@@ -1,9 +1,9 @@
 nwm.moveModifier = "Alt";
 nwm.focusPolicy = nwm.FocusClick;
 nwm.on("client", function(client) {
-    console.log("got client");
-    client.hepp();
-    console.log(client.ting);
+    console.log("got client", client.title, client.class, client.instance);
+    if (client.class == "XTerm")
+	client.floating = true;
 });
 
 var ws = nwm.workspace;

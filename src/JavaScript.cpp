@@ -49,31 +49,45 @@ void JavaScript::init()
 {
     // --------------- Client class ---------------
     mClientClass = Class::create("Client");
-    mClientClass->registerFunction("hepp", [](const Object::SharedPtr& obj, const List<Value>& args) -> Value {
-            Client::WeakPtr weak = obj->extraData<Client::WeakPtr>();
-            if (Client::SharedPtr client = weak.lock()) {
-                error() << "hepp!!" << client->window();
-            } else {
-                error() << "hepp with no client";
-            }
-            return Value();
-        });
-    mClientClass->registerProperty("ting", [](const Object::SharedPtr&) -> Value {
-            return "test ting";
-        });
     mClientClass->interceptPropertyName(
         // getter, return value
         [](const Object::SharedPtr& obj, const String& prop) -> Value {
-            error() << "getting" << prop << "on" << obj.get();
+            Client::WeakPtr weak = obj->extraData<Client::WeakPtr>();
+            if (Client::SharedPtr client = weak.lock()) {
+                if (prop == "title")
+                    return client->wmName();
+                if (prop == "class")
+                    return client->className();
+                if (prop == "instance")
+                    return client->instanceName();
+                if (prop == "floating")
+                    return client->isFloating();
+                if (prop == "dialog")
+                    return client->isDialog();
+                if (prop == "window")
+                    return static_cast<int32_t>(client->window());
+            }
             return Value();
         },
         // setter return the value set
         [](const Object::SharedPtr& obj, const String& prop, const Value& value) -> Value {
+            if (prop == "floating") {
+                if (value.type() != Value::Type_Boolean) {
+                    return instance()->throwException<Value>("Client.floating needs to be a boolean");
+                }
+                Client::WeakPtr weak = obj->extraData<Client::WeakPtr>();
+                if (Client::SharedPtr client = weak.lock()) {
+                    client->setFloating(value.toBool());
+                }
+            }
             return Value();
         },
         // query, return Class::QueryResult
         [](const String& prop) -> Value {
-            error() << "querying" << prop;
+            if (prop == "title" || prop == "class" || prop == "instance" || prop == "dialog" || prop == "window")
+                return Class::ReadOnly|Class::DontDelete;
+            if (prop == "floating")
+                return Class::DontDelete;
             return Value();
         },
         // deleter, return bool
@@ -91,28 +105,28 @@ void JavaScript::init()
     auto console = global->child("console");
     console->registerFunction("log", [](const Object::SharedPtr&, const List<Value>& args) -> Value {
             if (args.isEmpty()) {
-                return instance()->throwException("No arguments passed to console.log");
+                return instance()->throwException<Value>("No arguments passed to console.log");
             }
             logValues(stdout, args);
-            return Value();
+            return Value::undefined();
        });
     console->registerFunction("error", [](const Object::SharedPtr&, const List<Value>& args) -> Value {
             if (args.isEmpty()) {
-                return instance()->throwException("No arguments passed to console.log");
+                return instance()->throwException<Value>("No arguments passed to console.log");
             }
             logValues(stderr, args);
-            return Value();
+            return Value::undefined();
         });
 
     // --------------- nwm ---------------
     auto nwm = global->child("nwm");
     nwm->registerFunction("launch", [](const Object::SharedPtr&, const List<Value>& args) -> Value {
             if (args.size() != 1) {
-                return instance()->throwException("Invalid number of arguments to launch, 1 required");
+                return instance()->throwException<Value>("Invalid number of arguments to launch, 1 required");
             }
             const Value& arg = args.front();
             if (arg.type() != Value::Type_String) {
-                return instance()->throwException("Argument to launch needs to be a string");
+                return instance()->throwException<Value>("Argument to launch needs to be a string");
             }
             WindowManager::SharedPtr wm = WindowManager::instance();
             Util::launch(arg.toString(), wm->displayString());
@@ -120,16 +134,16 @@ void JavaScript::init()
         });
     nwm->registerFunction("exec", [](const Object::SharedPtr&, const List<Value>& args) -> Value {
             if (args.size() < 1) {
-                return instance()->throwException("Invalid number of arguments to exec, at least 1 required");
+                return instance()->throwException<Value>("Invalid number of arguments to exec, at least 1 required");
             }
             const Value& arg = args.front();
             if (arg.type() != Value::Type_String) {
-                return instance()->throwException("First argument to exec needs to be a string");
+                return instance()->throwException<Value>("First argument to exec needs to be a string");
             }
             List<String> processArgs;
             for (int i = 1; i < args.size(); ++i) {
                 if (args[i].type() != Value::Type_String) {
-                    return instance()->throwException("All arguments to exec needs to be a string");
+                    return instance()->throwException<Value>("All arguments to exec needs to be a string");
                 }
                 processArgs.append(args[i].toString());
             }
@@ -152,23 +166,23 @@ void JavaScript::init()
             const Path path = arg.toString();
             Process proc;
             if (proc.exec(path, processArgs, environ) != Process::Done)
-                return instance()->throwException("exec failed for " + path);
+                return instance()->throwException<Value>("exec failed for " + path);
             return proc.readAllStdOut();
         });
     nwm->registerFunction("on", [this](const Object::SharedPtr&, const List<Value>& args) -> Value {
             if (args.size() != 2) {
-                return instance()->throwException("Invalid number of arguments to nwm.on, 2 required");
+                return instance()->throwException<Value>("Invalid number of arguments to nwm.on, 2 required");
             }
             const Value& name = args.at(0);
             const Value& func = args.at(1);
             if (name.type() != Value::Type_String) {
-                return instance()->throwException("First argument to nwm.on needs to be a string");
+                return instance()->throwException<Value>("First argument to nwm.on needs to be a string");
             }
             if (func.type() != Value::Type_Custom) {
-                return instance()->throwException("First argument to nwm.on needs to be a function");
+                return instance()->throwException<Value>("First argument to nwm.on needs to be a function");
             }
             mOns[name.toString()] = func;
-            return Value();
+            return Value::undefined();
         });
     nwm->registerProperty("moveModifier",
                           [](const Object::SharedPtr&) -> Value {
@@ -212,60 +226,60 @@ void JavaScript::init()
             unsigned int layoutType = GridLayout::Type;
             if (!args.isEmpty()) {
                 if (args.size() > 1)
-                    return instance()->throwException("workspace.add takes zero or one argument");
+                    return instance()->throwException<Value>("workspace.add takes zero or one argument");
                 const Value& v = args.front();
                 if (v.type() != Value::Type_Map)
-                    return instance()->throwException("workspace.add argument needs to be an object");
+                    return instance()->throwException<Value>("workspace.add argument needs to be an object");
                 const Value& t = v["type"];
                 if (t.type() != Value::Type_Invalid) {
                     if (t.type() != Value::Type_Integer)
-                        return instance()->throwException("workspace.add type needs to be an integer");
+                        return instance()->throwException<Value>("workspace.add type needs to be an integer");
                     layoutType = t.toInteger();
                     switch (layoutType) {
                     case StackLayout::Type:
                     case GridLayout::Type:
                         break;
                     default:
-                        return instance()->throwException("workspace.add invalid layout type");
+                        return instance()->throwException<Value>("workspace.add invalid layout type");
                     }
                 }
             }
             WindowManager::instance()->addWorkspace(layoutType);
-            return Value();
+            return Value::undefined();
         });
     workspace->registerFunction("moveTo", [](const Object::SharedPtr&, const List<Value>& args) -> Value {
             if (args.isEmpty())
-                return Value();
+                return Value::undefined();
             const int32_t ws = args[0].toInteger();
             const List<Workspace::SharedPtr>& wss = WindowManager::instance()->workspaces();
             if (ws < 0 || ws >= wss.size())
-                return instance()->throwException("Invalid workspace");
+                return instance()->throwException<Value>("Invalid workspace");
             Workspace::SharedPtr dst = wss[ws];
             Workspace::SharedPtr src = Workspace::active();
             if (dst == src)
-                return Value();
+                return Value::undefined();
             Client::SharedPtr client = src->focusedClient();
             dst->addClient(client);
-            return Value();
+            return Value::undefined();
         });
     workspace->registerFunction("select", [](const Object::SharedPtr&, const List<Value>& args) -> Value {
             if (args.isEmpty())
-                return Value();
+                return Value::undefined();
             const int32_t ws = args[0].toInteger();
             const List<Workspace::SharedPtr>& wss = WindowManager::instance()->workspaces();
             if (ws < 0 || ws >= wss.size())
-                return instance()->throwException("Invalid workspace");
+                return instance()->throwException<Value>("Invalid workspace");
             wss[ws]->activate();
             WindowManager::SharedPtr wm = WindowManager::instance();
             xcb_ewmh_set_current_desktop(wm->ewmhConnection(), wm->screenNo(), ws);
-            return Value();
+            return Value::undefined();
         });
     workspace->registerFunction("raiseLast", [](const Object::SharedPtr&, const List<Value>&) -> Value {
             Workspace::SharedPtr active = Workspace::active();
             if (!active)
-                return Value();
+                return Value::undefined();
             active->raise(Workspace::Last);
-            return Value();
+            return Value::undefined();
         });
 
     // --------------- nwm.layout ---------------
@@ -273,7 +287,7 @@ void JavaScript::init()
     layout->registerFunction("toggleOrientation", [](const Object::SharedPtr&, const List<Value>&) -> Value {
             GridLayout::SharedPtr parent = gridParent();
             if (!parent)
-                return Value();
+                return Value::undefined();
             const GridLayout::Direction dir = parent->direction();
             switch (dir) {
             case GridLayout::LeftRight:
@@ -284,48 +298,48 @@ void JavaScript::init()
                 break;
             }
             parent->dump();
-            return Value();
+            return Value::undefined();
         });
     layout->registerFunction("adjust", [](const Object::SharedPtr&, const List<Value>& args) -> Value {
             GridLayout::SharedPtr parent = gridParent();
             if (!parent)
-                return Value();
+                return Value::undefined();
             const int adjust = args.isEmpty() ? 10 : args[0].toInteger();
             parent->adjust(adjust);
-            return Value();
+            return Value::undefined();
         });
     layout->registerFunction("adjustLeft", [](const Object::SharedPtr&, const List<Value>&) -> Value {
             GridLayout::SharedPtr parent = gridParent();
             if (!parent)
-                return Value();
+                return Value::undefined();
             parent->adjust(-10);
-            return Value();
+            return Value::undefined();
         });
     layout->registerFunction("adjustRight", [](const Object::SharedPtr&, const List<Value>&) -> Value {
             GridLayout::SharedPtr parent = gridParent();
             if (!parent)
-                return Value();
+                return Value::undefined();
             parent->adjust(10);
-            return Value();
+            return Value::undefined();
         });
 
     // --------------- nwm.kbd ---------------
     auto kbd = nwm->child("kbd");
     kbd->registerFunction("set", [](const Object::SharedPtr&, const List<Value> &args) -> Value {
             if (args.size() != 2)
-                return instance()->throwException("Invalid number of arguments to kbd.set, 2 required");
+                return instance()->throwException<Value>("Invalid number of arguments to kbd.set, 2 required");
             const Value& key = args.at(0);
             const Value& func = args.at(1);
             if (key.type() != Value::Type_String)
-                return instance()->throwException("Invalid first argument to kbd.set, needs to be a string");
+                return instance()->throwException<Value>("Invalid first argument to kbd.set, needs to be a string");
             if (func.type() != Value::Type_Custom)
-                return instance()->throwException("Invalid second argument to kbd.set, needs to be a JS function");
+                return instance()->throwException<Value>("Invalid second argument to kbd.set, needs to be a JS function");
             Keybinding binding(key.toString(), func);
             if (!binding.isValid())
-                return instance()->throwException(String::format<64>("Couldn't parse keybind for %s",
-                                                                                   key.toString().constData()));
+                return instance()->throwException<Value>(String::format<64>("Couldn't parse keybind for %s",
+                                                                            key.toString().constData()));
             WindowManager::instance()->bindings().add(binding);
-            return Value();
+            return Value::undefined();
         });
 }
 

@@ -8,7 +8,7 @@
 Hash<xcb_window_t, Client::SharedPtr> Client::sClients;
 
 Client::Client(xcb_window_t win)
-    : mWindow(win), mFrame(XCB_NONE), mValid(false), mNoFocus(false), mFloating(false)
+    : mWindow(win), mFrame(XCB_NONE), mNoFocus(false), mFloating(false)
 {
     error() << "making client";
 }
@@ -33,12 +33,16 @@ Client::~Client()
 void Client::init()
 {
     WindowManager::SharedPtr wm = WindowManager::instance();
-    xcb_connection_t* conn = wm->connection();
     xcb_ewmh_connection_t* ewmhConn = wm->ewmhConnection();
     updateState(ewmhConn);
     wm->bindings().rebind(mWindow);
-    error() << "valid client" << mRequestedGeom.width << mRequestedGeom.height;
-    mValid = true;
+}
+
+void Client::complete()
+{
+    WindowManager::SharedPtr wm = WindowManager::instance();
+    xcb_connection_t* conn = wm->connection();
+    xcb_ewmh_connection_t* ewmhConn = wm->ewmhConnection();
     Rect layoutRect;
     if (mEwmhState.contains(ewmhConn->_NET_WM_STATE_STICKY)) {
         // don't put in layout
@@ -182,6 +186,7 @@ void Client::updateState(xcb_ewmh_connection_t* ewmhConn)
     const xcb_get_property_cookie_t transientCookie = xcb_icccm_get_wm_transient_for(conn, mWindow);
     const xcb_get_property_cookie_t hintsCookie = xcb_icccm_get_wm_hints(conn, mWindow);
     const xcb_get_property_cookie_t classCookie = xcb_icccm_get_wm_class(conn, mWindow);
+    const xcb_get_property_cookie_t nameCookie = xcb_icccm_get_wm_name(conn, mWindow);
     const xcb_get_property_cookie_t protocolsCookie = xcb_icccm_get_wm_protocols(conn, mWindow, Atoms::WM_PROTOCOLS);
     const xcb_get_property_cookie_t strutCookie = xcb_ewmh_get_wm_strut(ewmhConn, mWindow);
     const xcb_get_property_cookie_t partialStrutCookie = xcb_ewmh_get_wm_strut_partial(ewmhConn, mWindow);
@@ -194,6 +199,7 @@ void Client::updateState(xcb_ewmh_connection_t* ewmhConn)
     updateTransient(conn, transientCookie);
     updateHints(conn, hintsCookie);
     updateClass(conn, classCookie);
+    updateName(conn, nameCookie);
     updateProtocols(conn, protocolsCookie);
     updateStrut(ewmhConn, strutCookie);
     updatePartialStrut(ewmhConn, partialStrutCookie);
@@ -297,6 +303,21 @@ void Client::updateClass(xcb_connection_t* conn, xcb_get_property_cookie_t cooki
     }
 }
 
+void Client::updateName(xcb_connection_t* conn, xcb_get_property_cookie_t cookie)
+{
+    xcb_icccm_get_text_property_reply_t prop;
+    if (xcb_icccm_get_wm_name_reply(conn, cookie, &prop, 0)) {
+        if (prop.format == 8) {
+            mName = String(prop.name, prop.name_len);
+        } else {
+            mName.clear();
+        }
+        xcb_icccm_get_text_property_reply_wipe(&prop);
+    } else {
+        mName.clear();
+    }
+}
+
 void Client::updateProtocols(xcb_connection_t* conn, xcb_get_property_cookie_t cookie)
 {
     mProtocols.clear();
@@ -387,11 +408,9 @@ Client::SharedPtr Client::manage(xcb_window_t window)
     assert(sClients.count(window) == 0);
     Client::SharedPtr ptr(new Client(window)); // can't use make_shared due to private c'tor
     ptr->init();
-    if (!ptr->isValid()) {
-        return SharedPtr();
-    }
     WindowManager::SharedPtr wm = WindowManager::instance();
     wm->js().onClient(ptr);
+    ptr->complete();
     if (ptr->isFloating() || ptr->mLayout) {
         Workspace::SharedPtr ws = Workspace::active();
         assert(ws);
@@ -511,6 +530,8 @@ void Client::configure()
 
 bool Client::shouldLayout()
 {
+    if (mFloating)
+        return false;
 #warning handle transient-for here
     if (mWindowType.isEmpty())
         return true;

@@ -31,7 +31,6 @@ public:
     static List<Client::SharedPtr> clients() { return sClients.values(); }
 
     void release() { release(mWindow); mWindow = 0; }
-    bool isValid() const { return mValid; }
 
     void map();
     void unmap();
@@ -46,6 +45,8 @@ public:
     bool isFloating() const { return mFloating; }
     bool isDialog() const { return mTransientFor != XCB_NONE; }
 
+    void setFloating(bool floating) { mFloating = floating; }
+
     const Value& jsValue() { if (mJSValue.type() == Value::Type_Invalid) createJSValue(); return mJSValue; }
 
     std::shared_ptr<Workspace> workspace() const { return mWorkspace.lock(); }
@@ -54,6 +55,10 @@ public:
     const Layout::SharedPtr& layout() const { return mLayout; }
     xcb_window_t window() const { return mWindow; }
     xcb_window_t frame() const { return mFrame; }
+
+    String wmName() const { return mName; }
+    String instanceName() const { return mClass.instanceName; }
+    String className() const { return mClass.className; }
 
 private:
     void clearWorkspace();
@@ -64,6 +69,7 @@ private:
 private:
     Client(xcb_window_t win);
     void init();
+    void complete();
 
     void onLayoutChanged(const Rect& rect);
     void updateState(xcb_ewmh_connection_t* conn);
@@ -72,6 +78,7 @@ private:
     void updateTransient(xcb_connection_t* conn, xcb_get_property_cookie_t cookie);
     void updateHints(xcb_connection_t* conn, xcb_get_property_cookie_t cookie);
     void updateClass(xcb_connection_t* conn, xcb_get_property_cookie_t cookie);
+    void updateName(xcb_connection_t* conn, xcb_get_property_cookie_t cookie);
     void updateProtocols(xcb_connection_t* conn, xcb_get_property_cookie_t cookie);
     void updateStrut(xcb_ewmh_connection_t* conn, xcb_get_property_cookie_t cookie);
     void updatePartialStrut(xcb_ewmh_connection_t* conn, xcb_get_property_cookie_t cookie);
@@ -82,7 +89,6 @@ private:
 private:
     xcb_window_t mWindow;
     xcb_window_t mFrame;
-    bool mValid;
     bool mNoFocus;
     Layout::SharedPtr mLayout;
     std::weak_ptr<Workspace> mWorkspace;
@@ -95,6 +101,7 @@ private:
         String instanceName;
         String className;
     } mClass;
+    String mName;
     Set<xcb_atom_t> mProtocols;
     Set<xcb_atom_t> mEwmhState;
     Set<xcb_atom_t> mWindowType;
