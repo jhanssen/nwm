@@ -10,7 +10,7 @@ Hash<xcb_window_t, Client::SharedPtr> Client::sClients;
 Client::Client(xcb_window_t win)
     : mWindow(win), mFrame(XCB_NONE), mNoFocus(false), mFloating(false)
 {
-    error() << "making client";
+    warning() << "making client";
 }
 
 Client::~Client()
@@ -74,18 +74,18 @@ void Client::complete()
         }
         wm->setRect(rect);
         layoutRect = mRequestedGeom;
-        error() << "fixed at" << layoutRect;
+        warning() << "fixed at" << layoutRect;
     } else {
         if (shouldLayout()) {
             mLayout = Workspace::active()->layout()->add(Size({ mRequestedGeom.width, mRequestedGeom.height }));
             layoutRect = mLayout->rect();
-            error() << "laid out at" << layoutRect;
+            warning() << "laid out at" << layoutRect;
             Workspace::active()->layout()->dump();
             mLayout->rectChanged().connect(std::bind(&Client::onLayoutChanged, this, std::placeholders::_1));
         } else {
             layoutRect = mRequestedGeom;
             mFloating = true;
-            error() << "floating at" << layoutRect;
+            warning() << "floating at" << layoutRect;
         }
     }
 #warning do startup-notification stuff here
@@ -106,7 +106,7 @@ void Client::complete()
          | XCB_EVENT_MASK_BUTTON_PRESS
          | XCB_EVENT_MASK_BUTTON_RELEASE)
     };
-    error() << "creating frame window" << layoutRect << mRequestedGeom;
+    warning() << "creating frame window" << layoutRect << mRequestedGeom;
     xcb_create_window(conn, XCB_COPY_FROM_PARENT, mFrame, screen->root,
                       layoutRect.x, layoutRect.y, layoutRect.width, layoutRect.height, 0,
                       XCB_COPY_FROM_PARENT, XCB_COPY_FROM_PARENT,
@@ -117,7 +117,7 @@ void Client::complete()
         const uint32_t noValue[] = { 0 };
         xcb_change_window_attributes(conn, screen->root, XCB_CW_EVENT_MASK, noValue);
         xcb_reparent_window(conn, mWindow, mFrame, 0, 0);
-        error() << "created and mapped parent client for frame" << mFrame << "with window" << mWindow;
+        warning() << "created and mapped parent client for frame" << mFrame << "with window" << mWindow;
         const uint32_t rootEvent[] = { Types::RootEventMask };
         xcb_change_window_attributes(conn, screen->root, XCB_CW_EVENT_MASK, rootEvent);
         xcb_grab_button(conn, false, mWindow, XCB_EVENT_MASK_BUTTON_PRESS,
@@ -354,17 +354,15 @@ void Client::updatePartialStrut(xcb_ewmh_connection_t* conn, xcb_get_property_co
 
 void Client::updateEwmhState(xcb_ewmh_connection_t* conn, xcb_get_property_cookie_t cookie)
 {
-    error() << "updating ewmh state";
+    warning() << "updating ewmh state";
     mEwmhState.clear();
     xcb_ewmh_get_atoms_reply_t prop;
     if (xcb_ewmh_get_wm_state_reply(conn, cookie, &prop, 0)) {
         for (uint32_t i = 0; i < prop.atoms_len; ++i) {
-            error() << "ewmh state has" << Atoms::name(prop.atoms[i]);
+            warning() << "ewmh state has" << Atoms::name(prop.atoms[i]);
             mEwmhState.insert(prop.atoms[i]);
         }
         xcb_ewmh_get_atoms_reply_wipe(&prop);
-    } else {
-        error() << "boo!";
     }
 }
 
@@ -374,7 +372,7 @@ void Client::updateWindowType(xcb_ewmh_connection_t* conn, xcb_get_property_cook
     xcb_ewmh_get_atoms_reply_t prop;
     if (xcb_ewmh_get_wm_window_type_reply(conn, cookie, &prop, 0)) {
         for (uint32_t i = 0; i < prop.atoms_len; ++i) {
-            error() << "window type has" << Atoms::name(prop.atoms[i]);
+            warning() << "window type has" << Atoms::name(prop.atoms[i]);
             mWindowType.insert(prop.atoms[i]);
         }
         xcb_ewmh_get_atoms_reply_wipe(&prop);
@@ -389,7 +387,7 @@ void Client::updateWindowType(xcb_ewmh_connection_t* conn, xcb_get_property_cook
 
 void Client::onLayoutChanged(const Rect& rect)
 {
-    error() << "layout changed" << rect;
+    warning() << "layout changed" << rect;
     xcb_connection_t* conn = WindowManager::instance()->connection();
     {
         const uint16_t mask = XCB_CONFIG_WINDOW_X|XCB_CONFIG_WINDOW_Y|XCB_CONFIG_WINDOW_WIDTH|XCB_CONFIG_WINDOW_HEIGHT;
@@ -438,6 +436,7 @@ void Client::release(xcb_window_t window)
         if (Workspace::SharedPtr ws = it->second->mWorkspace.lock()) {
             ws->removeClient(it->second);
         }
+        WindowManager::instance()->js().onClientDestroyed(it->second);
         sClients.erase(it);
     }
 }
@@ -445,7 +444,7 @@ void Client::release(xcb_window_t window)
 void Client::map()
 {
     xcb_connection_t* conn = WindowManager::instance()->connection();
-    error() << "mapping frame" << mFrame;
+    warning() << "mapping frame" << mFrame;
     xcb_map_window(conn, mWindow);
     xcb_map_window(conn, mFrame);
 }
@@ -453,7 +452,7 @@ void Client::map()
 void Client::unmap()
 {
     xcb_connection_t* conn = WindowManager::instance()->connection();
-    error() << "unmapping frame???" << mFrame;
+    warning() << "unmapping frame???" << mFrame;
     xcb_unmap_window(conn, mFrame);
     xcb_unmap_window(conn, mWindow);
 }
@@ -492,7 +491,7 @@ void Client::destroy()
 
 void Client::raise()
 {
-    error() << "raising" << this;
+    warning() << "raising" << this;
     assert(mGroup);
     mGroup->raise(shared_from_this());
 }

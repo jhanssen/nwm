@@ -276,7 +276,8 @@ void handleMapRequest(const xcb_map_request_event_t* event)
 void handlePropertyNotify(const xcb_property_notify_event_t* event)
 {
     WindowManager::instance()->updateTimestamp(event->time);
-    error() << "notifying for property" << Atoms::name(event->atom);
+    warning() << "notifying for property" << Atoms::name(event->atom);
+#warning Propagate properties to client
 }
 
 void handleUnmapNotify(const xcb_unmap_notify_event_t* event)

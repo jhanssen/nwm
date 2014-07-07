@@ -20,9 +20,11 @@ public:
     void onClient(const Client::SharedPtr& client);
     const Class::SharedPtr& clientClass() const { return mClientClass; }
 
+    void onClientDestroyed(const Client::SharedPtr &client);
 private:
     Class::SharedPtr mClientClass;
     Hash<String, Value> mOns;
+    List<Client::SharedPtr> mClients;
 };
 
 #endif

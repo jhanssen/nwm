@@ -98,6 +98,11 @@ void JavaScript::init()
         []() -> Value {
             return List<Value>() << "title" << "class" << "instance" << "floating" << "dialog" << "window";
         });
+    mClientClass->registerFunction("toString",
+
+                                   [](const Object::SharedPtr &obj, const List<Value> &) -> Value {
+                                       return "foobar";
+                                   });
 
     auto global = globalObject();
 
@@ -184,6 +189,15 @@ void JavaScript::init()
             mOns[name.toString()] = func;
             return Value::undefined();
         });
+    nwm->registerProperty("clients",
+                          [this](const Object::SharedPtr&) -> Value {
+                              List<Value> ret;
+                              ret.reserve(mClients.size());
+                              for (auto client : mClients) {
+                                  ret.append(client->jsValue());
+                              }
+                              return ret;
+                          });
     nwm->registerProperty("moveModifier",
                           [](const Object::SharedPtr&) -> Value {
                               return WindowManager::instance()->moveModifier();
@@ -360,12 +374,29 @@ Value JavaScript::evaluateFile(const Path &file, String *err)
 
 void JavaScript::onClient(const Client::SharedPtr& client)
 {
+    mClients.append(client);
     auto it = mOns.find("client");
     if (it == mOns.end())
         return;
     Object::SharedPtr func = toObject(it->second);
     if (!func || !func->isFunction()) {
         error() << "onClient is not a function";
+        return;
+    }
+    func->call({ client->jsValue() });
+}
+
+void JavaScript::onClientDestroyed(const Client::SharedPtr &client)
+{
+    const int idx = mClients.indexOf(client);
+    assert(idx != -1);
+    mClients.removeAt(idx);
+    auto it = mOns.find("clientRemoved");
+    if (it == mOns.end())
+        return;
+    Object::SharedPtr func = toObject(it->second);
+    if (!func || !func->isFunction()) {
+        error() << "clientRemoved is not a function";
         return;
     }
     func->call({ client->jsValue() });
