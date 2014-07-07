@@ -96,7 +96,7 @@ void JavaScript::init()
         },
         // enumerator, return List of property names intercepted
         []() -> Value {
-            return Value();
+            return List<Value>() << "title" << "class" << "instance" << "floating" << "dialog" << "window";
         });
 
     auto global = globalObject();
