@@ -147,6 +147,20 @@ bool JavaScript::init(String *err)
             Util::launch(arg.toString(), wm->displayString());
             return true;
         });
+    nwm->registerFunction("readFile", [](const Object::SharedPtr&, const List<Value>& args) -> Value {
+            if (args.size() != 1) {
+                return instance()->throwException<Value>("Invalid number of arguments to readFile, 1 required");
+            }
+            const Value &arg = args.front();
+            if (!arg.isString()) {
+                return instance()->throwException<Value>("Invalid arguments to readFile. First arg must be a string");
+            }
+            const Path path = arg.toString();
+            if (!path.isFile())
+                return Value::undefined();
+            return path.readAll();
+        });
+
 
     nwm->registerFunction("exec", [](const Object::SharedPtr&, const List<Value>& args) -> Value {
             if (args.size() < 1) {
