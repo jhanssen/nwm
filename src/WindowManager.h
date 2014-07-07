@@ -77,6 +77,7 @@ public:
     void setRect(const Rect& rect);
 
     JavaScript& js() { return mJS; }
+    void restart();
 private:
     bool install();
     bool isRunning();

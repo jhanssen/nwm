@@ -422,3 +422,14 @@ void JavaScript::onClientDestroyed(const Client::SharedPtr &client)
     }
     func->call({ client->jsValue() });
 }
+
+void JavaScript::reload()
+{
+    for (const auto &client : mClients) {
+        mClients->clearScriptValue();
+    }
+    mClients.clear();
+    mOns.clear();
+    mClientClass.reset();
+    init();
+}

@@ -15,6 +15,7 @@ public:
     ~JavaScript();
 
     void init();
+    void reload();
     Value evaluateFile(const Path &path, String *error);
 
     void onClient(const Client::SharedPtr& client);

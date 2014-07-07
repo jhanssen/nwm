@@ -60,20 +60,26 @@ static inline void handleXkb(_xkb_event* event)
     }
 }
 
-class JavascriptMessage : public Message
+class NWMMessage : public Message
 {
 public:
     enum { MessageId = 100 };
-    JavascriptMessage(const List<String> &scripts = List<String>())
-        : Message(MessageId), mScripts(scripts)
+    NWMMessage()
+        : Message(MessageId), mReload(false), mRestart(false)
     {}
 
     List<String> scripts() const { return mScripts; }
+    void setScripts(const List<String> &scripts) { mScripts = scripts; }
+    bool reload() const { return mReload; }
+    void setReload(bool reload) const { reload = mReload; }
+    bool restart() const { return mRestart; }
+    void setRestart(bool restart) const { restart = mRestart; }
 
-    virtual void encode(Serializer &serializer) const { serializer << mScripts; }
-    virtual void decode(Deserializer &deserializer) { deserializer >> mScripts; }
+    virtual void encode(Serializer &serializer) const { serializer << mScripts << mReload << mRestart; }
+    virtual void decode(Deserializer &deserializer) { deserializer >> mScripts >> mReload >> mRestart; }
 private:
     List<String> mScripts;
+    bool mReload, mRestart;
 };
 
 WindowManager *WindowManager::sInstance;
@@ -82,7 +88,7 @@ WindowManager::WindowManager()
     : mConn(0), mEwmhConn(0), mScreen(0), mScreenNo(0), mXkbEvent(0), mSyms(0), mTimestamp(XCB_CURRENT_TIME),
       mMoveModifierMask(0), mIsMoving(false), mFocusPolicy(FocusFollowsMouse)
 {
-    Messages::registerMessage<JavascriptMessage>();
+    Messages::registerMessage<NWMMessage>();
     memset(&mXkb, '\0', sizeof(mXkb));
 }
 
@@ -101,6 +107,8 @@ static inline void usage(FILE *out)
             "  -j|--javascript [code]      Evaluate javascript remotely\n"
             "  -J|--javascript-file [file] Evaluate javascript remotely from file\n"
             "  -t|--connect-timeout [ms]   Max time to wait for connection\n"
+            "  -r|--reload                 Reload config files\n"
+            "  -R|--restart                Restart window manager\n"
             "  -n|--no-user-config         Don't load ~/.config/nwm.js\n");
 }
 
@@ -122,6 +130,8 @@ bool WindowManager::init(int &argc, char **argv)
         { "socket-path", required_argument, 0, 's' },
         { "javascript", required_argument, 0, 'j' },
         { "javascript-file", required_argument, 0, 'J' },
+        { "reload", no_argument, 0, 'r' },
+        { "restart", no_argument, 0, 'R' },
         { "connect-timeout", required_argument, 0, 't' },
         { 0, no_argument, 0, 0 }
     };
@@ -136,6 +146,8 @@ bool WindowManager::init(int &argc, char **argv)
     char *display = 0;
     Path socketPath;
     List<String> scripts;
+    bool reload = false;
+    bool restart = false;
     int connectTimeout = 0;
 
     while (true) {
@@ -168,6 +180,12 @@ bool WindowManager::init(int &argc, char **argv)
         case 'j': {
             scripts.append(optarg);
             break; }
+        case 'r':
+            reload = true;
+            break;
+        case 'R':
+            restart = true;
+            break;
         case 'n':
             userConfig = false;
             break;
@@ -298,13 +316,22 @@ bool WindowManager::init(int &argc, char **argv)
                 while ((client = server->nextConnection())) {
                     Connection *conn = new Connection(client);
                     conn->newMessage().connect([this](Message *msg, Connection *c) {
-                            if (msg->messageId() != JavascriptMessage::MessageId) {
+                            if (msg->messageId() != NWMMessage::MessageId) {
                                 c->write<128>("Invalid message id: %d", msg->messageId());
                                 c->finish();
                                 return;
                             }
-                            const List<String> scripts = static_cast<JavascriptMessage*>(msg)->scripts();
-                            for (const auto &script : scripts) {
+                            const NWMMessage *m = static_cast<NWMMessage*>(msg);
+                            if (m->reload()) {
+
+                            }
+
+                            if (m->restart()) {
+                                WindowManager::restart();
+                                return;
+                            }
+
+                            for (const auto &script : m->scripts()) {
                                 String error;
                                 const Value ret = mJS.evaluate(script, "<message>", &error);
                                 if (!error.isEmpty()) {
@@ -326,7 +353,7 @@ bool WindowManager::init(int &argc, char **argv)
         ::crashHandlerSocketPath = socketPath;
         mServer.listen(socketPath);
         return true;
-    } else if (scripts.isEmpty()) {
+    } else if (scripts.isEmpty() && !reload && !restart) {
         error() << "nwm is already running on display" << mDisplay;
         return false;
     } else {
@@ -347,7 +374,11 @@ bool WindowManager::init(int &argc, char **argv)
             error("Can't seem to connect to server");
             return false;
         }
-        connection->send(JavascriptMessage(scripts));
+        NWMMessage msg;
+        msg.setScripts(scripts);
+        msg.setReload(reload);
+        msg.setRestart(restart);
+        connection->send(msg);
         return true;
     }
 
@@ -756,4 +787,9 @@ void WindowManager::setMoveModifier(const String& mod)
 {
     mMoveModifier = mod;
     mMoveModifierMask = Keybinding::modToMask(mod);
+}
+
+void WindowManager::restart()
+{
+#warning not done
 }
