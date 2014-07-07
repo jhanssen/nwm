@@ -86,7 +86,7 @@ WindowManager *WindowManager::sInstance;
 
 WindowManager::WindowManager()
     : mConn(0), mEwmhConn(0), mScreen(0), mScreenNo(0), mXkbEvent(0), mSyms(0), mTimestamp(XCB_CURRENT_TIME),
-      mMoveModifierMask(0), mIsMoving(false), mFocusPolicy(FocusFollowsMouse)
+      mMoveModifierMask(0), mIsMoving(false), mFocusPolicy(FocusFollowsMouse), mRestart(false)
 {
     Messages::registerMessage<NWMMessage>();
     memset(&mXkb, '\0', sizeof(mXkb));
@@ -276,17 +276,10 @@ bool WindowManager::init(int &argc, char **argv)
             return false;
         }
 
-        mJS.init();
-        for (int i=configFiles.size() - 1; i>=0; --i) {
-            const String contents = configFiles[i].readAll();
-            if (!contents.isEmpty()) {
-                String err;
-                mJS.evaluate(contents, configFiles[i], &err);
-                if (!err.isEmpty()) {
-                    error() << err;
-                    return false;
-                }
-            }
+        String err;
+        if (!mJS.init(configFiles, &err)) {
+            error() << err;
+            return false;
         }
 
         if (mWorkspaces.isEmpty()) {
@@ -322,13 +315,16 @@ bool WindowManager::init(int &argc, char **argv)
                                 return;
                             }
                             const NWMMessage *m = static_cast<NWMMessage*>(msg);
-                            if (m->reload()) {
-
+                            if (m->restart()) {
+                                mRestart = true;
+                                EventLoop::eventLoop()->quit();
+                                return;
                             }
 
-                            if (m->restart()) {
-                                WindowManager::restart();
-                                return;
+                            String err;
+                            if (m->reload() && !mJS.reload(&err)) {
+                                c->write<128>("Error in init file(s): %s", err.constData());
+                                EventLoop::eventLoop()->quit();
                             }
 
                             for (const auto &script : m->scripts()) {
@@ -787,9 +783,4 @@ void WindowManager::setMoveModifier(const String& mod)
 {
     mMoveModifier = mod;
     mMoveModifierMask = Keybinding::modToMask(mod);
-}
-
-void WindowManager::restart()
-{
-#warning not done
 }

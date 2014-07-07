@@ -48,6 +48,7 @@ public:
     void setFloating(bool floating) { mFloating = floating; }
 
     const Value& jsValue() { if (mJSValue.type() == Value::Type_Invalid) createJSValue(); return mJSValue; }
+    void clearJSValue() { mJSValue.clear(); }
 
     std::shared_ptr<Workspace> workspace() const { return mWorkspace.lock(); }
     ClientGroup::SharedPtr group() const { return mGroup; }

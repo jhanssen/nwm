@@ -14,16 +14,20 @@ public:
     JavaScript();
     ~JavaScript();
 
-    void init();
-    void reload();
+    List<Path> configFiles() const { return mConfigFiles; }
+    bool init(const List<Path> &configFiles, String *err = 0) { mConfigFiles = configFiles; return init(err); }
+    bool reload(String *error = 0);
     Value evaluateFile(const Path &path, String *error);
 
     void onClient(const Client::SharedPtr& client);
     const Class::SharedPtr& clientClass() const { return mClientClass; }
+    const Class::SharedPtr& fileClass() const { return mFileClass; }
 
     void onClientDestroyed(const Client::SharedPtr &client);
 private:
-    Class::SharedPtr mClientClass;
+    bool init(String *error);
+    List<Path> mConfigFiles;
+    Class::SharedPtr mClientClass, mFileClass;
     Hash<String, Value> mOns;
     List<Client::SharedPtr> mClients;
 };

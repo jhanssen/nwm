@@ -45,7 +45,7 @@ static inline void logValues(FILE* file, const List<Value>& args)
     fprintf(file, "%s\n", str.constData());
 }
 
-void JavaScript::init()
+bool JavaScript::init(String *err)
 {
     // --------------- Client class ---------------
     mClientClass = Class::create("Client");
@@ -376,6 +376,20 @@ void JavaScript::init()
             WindowManager::instance()->bindings().add(binding);
             return Value::undefined();
         });
+
+    for (int i=mConfigFiles.size() - 1; i>=0; --i) {
+        const String contents = mConfigFiles[i].readAll();
+        if (!contents.isEmpty()) {
+            String e;
+            evaluate(contents, mConfigFiles[i], &e);
+            if (!e.isEmpty()) {
+                if (err)
+                    *err = e;
+                return false;
+            }
+        }
+    }
+    return true;
 }
 
 JavaScript::~JavaScript()
@@ -423,13 +437,13 @@ void JavaScript::onClientDestroyed(const Client::SharedPtr &client)
     func->call({ client->jsValue() });
 }
 
-void JavaScript::reload()
+bool JavaScript::reload(String *err)
 {
     for (const auto &client : mClients) {
-        mClients->clearScriptValue();
+        client->clearJSValue();
     }
     mClients.clear();
     mOns.clear();
     mClientClass.reset();
-    init();
+    return init(err);
 }

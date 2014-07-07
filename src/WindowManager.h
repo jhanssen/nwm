@@ -77,7 +77,7 @@ public:
     void setRect(const Rect& rect);
 
     JavaScript& js() { return mJS; }
-    void restart();
+    bool shouldRestart() const { return mRestart; }
 private:
     bool install();
     bool isRunning();
@@ -112,6 +112,7 @@ private:
     FocusPolicy mFocusPolicy;
 
     SocketServer mServer;
+    bool mRestart;
 
     static WindowManager *sInstance;
 };

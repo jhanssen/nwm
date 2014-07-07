@@ -5,17 +5,18 @@
 
 int main(int argc, char** argv)
 {
-    EventLoop::SharedPtr loop = std::make_shared<EventLoop>();
-    loop->init(EventLoop::MainEventLoop|EventLoop::EnableSigIntHandler);
+    while (true) {
+        EventLoop::SharedPtr loop = std::make_shared<EventLoop>();
+        loop->init(EventLoop::MainEventLoop|EventLoop::EnableSigIntHandler);
 
-    WindowManager::SharedPtr manager = std::make_shared<WindowManager>();
-    if (!manager->init(argc, argv))
-        return 1;
-    loop->exec();
+        WindowManager::SharedPtr manager = std::make_shared<WindowManager>();
+        if (!manager->init(argc, argv))
+            return 1;
+        loop->exec();
+        cleanupLogging();
 
-    if (manager) {
-        manager.reset();
+        if (!manager->shouldRestart())
+            break;
     }
-    cleanupLogging();
     return 0;
 }
