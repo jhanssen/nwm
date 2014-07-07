@@ -61,6 +61,29 @@ void JavaScript::init()
     mClientClass->registerProperty("ting", [](const Object::SharedPtr&) -> Value {
             return "test ting";
         });
+    mClientClass->interceptPropertyName(
+        // getter, return value
+        [](const Object::SharedPtr& obj, const String& prop) -> Value {
+            error() << "getting" << prop << "on" << obj.get();
+            return Value();
+        },
+        // setter return the value set
+        [](const Object::SharedPtr& obj, const String& prop, const Value& value) -> Value {
+            return Value();
+        },
+        // query, return Class::QueryResult
+        [](const String& prop) -> Value {
+            error() << "querying" << prop;
+            return Value();
+        },
+        // deleter, return bool
+        [](const String& prop) -> Value {
+            return Value();
+        },
+        // enumerator, return List of property names intercepted
+        []() -> Value {
+            return Value();
+        });
 
     auto global = globalObject();
 
