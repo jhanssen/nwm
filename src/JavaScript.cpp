@@ -66,6 +66,10 @@ void JavaScript::init()
                     return client->isDialog();
                 if (prop == "window")
                     return static_cast<int32_t>(client->window());
+                if (prop == "focused") {
+                    assert(client->workspace());
+                    return (client->workspace() == Workspace::active() && Workspace::active()->focusedClient() == client);
+                }
             }
             return Value();
         },
@@ -84,7 +88,7 @@ void JavaScript::init()
         },
         // query, return Class::QueryResult
         [](const String& prop) -> Value {
-            if (prop == "title" || prop == "class" || prop == "instance" || prop == "dialog" || prop == "window")
+            if (prop == "title" || prop == "class" || prop == "instance" || prop == "dialog" || prop == "window" || prop == "focused")
                 return Class::ReadOnly|Class::DontDelete;
             if (prop == "floating")
                 return Class::DontDelete;
@@ -96,12 +100,15 @@ void JavaScript::init()
         },
         // enumerator, return List of property names intercepted
         []() -> Value {
-            return List<Value>() << "title" << "class" << "instance" << "floating" << "dialog" << "window";
+            return List<Value>() << "title" << "class" << "instance" << "floating" << "dialog" << "window" << "focused";
         });
     mClientClass->registerFunction("raise", [](const Object::SharedPtr &obj, const List<Value> &) -> Value {
             Client::WeakPtr weak = obj->extraData<Client::WeakPtr>();
             if (Client::SharedPtr client = weak.lock()) {
                 client->raise();
+                WindowManager::SharedPtr wm = WindowManager::instance();
+                assert(wm);
+                xcb_flush(wm->connection());
             }
             return Value::undefined();
         });
@@ -140,6 +147,7 @@ void JavaScript::init()
             Util::launch(arg.toString(), wm->displayString());
             return true;
         });
+
     nwm->registerFunction("exec", [](const Object::SharedPtr&, const List<Value>& args) -> Value {
             if (args.size() < 1) {
                 return instance()->throwException<Value>("Invalid number of arguments to exec, at least 1 required");
@@ -201,6 +209,16 @@ void JavaScript::init()
                               }
                               return ret;
                           });
+    nwm->registerProperty("focusedClient",
+                          [](const Object::SharedPtr&) -> Value {
+                              if (Workspace::SharedPtr activeWorkspace = Workspace::active()) {
+                                  auto client = activeWorkspace->focusedClient();
+                                  if (client)
+                                      return client->jsValue();
+                              }
+                              return Value::undefined();
+                          });
+
     nwm->registerProperty("moveModifier",
                           [](const Object::SharedPtr&) -> Value {
                               return WindowManager::instance()->moveModifier();
