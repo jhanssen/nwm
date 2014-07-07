@@ -333,7 +333,7 @@ bool WindowManager::init(int &argc, char **argv)
                                 if (!error.isEmpty()) {
                                     c->write<128>("Javascript error: %s", error.constData());
                                 } else {
-                                    c->write<128>("%s", ret.toJSON(true).constData());
+                                    c->write(ret.toString());
                                 }
                             }
                             c->finish();
