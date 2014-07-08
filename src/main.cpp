@@ -9,14 +9,21 @@ int main(int argc, char** argv)
         EventLoop::SharedPtr loop = std::make_shared<EventLoop>();
         loop->init(EventLoop::MainEventLoop|EventLoop::EnableSigIntHandler);
 
-        WindowManager::SharedPtr manager = std::make_shared<WindowManager>();
-        if (!manager->init(argc, argv))
+        WindowManager manager;
+        if (!manager.init(argc, argv)) {
+            printf("[%s:%d]: if (!manager.init(argc, argv))\n", __FILE__, __LINE__); fflush(stdout);
             return 1;
+        }
         loop->exec();
+        printf("[%s:%d]: loop->exec();\n", __FILE__, __LINE__); fflush(stdout);
         cleanupLogging();
 
-        if (!manager->shouldRestart())
+        if (!manager.shouldRestart()) {
+            printf("[%s:%d]: if (!manager.shouldRestart()) {\n", __FILE__, __LINE__); fflush(stdout);
             break;
+        } else {
+            printf("[%s:%d]: } else {\n", __FILE__, __LINE__); fflush(stdout);
+        }
     }
     return 0;
 }

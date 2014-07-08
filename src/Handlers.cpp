@@ -10,7 +10,7 @@ namespace Handlers {
 
 void handleButtonPress(const xcb_button_press_event_t* event)
 {
-    WindowManager::SharedPtr wm = WindowManager::instance();
+    WindowManager *wm = WindowManager::instance();
     wm->updateTimestamp(event->time);
 
     Client::SharedPtr client = Client::client(event->event);
@@ -89,7 +89,7 @@ static inline void releaseGrab(xcb_connection_t* conn, xcb_timestamp_t time)
 
 void handleButtonRelease(const xcb_button_release_event_t* event)
 {
-    WindowManager::SharedPtr wm = WindowManager::instance();
+    WindowManager *wm = WindowManager::instance();
     wm->updateTimestamp(event->time);
     if (!wm->isMoving())
         return;
@@ -99,7 +99,7 @@ void handleButtonRelease(const xcb_button_release_event_t* event)
 
 void handleMotionNotify(const xcb_motion_notify_event_t* event)
 {
-    WindowManager::SharedPtr wm = WindowManager::instance();
+    WindowManager *wm = WindowManager::instance();
     wm->updateTimestamp(event->time);
     if (!wm->isMoving())
         return;
@@ -124,7 +124,7 @@ void handleMotionNotify(const xcb_motion_notify_event_t* event)
 
 void handleClientMessage(const xcb_client_message_event_t* event)
 {
-    WindowManager::SharedPtr wm = WindowManager::instance();
+    WindowManager *wm = WindowManager::instance();
     xcb_ewmh_connection_t* ewmhConn = wm->ewmhConnection();
     if (event->type == ewmhConn->_NET_ACTIVE_WINDOW) {
         Client::SharedPtr client = Client::client(event->window);
@@ -205,7 +205,7 @@ void handleDestroyNotify(const xcb_destroy_notify_event_t* event)
 
 void handleEnterNotify(const xcb_enter_notify_event_t* event)
 {
-    WindowManager::SharedPtr wm = WindowManager::instance();
+    WindowManager *wm = WindowManager::instance();
     wm->updateTimestamp(event->time);
     if (wm->focusPolicy() == WindowManager::FocusFollowsMouse) {
         Client::SharedPtr client = Client::client(event->child);
@@ -224,7 +224,7 @@ void handleFocusIn(const xcb_focus_in_event_t* event)
 
 void handleKeyPress(const xcb_key_press_event_t* event)
 {
-    WindowManager::SharedPtr wm = WindowManager::instance();
+    WindowManager *wm = WindowManager::instance();
     wm->updateTimestamp(event->time);
     //const int col = (event->state & XCB_MOD_MASK_SHIFT);
     const int col = 0;
@@ -284,7 +284,7 @@ void handlePropertyNotify(const xcb_property_notify_event_t* event)
 
 void handleUnmapNotify(const xcb_unmap_notify_event_t* event)
 {
-    WindowManager::SharedPtr wm = WindowManager::instance();
+    WindowManager *wm = WindowManager::instance();
     if (wm->isMoving()) {
         error() << "client unmapped while moving, releasing grab";
         wm->stopMoving();

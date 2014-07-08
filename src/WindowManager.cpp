@@ -47,7 +47,7 @@ typedef union {
 
 static inline void handleXkb(_xkb_event* event)
 {
-    WindowManager::SharedPtr wm = WindowManager::instance();
+    WindowManager *wm = WindowManager::instance();
     if (event->any.deviceID == wm->xkbDevice()) {
         switch (event->any.xkbType) {
         case XCB_XKB_STATE_NOTIFY:
@@ -120,9 +120,14 @@ static inline void usage(FILE *out)
 
 bool WindowManager::init(int &argc, char **argv)
 {
-    signal(SIGSEGV, crashHandler);
-    signal(SIGABRT, crashHandler);
-    signal(SIGBUS, crashHandler);
+    static bool first = true;
+    if (first) {
+        signal(SIGSEGV, crashHandler);
+        signal(SIGABRT, crashHandler);
+        signal(SIGBUS, crashHandler);
+    } else {
+        optind = 1; // for reinit
+    }
     sInstance = this;
     struct option opts[] = {
         { "help", no_argument, 0, 'h' },
@@ -394,8 +399,8 @@ bool WindowManager::init(int &argc, char **argv)
 
 WindowManager::~WindowManager()
 {
-    assert(sInstance == this);
-    sInstance = 0;
+    mJS.clear();
+    mWorkspaces.clear();
     if (mXkb.ctx) {
         xkb_state_unref(mXkb.state);
         xkb_keymap_unref(mXkb.keymap);
@@ -422,6 +427,8 @@ WindowManager::~WindowManager()
     } else {
         assert(!mEwmhConn);
     }
+    assert(sInstance == this);
+    sInstance = 0;
 }
 
 bool WindowManager::manage()

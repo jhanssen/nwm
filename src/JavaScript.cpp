@@ -14,7 +14,7 @@ JavaScript::JavaScript()
 
 static inline GridLayout::SharedPtr gridParent()
 {
-    WindowManager::SharedPtr wm = WindowManager::instance();
+    WindowManager *wm = WindowManager::instance();
     if (!wm)
         return GridLayout::SharedPtr();
     Client::SharedPtr current = Workspace::active()->focusedClient();
@@ -106,7 +106,7 @@ bool JavaScript::init(String *err)
             Client::WeakPtr weak = obj->extraData<Client::WeakPtr>();
             if (Client::SharedPtr client = weak.lock()) {
                 client->raise();
-                WindowManager::SharedPtr wm = WindowManager::instance();
+                WindowManager *wm = WindowManager::instance();
                 assert(wm);
                 xcb_flush(wm->connection());
             }
@@ -143,7 +143,7 @@ bool JavaScript::init(String *err)
             if (arg.type() != Value::Type_String) {
                 return instance()->throwException<Value>("Argument to launch needs to be a string");
             }
-            WindowManager::SharedPtr wm = WindowManager::instance();
+            WindowManager *wm = WindowManager::instance();
             Util::launch(arg.toString(), wm->displayString());
             return true;
         });
@@ -319,7 +319,7 @@ bool JavaScript::init(String *err)
             if (ws < 0 || ws >= wss.size())
                 return instance()->throwException<Value>("Invalid workspace");
             wss[ws]->activate();
-            WindowManager::SharedPtr wm = WindowManager::instance();
+            WindowManager *wm = WindowManager::instance();
             xcb_ewmh_set_current_desktop(wm->ewmhConnection(), wm->screenNo(), ws);
             return Value::undefined();
         });

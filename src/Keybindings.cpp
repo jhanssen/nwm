@@ -13,7 +13,7 @@ Keybindings::~Keybindings()
 
 bool Keybindings::feed(xkb_keysym_t sym, uint16_t mods)
 {
-    WindowManager::SharedPtr wm = WindowManager::instance();
+    WindowManager *wm = WindowManager::instance();
     xcb_connection_t* conn = wm->connection();
     xcb_window_t root = wm->screen()->root;
 
@@ -100,7 +100,7 @@ const Keybinding* Keybindings::current()
 
 void Keybindings::add(const Keybinding& binding)
 {
-    WindowManager::SharedPtr wm = WindowManager::instance();
+    WindowManager *wm = WindowManager::instance();
     xcb_connection_t* conn = wm->connection();
 
     mKeybindings.insert(binding);
@@ -113,7 +113,7 @@ void Keybindings::add(const Keybinding& binding)
 
 void Keybindings::rebindAll()
 {
-    WindowManager::SharedPtr wm = WindowManager::instance();
+    WindowManager *wm = WindowManager::instance();
     xcb_connection_t* conn = wm->connection();
     xcb_window_t root = wm->screen()->root;
 

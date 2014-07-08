@@ -20,12 +20,9 @@ struct xkb_state;
 struct xcb_xkb_state_notify_event_t;
 struct xcb_xkb_map_notify_event_t;
 
-class WindowManager : public std::enable_shared_from_this<WindowManager>
+class WindowManager
 {
 public:
-    typedef std::shared_ptr<WindowManager> SharedPtr;
-    typedef std::weak_ptr<WindowManager> WeakPtr;
-
     WindowManager();
     ~WindowManager();
 
@@ -35,7 +32,7 @@ public:
 
     String displayString() const { return mDisplay; }
 
-    static SharedPtr instance() { return sInstance ? sInstance->shared_from_this() : SharedPtr(); }
+    static WindowManager *instance() { return sInstance; }
 
     void updateTimestamp(xcb_timestamp_t timestamp) { mTimestamp = timestamp; }
     xcb_timestamp_t timestamp() const { return mTimestamp; }

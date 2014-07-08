@@ -32,7 +32,7 @@ Client::~Client()
 
 void Client::init()
 {
-    WindowManager::SharedPtr wm = WindowManager::instance();
+    WindowManager *wm = WindowManager::instance();
     xcb_ewmh_connection_t* ewmhConn = wm->ewmhConnection();
     updateState(ewmhConn);
     wm->bindings().rebind(mWindow);
@@ -40,7 +40,7 @@ void Client::init()
 
 void Client::complete()
 {
-    WindowManager::SharedPtr wm = WindowManager::instance();
+    WindowManager *wm = WindowManager::instance();
     xcb_connection_t* conn = wm->connection();
     xcb_ewmh_connection_t* ewmhConn = wm->ewmhConnection();
     Rect layoutRect;
@@ -406,7 +406,7 @@ Client::SharedPtr Client::manage(xcb_window_t window)
     assert(sClients.count(window) == 0);
     Client::SharedPtr ptr(new Client(window)); // can't use make_shared due to private c'tor
     ptr->init();
-    WindowManager::SharedPtr wm = WindowManager::instance();
+    WindowManager *wm = WindowManager::instance();
     wm->js().onClient(ptr);
     ptr->complete();
     if (ptr->isFloating() || ptr->mLayout) {
@@ -462,7 +462,7 @@ void Client::focus()
     const bool takeFocus = mProtocols.count(Atoms::WM_TAKE_FOCUS) > 0;
     if (mNoFocus && !takeFocus)
         return;
-    WindowManager::SharedPtr wm = WindowManager::instance();
+    WindowManager *wm = WindowManager::instance();
     if (takeFocus) {
         xcb_client_message_event_t event;
         memset(&event, '\0', sizeof(event));
