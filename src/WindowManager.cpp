@@ -134,7 +134,7 @@ bool WindowManager::init(int &argc, char **argv)
 
     struct option opts[] = {
         { "help", no_argument, 0, 'h' },
-        { "verbose", no_argument, 0, 'b' },
+        { "verbose", no_argument, 0, 'v' },
         { "config-file", required_argument, 0, 'c' },
         { "no-system-config", no_argument, 0, 'N' },
         { "no-user-config", no_argument, 0, 'n' },
