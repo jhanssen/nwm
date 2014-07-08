@@ -245,7 +245,10 @@ void handleKeyPress(const xcb_key_press_event_t* event)
         return;
     }
     assert(obj);
-    obj->call();
+    String err;
+    obj->call(std::initializer_list<Value>(), JavaScript::Object::SharedPtr(), &err);
+    if (!err.isEmpty())
+        error() << "key handler exception:" << err;
 }
 
 void handleMappingNotify(const xcb_mapping_notify_event_t* event)
