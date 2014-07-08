@@ -520,7 +520,7 @@ void Client::move(const Point& point)
 
 void Client::close()
 {
-    WindowManager::SharedPtr wm = WindowManager::instance();
+    WindowManager *wm = WindowManager::instance();
     if (mProtocols.contains(Atoms::WM_DELETE_WINDOW)) {
         // delete
         xcb_client_message_event_t event;

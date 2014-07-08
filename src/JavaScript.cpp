@@ -116,7 +116,7 @@ bool JavaScript::init(String *err)
             Client::WeakPtr weak = obj->extraData<Client::WeakPtr>();
             if (Client::SharedPtr client = weak.lock()) {
                 client->close();
-                WindowManager::SharedPtr wm = WindowManager::instance();
+                WindowManager *wm = WindowManager::instance();
                 assert(wm);
                 xcb_flush(wm->connection());
             }
