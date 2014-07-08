@@ -34,4 +34,11 @@ kbd.set("Insert Shift-B", function() { console.log("Got Insert Shift-B"); });
 kbd.set("Insert C A", function() { console.log("Got Insert C A"); });
 kbd.set("Insert C D", function() { console.log("Got Insert C D"); });
 
+kbd.set("Insert D", function() {
+    var c = nwm.focusedClient;
+    if (!c)
+        return;
+    c.close();
+});
+
 console.log(nwm.exec("/bin/uname", "-a"));

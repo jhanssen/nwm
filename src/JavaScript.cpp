@@ -112,6 +112,29 @@ bool JavaScript::init(String *err)
             }
             return Value::undefined();
         });
+    mClientClass->registerFunction("close", [](const Object::SharedPtr &obj, const List<Value> &) -> Value {
+            Client::WeakPtr weak = obj->extraData<Client::WeakPtr>();
+            if (Client::SharedPtr client = weak.lock()) {
+                client->close();
+                WindowManager::SharedPtr wm = WindowManager::instance();
+                assert(wm);
+                xcb_flush(wm->connection());
+            }
+            return Value::undefined();
+        });
+    mClientClass->registerFunction("kill", [](const Object::SharedPtr &obj, const List<Value> &args) -> Value {
+            if (args.size() != 1) {
+                return instance()->throwException<Value>("Invalid number of arguments to Client.kill, 1 required");
+            }
+            if (!args[0].isInteger()) {
+                return instance()->throwException<Value>("Invalid arguments to Client.kill. First arg must be an integer");
+            }
+            Client::WeakPtr weak = obj->extraData<Client::WeakPtr>();
+            if (Client::SharedPtr client = weak.lock()) {
+                client->kill(args[0].toInteger());
+            }
+            return Value::undefined();
+        });
 
 
     auto global = globalObject();

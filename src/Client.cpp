@@ -4,11 +4,13 @@
 #include "Atoms.h"
 #include <assert.h>
 #include <rct/Log.h>
+#include <sys/types.h>
+#include <signal.h>
 
 Hash<xcb_window_t, Client::SharedPtr> Client::sClients;
 
 Client::Client(xcb_window_t win)
-    : mWindow(win), mFrame(XCB_NONE), mNoFocus(false), mFloating(false)
+    : mWindow(win), mFrame(XCB_NONE), mNoFocus(false), mFloating(false), mPid(0)
 {
     warning() << "making client";
 }
@@ -192,6 +194,7 @@ void Client::updateState(xcb_ewmh_connection_t* ewmhConn)
     const xcb_get_property_cookie_t partialStrutCookie = xcb_ewmh_get_wm_strut_partial(ewmhConn, mWindow);
     const xcb_get_property_cookie_t stateCookie = xcb_ewmh_get_wm_state(ewmhConn, mWindow);
     const xcb_get_property_cookie_t typeCookie = xcb_ewmh_get_wm_window_type(ewmhConn, mWindow);
+    const xcb_get_property_cookie_t pidCookie = xcb_ewmh_get_wm_pid(ewmhConn, mWindow);
 
     updateSize(conn, geomCookie);
     updateNormalHints(conn, normalHintsCookie);
@@ -205,6 +208,7 @@ void Client::updateState(xcb_ewmh_connection_t* ewmhConn)
     updatePartialStrut(ewmhConn, partialStrutCookie);
     updateEwmhState(ewmhConn, stateCookie);
     updateWindowType(ewmhConn, typeCookie);
+    updatePid(ewmhConn, pidCookie);
 }
 
 void Client::updateLeader(xcb_connection_t* conn, xcb_get_property_cookie_t cookie)
@@ -385,6 +389,12 @@ void Client::updateWindowType(xcb_ewmh_connection_t* conn, xcb_get_property_cook
     }
 }
 
+void Client::updatePid(xcb_ewmh_connection_t* conn, xcb_get_property_cookie_t cookie)
+{
+    if (!xcb_ewmh_get_wm_pid_reply(conn, cookie, &mPid, 0))
+        mPid = 0;
+}
+
 void Client::onLayoutChanged(const Rect& rect)
 {
     warning() << "layout changed" << rect;
@@ -506,6 +516,35 @@ void Client::move(const Point& point)
     const uint16_t mask = XCB_CONFIG_WINDOW_X|XCB_CONFIG_WINDOW_Y;
     const uint32_t values[2] = { point.x, point.y };
     xcb_configure_window(conn, mFrame, mask, values);
+}
+
+void Client::close()
+{
+    WindowManager::SharedPtr wm = WindowManager::instance();
+    if (mProtocols.contains(Atoms::WM_DELETE_WINDOW)) {
+        // delete
+        xcb_client_message_event_t event;
+        memset(&event, '\0', sizeof(event));
+        event.response_type = XCB_CLIENT_MESSAGE;
+        event.window = mWindow;
+        event.format = 32;
+        event.type = Atoms::WM_PROTOCOLS;
+        event.data.data32[0] = Atoms::WM_DELETE_WINDOW;
+        event.data.data32[1] = wm->timestamp();
+
+        xcb_send_event(wm->connection(), false, mWindow, XCB_EVENT_MASK_NO_EVENT,
+                       reinterpret_cast<char*>(&event));
+
+    } else {
+        xcb_kill_client(wm->connection(), mWindow);
+    }
+}
+
+bool Client::kill(int sig)
+{
+    if (!mPid)
+        return false;
+    return (::kill(mPid, sig) == 0);
 }
 
 void Client::configure()

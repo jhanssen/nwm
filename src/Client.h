@@ -40,6 +40,8 @@ public:
     void raise();
     Point position() const { return mRequestedGeom.point(); }
     void move(const Point& point);
+    void close(); // delete or kill
+    bool kill(int signal); // kill if we have a _NET_WM_PID
 
     bool noFocus() const { return mNoFocus; }
     bool isFloating() const { return mFloating; }
@@ -86,6 +88,7 @@ private:
     void updateEwmhState(xcb_ewmh_connection_t* conn, xcb_get_property_cookie_t cookie);
     void updateWindowType(xcb_ewmh_connection_t* conn, xcb_get_property_cookie_t cookie);
     void updateLeader(xcb_connection_t* conn, xcb_get_property_cookie_t cookie);
+    void updatePid(xcb_ewmh_connection_t* conn, xcb_get_property_cookie_t cookie);
 
 private:
     xcb_window_t mWindow;
@@ -110,6 +113,7 @@ private:
     ClientGroup::SharedPtr mGroup;
     bool mFloating;
     Value mJSValue;
+    uint32_t mPid;
 
     static Hash<xcb_window_t, Client::SharedPtr> sClients;
 
