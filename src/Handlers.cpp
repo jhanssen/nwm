@@ -229,6 +229,8 @@ void handleKeyPress(const xcb_key_press_event_t* event)
     //const int col = (event->state & XCB_MOD_MASK_SHIFT);
     const int col = 0;
     const xcb_keysym_t sym = xcb_key_press_lookup_keysym(wm->keySymbols(), const_cast<xcb_key_press_event_t*>(event), col);
+    if (xcb_is_modifier_key(sym))
+        return;
     Keybindings& bindings = wm->bindings();
     if (!bindings.feed(sym, event->state))
         return;

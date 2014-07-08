@@ -30,7 +30,7 @@ kbd.set("Ctrl-Shift-4", function() { ws.moveTo(3); });
 kbd.set("Alt-Tab", function() { ws.raiseLast(); });
 
 kbd.set("Insert A", function() { console.log("Got Insert A"); });
-kbd.set("Insert B", function() { console.log("Got Insert B"); });
+kbd.set("Insert Shift-B", function() { console.log("Got Insert Shift-B"); });
 kbd.set("Insert C A", function() { console.log("Got Insert C A"); });
 kbd.set("Insert C D", function() { console.log("Got Insert C D"); });
 
