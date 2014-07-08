@@ -95,6 +95,8 @@ WindowManager::WindowManager()
 {
     Messages::registerMessage<NWMMessage>();
     memset(&mXkb, '\0', sizeof(mXkb));
+    assert(!sInstance);
+    sInstance = this;
 }
 
 static inline void usage(FILE *out)
@@ -125,10 +127,11 @@ bool WindowManager::init(int &argc, char **argv)
         signal(SIGSEGV, crashHandler);
         signal(SIGABRT, crashHandler);
         signal(SIGBUS, crashHandler);
+        first = false;
     } else {
         optind = 1; // for reinit
     }
-    sInstance = this;
+
     struct option opts[] = {
         { "help", no_argument, 0, 'h' },
         { "verbose", no_argument, 0, 'b' },
@@ -332,10 +335,10 @@ bool WindowManager::init(int &argc, char **argv)
                             if (m->flags() & NWMMessage::Restart) {
                                 mRestart = true;
                                 EventLoop::eventLoop()->quit();
-                                return;
-                            } else if (m->flags() & NWMMessage::Quit) {
+                            }
+
+                            if (m->flags() & NWMMessage::Quit) {
                                 EventLoop::eventLoop()->quit();
-                                return;
                             }
 
                             String err;
@@ -746,7 +749,7 @@ bool WindowManager::isRunning()
     if (!xcb_ewmh_get_wm_pid_reply(mEwmhConn, cookie, &pid, 0))
         return false;
 
-    return !kill(pid, 0);
+    return pid != static_cast<uint32_t>(getpid()) && !kill(pid, 0);
 }
 
 String WindowManager::keycodeToString(xcb_keycode_t code)
