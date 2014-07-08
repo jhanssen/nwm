@@ -90,7 +90,7 @@ private:
 WindowManager *WindowManager::sInstance;
 
 WindowManager::WindowManager()
-    : mConn(0), mEwmhConn(0), mScreen(0), mScreenNo(0), mXkbEvent(0), mSyms(0), mTimestamp(XCB_CURRENT_TIME),
+    : mConn(0), mEwmhConn(0), mPreferredScreenIndex(0), mXkbEvent(0), mSyms(0), mTimestamp(XCB_CURRENT_TIME),
       mMoveModifierMask(0), mIsMoving(false), mFocusPolicy(FocusFollowsMouse), mRestart(false)
 {
     Messages::registerMessage<NWMMessage>();
@@ -257,10 +257,44 @@ bool WindowManager::init(int &argc, char **argv)
     }
 
     assert(!mDisplay.isEmpty());
-    mConn = xcb_connect(mDisplay.constData(), &mScreenNo);
+    mConn = xcb_connect(mDisplay.constData(), &mPreferredScreenIndex);
+
     if (!mConn || xcb_connection_has_error(mConn)) {
         return false;
     }
+    const xcb_setup_t *setup = xcb_get_setup(mConn);
+    if (setup) {
+        error() << "status" << static_cast<uint32_t>(setup->status) << '\n'
+                << "pad0" << static_cast<uint32_t>(setup->pad0) << '\n'
+                << "protocol_major_version" << static_cast<uint32_t>(setup->protocol_major_version) << '\n'
+                << "protocol_minor_version" << static_cast<uint32_t>(setup->protocol_minor_version) << '\n'
+                << "length" << static_cast<uint32_t>(setup->length) << '\n'
+                << "release_number" << static_cast<uint32_t>(setup->release_number) << '\n'
+                << "resource_id_base" << static_cast<uint32_t>(setup->resource_id_base) << '\n'
+                << "resource_id_mask" << static_cast<uint32_t>(setup->resource_id_mask) << '\n'
+                << "motion_buffer_size" << static_cast<uint32_t>(setup->motion_buffer_size) << '\n'
+                << "vendor_len" << static_cast<uint32_t>(setup->vendor_len) << '\n'
+                << "maximum_request_length" << static_cast<uint32_t>(setup->maximum_request_length) << '\n'
+                << "roots_len" << static_cast<uint32_t>(setup->roots_len) << '\n'
+                << "pixmap_formats_len" << static_cast<uint32_t>(setup->pixmap_formats_len) << '\n'
+                << "image_byte_order" << static_cast<uint32_t>(setup->image_byte_order) << '\n'
+                << "bitmap_format_bit_order" << static_cast<uint32_t>(setup->bitmap_format_bit_order) << '\n'
+                << "bitmap_format_scanline_unit" << static_cast<uint32_t>(setup->bitmap_format_scanline_unit) << '\n'
+                << "bitmap_format_scanline_pad" << static_cast<uint32_t>(setup->bitmap_format_scanline_pad) << '\n'
+                << "min_keycode" << static_cast<uint32_t>(setup->min_keycode) << '\n'
+                << "max_keycode" << static_cast<uint32_t>(setup->max_keycode);
+        // << "pad1[4]" << static_cast<uint32>(setup->pad1[4)];
+    }
+
+    const int screens = xcb_setup_roots_length(setup);
+    xcb_screen_iterator_t it = xcb_setup_roots_iterator(setup);
+    for (int i=0; i<screens; ++i) {
+        mScreens.append(it.data);
+        error() << "SCREEN ADDED" << mScreens.last();
+        xcb_screen_next(&it);
+    }
+    error() << "GOT SCREENS" << screens;
+
     mEwmhConn = new xcb_ewmh_connection_t;
     xcb_intern_atom_cookie_t* ewmhCookies = xcb_ewmh_init_atoms(mConn, mEwmhConn);
     if (!ewmhCookies) {
@@ -280,7 +314,6 @@ bool WindowManager::init(int &argc, char **argv)
         return false;
     }
 
-    mScreen = xcb_aux_get_screen(mConn, mScreenNo);
 
     if (socketPath.isEmpty())
         socketPath = Path::home() + ".nwm.sock." + mDisplay;
@@ -306,8 +339,10 @@ bool WindowManager::init(int &argc, char **argv)
 
         mWorkspaces[0]->activate();
         // update ewmh
-        xcb_ewmh_set_number_of_desktops(mEwmhConn, mScreenNo, mWorkspaces.size());
-        xcb_ewmh_set_current_desktop(mEwmhConn, mScreenNo, 0);
+        for (int i=0; i<screens; ++i) {
+            xcb_ewmh_set_number_of_desktops(mEwmhConn, i, mWorkspaces.size());
+            xcb_ewmh_set_current_desktop(mEwmhConn, i, 0);
+        }
 
         if (!manage()) {
             error() << "Unable to manage existing windows";
@@ -437,62 +472,67 @@ WindowManager::~WindowManager()
 bool WindowManager::manage()
 {
     // Manage all existing windows
-    xcb_generic_error_t* err;
-    xcb_query_tree_cookie_t treeCookie = xcb_query_tree(mConn, mScreen->root);
-    xcb_query_tree_reply_t* treeReply = xcb_query_tree_reply(mConn, treeCookie, &err);
-    FreeScope scope(treeReply);
-    if (err) {
-        LOG_ERROR(err, "Unable to query window tree");
-        free(err);
-        return false;
-    }
-    xcb_window_t* clients = xcb_query_tree_children(treeReply);
-    if (clients) {
-        const int clientLength = xcb_query_tree_children_length(treeReply);
-
-        std::vector<xcb_get_window_attributes_cookie_t> attrs;
-        std::vector<xcb_get_property_cookie_t> states;
-        attrs.reserve(clientLength);
-        states.reserve(clientLength);
-
-        for (int i = 0; i < clientLength; ++i) {
-            attrs.push_back(xcb_get_window_attributes_unchecked(mConn, clients[i]));
-            states.push_back(xcb_get_property_unchecked(mConn, false, clients[i], Atoms::WM_STATE, Atoms::WM_STATE, 0L, 2L));
+    int screenNumber = 0;
+    for (const xcb_screen_t *screen : mScreens) {
+        AutoPointer<xcb_generic_error_t> err;
+        xcb_query_tree_cookie_t treeCookie = xcb_query_tree(mConn, screen->root);
+        AutoPointer<xcb_query_tree_reply_t> treeReply = xcb_query_tree_reply(mConn, treeCookie, &err);
+        if (err) {
+            LOG_ERROR(err, "Unable to query window tree");
+            return false;
         }
-        for (int i = 0; i < clientLength; ++i) {
-            xcb_get_window_attributes_reply_t* attr = xcb_get_window_attributes_reply(mConn, attrs[i], 0);
-            FreeScope scope(attr);
-            xcb_get_property_reply_t* state = xcb_get_property_reply(mConn, states[i], 0);
-            uint32_t stateValue = XCB_ICCCM_WM_STATE_NORMAL;
-            if (state) {
-                if (xcb_get_property_value_length(state))
-                    stateValue = *static_cast<uint32_t*>(xcb_get_property_value(state));
-                free(state);
-            }
+        xcb_window_t* clients = xcb_query_tree_children(treeReply);
+        if (clients) {
+            const int clientLength = xcb_query_tree_children_length(treeReply);
 
-            if (!attr || attr->override_redirect || attr->map_state == XCB_MAP_STATE_UNMAPPED
-                || stateValue == XCB_ICCCM_WM_STATE_WITHDRAWN) {
-                continue;
+            List<xcb_get_window_attributes_cookie_t> attrs;
+            List<xcb_get_property_cookie_t> states;
+            attrs.reserve(clientLength);
+            states.reserve(clientLength);
+
+            warning() << "Got clients" << clientLength << screen << screenNumber;
+
+            for (int i = 0; i < clientLength; ++i) {
+                attrs.push_back(xcb_get_window_attributes_unchecked(mConn, clients[i]));
+                states.push_back(xcb_get_property_unchecked(mConn, false, clients[i], Atoms::WM_STATE, Atoms::WM_STATE, 0L, 2L));
             }
-            Client::SharedPtr client = Client::manage(clients[i]);
+            for (int i = 0; i < clientLength; ++i) {
+                AutoPointer<xcb_generic_error_t> err;
+                AutoPointer<xcb_get_window_attributes_reply_t> attr = xcb_get_window_attributes_reply(mConn, attrs[i], &err);
+                xcb_get_property_reply_t* state = xcb_get_property_reply(mConn, states[i], 0);
+                if (err) {
+                    LOG_ERROR(err, "Unable to get attrs");
+                }
+                uint32_t stateValue = XCB_ICCCM_WM_STATE_NORMAL;
+                if (state) {
+                    if (xcb_get_property_value_length(state))
+                        stateValue = *static_cast<uint32_t*>(xcb_get_property_value(state));
+                    free(state);
+                }
+
+                if (!attr || attr->override_redirect || attr->map_state == XCB_MAP_STATE_UNMAPPED
+                    || stateValue == XCB_ICCCM_WM_STATE_WITHDRAWN) {
+                    continue;
+                }
+                Client::SharedPtr client = Client::manage(clients[i], screenNumber);
+            }
         }
+        ++screenNumber;
     }
     return true;
 }
 
 bool WindowManager::install()
 {
-    mRect = Rect({ 0, 0, mScreen->width_in_pixels, mScreen->height_in_pixels });
-
     Atoms::setup(mConn);
 
     xcb_void_cookie_t cookie;
-    xcb_generic_error_t* err;
+    AutoPointer<xcb_generic_error_t> err;
 
     // check if another WM is running
     {
         const uint32_t values[] = { XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT };
-        cookie = xcb_change_window_attributes_checked(mConn, mScreen->root, XCB_CW_EVENT_MASK, values);
+        cookie = xcb_change_window_attributes_checked(mConn, mScreens.at(mPreferredScreenIndex)->root, XCB_CW_EVENT_MASK, values);
         err = xcb_request_check(mConn, cookie);
         if (err) {
             LOG_ERROR(err, "Unable to change window attributes 1");
@@ -580,13 +620,6 @@ bool WindowManager::install()
     }
 
     const uint32_t values[] = { Types::RootEventMask };
-    cookie = xcb_change_window_attributes_checked(mConn, mScreen->root, XCB_CW_EVENT_MASK, values);
-    err = xcb_request_check(mConn, cookie);
-    if (err) {
-        LOG_ERROR(err, "Unable to change window attributes 2");
-        free(err);
-        return false;
-    }
 
     const xcb_atom_t atom[] = {
         mEwmhConn->_NET_SUPPORTED,
@@ -635,17 +668,30 @@ bool WindowManager::install()
         // Atoms::_NET_WM_STATE_DEMANDS_ATTENTION
     };
 
-    cookie = xcb_change_property(mConn, XCB_PROP_MODE_REPLACE,
-                                 mScreen->root, mEwmhConn->_NET_SUPPORTED, XCB_ATOM_ATOM, 32,
-                                 Rct::countof(atom), atom);
-    err = xcb_request_check(mConn, cookie);
-    if (err) {
-        LOG_ERROR(err, "Unable to change _NET_SUPPORTED property on root window");
-        free(err);
-        return false;
-    }
 
-    xcb_ewmh_set_wm_pid(mEwmhConn, mScreen->root, getpid());
+    assert(mRects.isEmpty());
+    for (xcb_screen_t *screen : mScreens) {
+        mRects.append({ 0, 0, screen->width_in_pixels, screen->height_in_pixels });
+        cookie = xcb_change_window_attributes_checked(mConn, screen->root, XCB_CW_EVENT_MASK, values);
+        err = xcb_request_check(mConn, cookie);
+        if (err) {
+            LOG_ERROR(err, "Unable to change window attributes 2");
+            free(err);
+            return false;
+        }
+
+        cookie = xcb_change_property(mConn, XCB_PROP_MODE_REPLACE,
+                                     screen->root, mEwmhConn->_NET_SUPPORTED, XCB_ATOM_ATOM, 32,
+                                     Rct::countof(atom), atom);
+        err = xcb_request_check(mConn, cookie);
+        if (err) {
+            LOG_ERROR(err, "Unable to change _NET_SUPPORTED property on root window");
+            free(err);
+            return false;
+        }
+
+        xcb_ewmh_set_wm_pid(mEwmhConn, screen->root, getpid());
+    }
     xcb_flush(mConn);
 
     // Get events
@@ -662,71 +708,70 @@ bool WindowManager::install()
                     }
                     return;
                 }
-                xcb_generic_event_t* event = xcb_poll_for_event(conn);
+                AutoPointer<xcb_generic_event_t> event = xcb_poll_for_event(conn);
                 if (event) {
-                    FreeScope scope(event);
                     const unsigned int responseType = event->response_type & ~0x80;
                     switch (responseType) {
                     case XCB_BUTTON_PRESS:
                         warning() << "button press";
-                        Handlers::handleButtonPress(reinterpret_cast<xcb_button_press_event_t*>(event));
+                        Handlers::handleButtonPress(event.cast<xcb_button_press_event_t>());
                         break;
                     case XCB_BUTTON_RELEASE:
                         warning() << "button release";
-                        Handlers::handleButtonRelease(reinterpret_cast<xcb_button_release_event_t*>(event));
+                        Handlers::handleButtonRelease(event.cast<xcb_button_release_event_t>());
                         break;
                     case XCB_MOTION_NOTIFY:
                         warning() << "motion notify";
-                        Handlers::handleMotionNotify(reinterpret_cast<xcb_motion_notify_event_t*>(event));
+                        Handlers::handleMotionNotify(event.cast<xcb_motion_notify_event_t>());
                         break;
                     case XCB_CLIENT_MESSAGE:
                         warning() << "client message";
-                        Handlers::handleClientMessage(reinterpret_cast<xcb_client_message_event_t*>(event));
+                        Handlers::handleClientMessage(event.cast<xcb_client_message_event_t>());
                         break;
                     case XCB_CONFIGURE_REQUEST:
                         warning() << "configure request";
-                        Handlers::handleConfigureRequest(reinterpret_cast<xcb_configure_request_event_t*>(event));
+                        Handlers::handleConfigureRequest(event.cast<xcb_configure_request_event_t>());
                         break;
                     case XCB_CONFIGURE_NOTIFY:
                         warning() << "configure notify";
-                        Handlers::handleConfigureNotify(reinterpret_cast<xcb_configure_notify_event_t*>(event));
+                        Handlers::handleConfigureNotify(event.cast<xcb_configure_notify_event_t>());
                         break;
                     case XCB_DESTROY_NOTIFY:
                         warning() << "destroy notify";
-                        Handlers::handleDestroyNotify(reinterpret_cast<xcb_destroy_notify_event_t*>(event));
+                        Handlers::handleDestroyNotify(event.cast<xcb_destroy_notify_event_t>());
                         break;
                     case XCB_ENTER_NOTIFY:
                         warning() << "enter notify";
-                        Handlers::handleEnterNotify(reinterpret_cast<xcb_enter_notify_event_t*>(event));
+                        Handlers::handleEnterNotify(event.cast<xcb_enter_notify_event_t>());
                         break;
                     case XCB_EXPOSE:
                         warning() << "expose";
-                        Handlers::handleExpose(reinterpret_cast<xcb_expose_event_t*>(event));
+                        Handlers::handleExpose(event.cast<xcb_expose_event_t>());
                         break;
                     case XCB_FOCUS_IN:
                         warning() << "focus in";
-                        Handlers::handleFocusIn(reinterpret_cast<xcb_focus_in_event_t*>(event));
+                        Handlers::handleFocusIn(event.cast<xcb_focus_in_event_t>());
                         break;
                     case XCB_KEY_PRESS:
                         warning() << "key press";
-                        Handlers::handleKeyPress(reinterpret_cast<xcb_key_press_event_t*>(event));
+                        Handlers::handleKeyPress(event.cast<xcb_key_press_event_t>());
                         break;
                     case XCB_MAP_REQUEST:
                         warning() << "map request";
-                        Handlers::handleMapRequest(reinterpret_cast<xcb_map_request_event_t*>(event));
+                        Handlers::handleMapRequest(event.cast<xcb_map_request_event_t>());
                         break;
                     case XCB_PROPERTY_NOTIFY:
                         warning() << "property notify";
-                        Handlers::handlePropertyNotify(reinterpret_cast<xcb_property_notify_event_t*>(event));
+                        Handlers::handlePropertyNotify(event.cast<xcb_property_notify_event_t>());
                         break;
                     case XCB_UNMAP_NOTIFY:
                         warning() << "unmap notify";
-                        Handlers::handleUnmapNotify(reinterpret_cast<xcb_unmap_notify_event_t*>(event));
+                        Handlers::handleUnmapNotify(event.cast<xcb_unmap_notify_event_t>());
                         break;
                     default:
                         if (responseType == xkbEvent) {
                             warning() << "xkb event";
-                            handleXkb(reinterpret_cast<_xkb_event*>(event));
+                            handleXkb(event.cast<_xkb_event>());
                             break;
                         }
                         warning() << "unhandled event" << responseType;
@@ -744,7 +789,7 @@ bool WindowManager::install()
 
 bool WindowManager::isRunning()
 {
-    xcb_get_property_cookie_t cookie = xcb_ewmh_get_wm_pid(mEwmhConn, mScreen->root);
+    xcb_get_property_cookie_t cookie = xcb_ewmh_get_wm_pid(mEwmhConn, mScreens.at(mPreferredScreenIndex)->root);
     uint32_t pid;
     if (!xcb_ewmh_get_wm_pid_reply(mEwmhConn, cookie, &pid, 0))
         return false;
@@ -787,21 +832,49 @@ void WindowManager::updateXkbMap(xcb_xkb_map_notify_event_t* map)
 #warning requery xkb core device and recreate state here?
 }
 
-void WindowManager::setRect(const Rect& rect)
+void WindowManager::setRect(const Rect& rect, int idx)
 {
-    mRect = rect;
+    mRects[idx] = rect;
     for (const Workspace::SharedPtr& ws : mWorkspaces) {
-        ws->setRect(rect);
+        if (ws->screenNumber() == idx)
+            ws->setRect(rect);
     }
 }
 
-void WindowManager::addWorkspace(unsigned int layoutType)
+void WindowManager::addWorkspace(unsigned int layoutType, int screenNumber)
 {
-    mWorkspaces.append(std::make_shared<Workspace>(layoutType, mRect));
+    if (screenNumber == AllScreens) {
+        const int count = mScreens.size();
+        for (int i=0; i<count; ++i) {
+            mWorkspaces.append(std::make_shared<Workspace>(layoutType, i, mRects.at(i)));
+        }
+    } else {
+        mWorkspaces.append(std::make_shared<Workspace>(layoutType, screenNumber, mRects.at(screenNumber)));
+    }
 }
 
 void WindowManager::setMoveModifier(const String& mod)
 {
     mMoveModifier = mod;
     mMoveModifierMask = Keybinding::modToMask(mod);
+}
+
+List<xcb_window_t> WindowManager::roots() const
+{
+    List<xcb_window_t> roots;
+    roots.reserve(mScreens.size());
+    for (xcb_screen_t *screen : mScreens) {
+        roots.append(screen->root);
+    }
+    return roots;
+}
+int WindowManager::screenNumber(xcb_window_t root) const
+{
+    int screenNumber = 0;
+    for (xcb_screen_t *screen : mScreens) {
+        if (screen->root == root)
+            return screenNumber;
+        ++screenNumber;
+    }
+    return -1;
 }

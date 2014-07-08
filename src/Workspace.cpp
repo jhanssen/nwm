@@ -8,8 +8,8 @@
 
 Workspace::WeakPtr Workspace::sActive;
 
-Workspace::Workspace(unsigned int layoutType, const Rect& rect, const String& name)
-    : mRect(rect), mName(name)
+Workspace::Workspace(unsigned int layoutType, int screenNo, const Rect& rect, const String& name)
+    : mRect(rect), mName(name), mScreenNumber(screenNo)
 {
     switch (layoutType) {
     case GridLayout::Type:
@@ -73,9 +73,9 @@ void Workspace::updateFocus(const Client::SharedPtr& client)
         }
         // No window to focus, focus the root window instead
         WindowManager *wm = WindowManager::instance();
-        const xcb_window_t root = wm->screen()->root;
+        const xcb_window_t root = screen()->root;
         xcb_set_input_focus(wm->connection(), XCB_INPUT_FOCUS_PARENT, root, wm->timestamp());
-        xcb_ewmh_set_active_window(wm->ewmhConnection(), wm->screenNo(), root);
+        xcb_ewmh_set_active_window(wm->ewmhConnection(), mScreenNumber, root);
     }
 }
 
@@ -187,4 +187,9 @@ void Workspace::raise(RaiseMode mode)
                 return;
         }
     }
+}
+
+xcb_screen_t * Workspace::screen() const
+{
+    return WindowManager::instance()->screens().at(mScreenNumber);
 }

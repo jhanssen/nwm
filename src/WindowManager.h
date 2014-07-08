@@ -39,8 +39,12 @@ public:
 
     xcb_connection_t* connection() const { return mConn; }
     xcb_ewmh_connection_t* ewmhConnection() const { return mEwmhConn; }
-    xcb_screen_t* screen() const { return mScreen; }
-    int screenNo() const { return mScreenNo; }
+    const List<xcb_screen_t*> &screens() const { return mScreens; }
+    List<xcb_window_t> roots() const;
+    enum { AllScreens = -1 };
+    int preferredScreenIndex() const { return mPreferredScreenIndex; }
+    int screenNumber(xcb_window_t root) const;
+    int screenCount() const { return mScreens.size(); }
 
     xcb_key_symbols_t* keySymbols() const { return mSyms; }
     int32_t xkbDevice() const { return mXkb.device; }
@@ -68,10 +72,10 @@ public:
     FocusPolicy focusPolicy() const { return mFocusPolicy; }
 
     const List<Workspace::SharedPtr>& workspaces() const { return mWorkspaces; }
-    void addWorkspace(unsigned int layoutType);
+    void addWorkspace(unsigned int layoutType, int screenNumber);
 
-    const Rect& rect() const { return mRect; }
-    void setRect(const Rect& rect);
+    Rect rect(int idx) const { return mRects.value(idx); }
+    void setRect(const Rect& rect, int idx);
 
     JavaScript& js() { return mJS; }
     bool shouldRestart() const { return mRestart; }
@@ -92,13 +96,13 @@ private:
 
     xcb_connection_t* mConn;
     xcb_ewmh_connection_t* mEwmhConn;
-    xcb_screen_t* mScreen;
-    int mScreenNo;
+    List<xcb_screen_t*> mScreens;
+    List<Rect> mRects;
+    int mPreferredScreenIndex;
     uint8_t mXkbEvent;
     xcb_key_symbols_t* mSyms;
     List<Workspace::SharedPtr> mWorkspaces;
     xcb_timestamp_t mTimestamp;
-    Rect mRect;
     JavaScript mJS;
     Keybindings mBindings;
     String mMoveModifier;
@@ -114,21 +118,27 @@ private:
     static WindowManager *sInstance;
 };
 
-class FreeScope
+template <typename T>
+class AutoPointer
 {
 public:
-    FreeScope(void* d)
-        : mD(d)
+    AutoPointer(T *ptr = 0)
+        : mPtr(ptr)
     {
     }
-    ~FreeScope()
+    ~AutoPointer()
     {
-        if (mD)
-            free(mD);
+        if (mPtr)
+            free(mPtr);
     }
 
+    T *operator->() { return mPtr; }
+    bool operator!() const { return !mPtr; }
+    operator T*() { return mPtr; }
+    T **operator&() { return &mPtr; }
+    template <typename J> J *cast() { return reinterpret_cast<J*>(mPtr); }
 private:
-    void* mD;
+    T *mPtr;
 };
 
 class ServerGrabScope

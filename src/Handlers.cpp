@@ -24,9 +24,8 @@ void handleButtonPress(const xcb_button_press_event_t* event)
         if (event->state) {
             const uint16_t mod = wm->moveModifierMask();
             if (mod && (event->state & mod) == mod && client->isFloating()) {
-                const xcb_window_t root = wm->screen()->root;
                 // grab both the keyboard and the pointer
-                xcb_grab_pointer_cookie_t pointerCookie = xcb_grab_pointer(conn, false, root,
+                xcb_grab_pointer_cookie_t pointerCookie = xcb_grab_pointer(conn, false, event->root,
                                                                            XCB_EVENT_MASK_BUTTON_RELEASE
                                                                            | XCB_EVENT_MASK_POINTER_MOTION,
                                                                            XCB_GRAB_MODE_ASYNC,
@@ -40,7 +39,7 @@ void handleButtonPress(const xcb_button_press_event_t* event)
                     return;
                 }
                 free(pointerReply);
-                xcb_grab_keyboard_cookie_t keyboardCookie = xcb_grab_keyboard(conn, false, root,
+                xcb_grab_keyboard_cookie_t keyboardCookie = xcb_grab_keyboard(conn, false, event->root,
                                                                               XCB_CURRENT_TIME,
                                                                               XCB_GRAB_MODE_ASYNC,
                                                                               XCB_GRAB_MODE_ASYNC);
@@ -59,8 +58,7 @@ void handleButtonPress(const xcb_button_press_event_t* event)
                     return;
                 }
                 free(keyboardReply);
-                wm->startMoving(client, Point({ static_cast<unsigned int>(event->root_x),
-                                                static_cast<unsigned int>(event->root_y) }));
+                wm->startMoving(client, Point({ static_cast<unsigned int>(event->root_x), static_cast<unsigned int>(event->root_y) }));
             }
             xcb_allow_events(conn, XCB_ALLOW_ASYNC_POINTER, event->time);
             return;
@@ -138,7 +136,7 @@ void handleClientMessage(const xcb_client_message_event_t* event)
         if (ws >= static_cast<uint32_t>(wss.size()))
             return;
         wss[ws]->activate();
-        xcb_ewmh_set_current_desktop(ewmhConn, wm->screenNo(), ws);
+        xcb_ewmh_set_current_desktop(ewmhConn, wss.at(ws)->screenNumber(), ws);
     }
 }
 
@@ -259,9 +257,11 @@ void handleMapRequest(const xcb_map_request_event_t* event)
 {
     xcb_connection_t* conn = WindowManager::instance()->connection();
     const xcb_get_window_attributes_cookie_t cookie = xcb_get_window_attributes_unchecked(conn, event->window);
-    xcb_get_window_attributes_reply_t* reply = xcb_get_window_attributes_reply(conn, cookie, 0);
-    FreeScope scope(reply);
-    if (!reply)
+    const xcb_query_tree_cookie_t treeCookie = xcb_query_tree(conn, event->window);
+    AutoPointer<xcb_get_window_attributes_reply_t> reply = xcb_get_window_attributes_reply(conn, cookie, 0);
+    AutoPointer<xcb_query_tree_reply_t> treeReply = xcb_query_tree_reply(conn, treeCookie, 0);
+
+    if (!reply || !treeReply)
         return;
     if (reply->override_redirect) {
         error() << "override_redirect";
@@ -272,7 +272,7 @@ void handleMapRequest(const xcb_map_request_event_t* event)
     if (client) {
         // stuff
     } else {
-        client = Client::manage(event->window);
+        client = Client::manage(event->window, treeReply->root);
         // more stuff
     }
     client->map();

@@ -10,7 +10,7 @@
 Hash<xcb_window_t, Client::SharedPtr> Client::sClients;
 
 Client::Client(xcb_window_t win)
-    : mWindow(win), mFrame(XCB_NONE), mNoFocus(false), mFloating(false), mPid(0)
+    : mWindow(win), mFrame(XCB_NONE), mNoFocus(false), mFloating(false), mPid(0), mScreenNumber(0)
 {
     warning() << "making client";
 }
@@ -18,9 +18,8 @@ Client::Client(xcb_window_t win)
 Client::~Client()
 {
     xcb_connection_t* conn = WindowManager::instance()->connection();
-    xcb_screen_t* screen = WindowManager::instance()->screen();
     if (mWindow)
-        xcb_reparent_window(conn, mWindow, screen->root, 0, 0);
+        xcb_reparent_window(conn, mWindow, root(), 0, 0);
     xcb_destroy_window(conn, mFrame);
 
     if (EventLoop::SharedPtr loop = EventLoop::eventLoop()) {
@@ -50,7 +49,7 @@ void Client::complete()
         // don't put in layout
 #warning support strut windows in layouts (reserved space)
 #warning support partial struts
-        Rect rect = wm->rect();
+        Rect rect = wm->rect(mScreenNumber);
         if (mStrut.left) {
             if (mRequestedGeom.width != mStrut.left)
                 mRequestedGeom.width = mStrut.left;
@@ -74,7 +73,7 @@ void Client::complete()
             mRequestedGeom.y = rect.y + rect.height - mStrut.bottom;
             rect.height -= mStrut.bottom;
         }
-        wm->setRect(rect);
+        wm->setRect(rect, mScreenNumber);
         layoutRect = mRequestedGeom;
         warning() << "fixed at" << layoutRect;
     } else {
@@ -92,10 +91,10 @@ void Client::complete()
     }
 #warning do startup-notification stuff here
     xcb_change_save_set(conn, XCB_SET_MODE_INSERT, mWindow);
-    xcb_screen_t* screen = WindowManager::instance()->screen();
+    xcb_screen_t* scr = screen();
     mFrame = xcb_generate_id(conn);
     const uint32_t values[] = {
-        screen->black_pixel,
+        scr->black_pixel,
         XCB_GRAVITY_NORTH_WEST,
         XCB_GRAVITY_NORTH_WEST,
         1,
@@ -109,7 +108,7 @@ void Client::complete()
          | XCB_EVENT_MASK_BUTTON_RELEASE)
     };
     warning() << "creating frame window" << layoutRect << mRequestedGeom;
-    xcb_create_window(conn, XCB_COPY_FROM_PARENT, mFrame, screen->root,
+    xcb_create_window(conn, XCB_COPY_FROM_PARENT, mFrame, scr->root,
                       layoutRect.x, layoutRect.y, layoutRect.width, layoutRect.height, 0,
                       XCB_COPY_FROM_PARENT, XCB_COPY_FROM_PARENT,
                       XCB_CW_BORDER_PIXEL | XCB_CW_BIT_GRAVITY | XCB_CW_WIN_GRAVITY
@@ -117,13 +116,13 @@ void Client::complete()
     {
         ServerGrabScope grabScope(conn);
         const uint32_t noValue[] = { 0 };
-        xcb_change_window_attributes(conn, screen->root, XCB_CW_EVENT_MASK, noValue);
+        xcb_change_window_attributes(conn, scr->root, XCB_CW_EVENT_MASK, noValue);
         xcb_reparent_window(conn, mWindow, mFrame, 0, 0);
         warning() << "created and mapped parent client for frame" << mFrame << "with window" << mWindow;
         const uint32_t rootEvent[] = { Types::RootEventMask };
-        xcb_change_window_attributes(conn, screen->root, XCB_CW_EVENT_MASK, rootEvent);
+        xcb_change_window_attributes(conn, scr->root, XCB_CW_EVENT_MASK, rootEvent);
         xcb_grab_button(conn, false, mWindow, XCB_EVENT_MASK_BUTTON_PRESS,
-                        XCB_GRAB_MODE_SYNC, XCB_GRAB_MODE_ASYNC, screen->root,
+                        XCB_GRAB_MODE_SYNC, XCB_GRAB_MODE_ASYNC, scr->root,
                         XCB_NONE, 1, XCB_BUTTON_MASK_ANY);
         const uint32_t windowEvent[] = { Types::ClientInputMask };
         xcb_change_window_attributes(conn, mWindow, XCB_CW_EVENT_MASK, windowEvent);
@@ -213,8 +212,7 @@ void Client::updateState(xcb_ewmh_connection_t* ewmhConn)
 
 void Client::updateLeader(xcb_connection_t* conn, xcb_get_property_cookie_t cookie)
 {
-    xcb_get_property_reply_t* leader = xcb_get_property_reply(conn, cookie, 0);
-    FreeScope freeLeader(leader);
+    AutoPointer<xcb_get_property_reply_t> leader = xcb_get_property_reply(conn, cookie, 0);
     if (!leader || leader->type != XCB_ATOM_WINDOW || leader->format != 32 || !leader->length) {
         mGroup = ClientGroup::clientGroup(mWindow);
         mGroup->add(shared_from_this());
@@ -228,8 +226,7 @@ void Client::updateLeader(xcb_connection_t* conn, xcb_get_property_cookie_t cook
 
 void Client::updateSize(xcb_connection_t* conn, xcb_get_geometry_cookie_t cookie)
 {
-    xcb_get_geometry_reply_t* geom = xcb_get_geometry_reply(conn, cookie, 0);
-    FreeScope freeGeom(geom);
+    AutoPointer<xcb_get_geometry_reply_t> geom = xcb_get_geometry_reply(conn, cookie, 0);
     mRequestedGeom = { static_cast<uint32_t>(geom->x), static_cast<uint32_t>(geom->y), geom->width, geom->height };
 }
 
@@ -256,8 +253,7 @@ void Client::updateTransient(xcb_connection_t* conn, xcb_get_property_cookie_t c
     if (!xcb_icccm_get_wm_transient_for_reply(conn, cookie, &mTransientFor, 0)) {
         mTransientFor = XCB_NONE;
     } else {
-        const xcb_window_t root = WindowManager::instance()->screen()->root;
-        if (mTransientFor == XCB_NONE || mTransientFor == root) {
+        if (mTransientFor == XCB_NONE || mTransientFor == root()) {
             // we're really transient for the group
             if (!mGroup) {
                 // bad
@@ -343,9 +339,9 @@ void Client::updateStrut(xcb_ewmh_connection_t* conn, xcb_get_property_cookie_t 
         mStrut.right = struts.right;
         mStrut.top = struts.top;
         mStrut.bottom = struts.bottom;
-        xcb_screen_t* screen = WindowManager::instance()->screen();
-        mStrut.left_end_y = mStrut.right_end_y = screen->height_in_pixels;
-        mStrut.top_end_x = mStrut.bottom_end_x = screen->width_in_pixels;
+        xcb_screen_t *scr = screen();
+        mStrut.left_end_y = mStrut.right_end_y = scr->height_in_pixels;
+        mStrut.top_end_x = mStrut.bottom_end_x = scr->width_in_pixels;
     }
 }
 
@@ -411,10 +407,11 @@ void Client::onLayoutChanged(const Rect& rect)
     }
 }
 
-Client::SharedPtr Client::manage(xcb_window_t window)
+Client::SharedPtr Client::manage(xcb_window_t window, int screenNumber)
 {
     assert(sClients.count(window) == 0);
     Client::SharedPtr ptr(new Client(window)); // can't use make_shared due to private c'tor
+    ptr->mScreenNumber = screenNumber;
     ptr->init();
     WindowManager *wm = WindowManager::instance();
     wm->js().onClient(ptr);
@@ -487,7 +484,7 @@ void Client::focus()
                        reinterpret_cast<char*>(&event));
     }
     xcb_set_input_focus(wm->connection(), XCB_INPUT_FOCUS_PARENT, mWindow, wm->timestamp());
-    xcb_ewmh_set_active_window(wm->ewmhConnection(), wm->screenNo(), mWindow);
+    xcb_ewmh_set_active_window(wm->ewmhConnection(), mScreenNumber, mWindow);
     if (Workspace::SharedPtr ws = mWorkspace.lock())
         ws->updateFocus(shared_from_this());
 }
@@ -583,4 +580,9 @@ void Client::createJSValue()
     ScriptEngine::Object::SharedPtr obj = js.clientClass()->create();
     obj->setExtraData(WeakPtr(shared_from_this()));
     mJSValue = js.fromObject(obj);
+}
+
+xcb_screen_t *Client::screen() const
+{
+    return WindowManager::instance()->screens().at(mScreenNumber);
 }

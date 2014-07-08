@@ -15,12 +15,15 @@ public:
     typedef std::shared_ptr<Workspace> SharedPtr;
     typedef std::weak_ptr<Workspace> WeakPtr;
 
-    Workspace(unsigned int layoutType, const Rect& rect, const String& name = String());
+    Workspace(unsigned int layoutType, int screenNo, const Rect& rect, const String& name = String());
     ~Workspace();
 
     void setRect(const Rect& rect);
 
     void activate();
+
+    int screenNumber() const { return mScreenNumber; }
+    xcb_screen_t *screen() const;
 
     void addClient(const Client::SharedPtr& client);
     void removeClient(const Client::SharedPtr& client);
@@ -47,6 +50,7 @@ private:
     Layout::SharedPtr mLayout;
     // ordered by focus
     LinkedList<Client::WeakPtr> mClients;
+    const int mScreenNumber;
 
     static Workspace::WeakPtr sActive;
 };

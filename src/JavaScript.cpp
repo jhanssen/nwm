@@ -147,7 +147,7 @@ bool JavaScript::init(String *err)
             }
             logValues(stdout, args);
             return Value::undefined();
-       });
+        });
     console->registerFunction("error", [](const Object::SharedPtr&, const List<Value>& args) -> Value {
             if (args.isEmpty()) {
                 return instance()->throwException<Value>("No arguments passed to console.log");
@@ -296,27 +296,43 @@ bool JavaScript::init(String *err)
     workspace->setProperty("Grid", GridLayout::Type);
     workspace->registerFunction("add", [](const Object::SharedPtr&, const List<Value>& args) -> Value {
             unsigned int layoutType = GridLayout::Type;
+            int screenNumber = WindowManager::AllScreens;
             if (!args.isEmpty()) {
                 if (args.size() > 1)
                     return instance()->throwException<Value>("workspace.add takes zero or one argument");
                 const Value& v = args.front();
                 if (v.type() != Value::Type_Map)
                     return instance()->throwException<Value>("workspace.add argument needs to be an object");
-                const Value& t = v["type"];
-                if (t.type() != Value::Type_Invalid) {
-                    if (t.type() != Value::Type_Integer)
-                        return instance()->throwException<Value>("workspace.add type needs to be an integer");
-                    layoutType = t.toInteger();
-                    switch (layoutType) {
-                    case StackLayout::Type:
-                    case GridLayout::Type:
-                        break;
-                    default:
-                        return instance()->throwException<Value>("workspace.add invalid layout type");
+
+                if (v.contains("type")) {
+                    const Value& t = v["type"];
+                    if (t.type() != Value::Type_Invalid) {
+                        if (t.type() != Value::Type_Integer)
+                            return instance()->throwException<Value>("workspace.add type needs to be an integer");
+                        layoutType = t.toInteger();
+                        switch (layoutType) {
+                        case StackLayout::Type:
+                        case GridLayout::Type:
+                            break;
+                        default:
+                            return instance()->throwException<Value>("workspace.add invalid layout type");
+                        }
+                    }
+                }
+
+                if (v.contains("screen")) {
+                    const Value& s = v["screen"];
+                    if (s.type() != Value::Type_Invalid) {
+                        if (s.type() != Value::Type_Integer)
+                            return instance()->throwException<Value>("workspace.add screen needs to be an integer");
+                        screenNumber = s.toInteger();
+                        if (screenNumber < 0 || screenNumber >= WindowManager::instance()->screenCount()) {
+                            return instance()->throwException<Value>("workspace.add invalid screen number");
+                        }
                     }
                 }
             }
-            WindowManager::instance()->addWorkspace(layoutType);
+            WindowManager::instance()->addWorkspace(layoutType, screenNumber);
             return Value::undefined();
         });
     workspace->registerFunction("moveTo", [](const Object::SharedPtr&, const List<Value>& args) -> Value {
@@ -343,7 +359,7 @@ bool JavaScript::init(String *err)
                 return instance()->throwException<Value>("Invalid workspace");
             wss[ws]->activate();
             WindowManager *wm = WindowManager::instance();
-            xcb_ewmh_set_current_desktop(wm->ewmhConnection(), wm->screenNo(), ws);
+            xcb_ewmh_set_current_desktop(wm->ewmhConnection(), wss[ws]->screenNumber(), ws);
             return Value::undefined();
         });
     workspace->registerFunction("raiseLast", [](const Object::SharedPtr&, const List<Value>&) -> Value {

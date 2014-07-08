@@ -23,7 +23,7 @@ public:
     ~Client();
 
     static SharedPtr client(xcb_window_t window);
-    static SharedPtr manage(xcb_window_t window);
+    static SharedPtr manage(xcb_window_t window, int screenNumber);
     static void release(xcb_window_t window);
     static void clear() { sClients.clear(); }
 
@@ -58,6 +58,9 @@ public:
     const Layout::SharedPtr& layout() const { return mLayout; }
     xcb_window_t window() const { return mWindow; }
     xcb_window_t frame() const { return mFrame; }
+    xcb_window_t root() const { return screen()->root; }
+    xcb_screen_t *screen() const;
+    int screenNumber() const { return mScreenNumber; }
 
     String wmName() const { return mName; }
     String instanceName() const { return mClass.instanceName; }
@@ -114,6 +117,7 @@ private:
     bool mFloating;
     Value mJSValue;
     uint32_t mPid;
+    int mScreenNumber;
 
     static Hash<xcb_window_t, Client::SharedPtr> sClients;
 
