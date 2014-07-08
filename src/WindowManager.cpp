@@ -65,21 +65,26 @@ class NWMMessage : public Message
 public:
     enum { MessageId = 100 };
     NWMMessage()
-        : Message(MessageId), mReload(false), mRestart(false)
+        : Message(MessageId), mFlags(0)
     {}
+
+    unsigned int flags() const { return mFlags; }
+    enum Flag {
+        Restart = 0x01,
+        Reload = 0x02,
+        Quit = 0x04
+    };
 
     List<String> scripts() const { return mScripts; }
     void setScripts(const List<String> &scripts) { mScripts = scripts; }
-    bool reload() const { return mReload; }
-    void setReload(bool reload) const { reload = mReload; }
-    bool restart() const { return mRestart; }
-    void setRestart(bool restart) const { restart = mRestart; }
+    void setFlag(Flag flag, bool on = true) { if (on) { mFlags |= flag; } else { mFlags &= ~flag; } }
+    void setFlags(unsigned int flags) { mFlags = flags; }
 
-    virtual void encode(Serializer &serializer) const { serializer << mScripts << mReload << mRestart; }
-    virtual void decode(Deserializer &deserializer) { deserializer >> mScripts >> mReload >> mRestart; }
+    virtual void encode(Serializer &serializer) const { serializer << mScripts << mFlags; }
+    virtual void decode(Deserializer &deserializer) { deserializer >> mScripts >> mFlags; }
 private:
     List<String> mScripts;
-    bool mReload, mRestart;
+    unsigned int mFlags;
 };
 
 WindowManager *WindowManager::sInstance;
@@ -109,6 +114,7 @@ static inline void usage(FILE *out)
             "  -t|--connect-timeout [ms]   Max time to wait for connection\n"
             "  -r|--reload                 Reload config files\n"
             "  -R|--restart                Restart window manager\n"
+            "  -q|--quit                   Stop window manager\n"
             "  -n|--no-user-config         Don't load ~/.config/nwm.js\n");
 }
 
@@ -130,6 +136,7 @@ bool WindowManager::init(int &argc, char **argv)
         { "socket-path", required_argument, 0, 's' },
         { "javascript", required_argument, 0, 'j' },
         { "javascript-file", required_argument, 0, 'J' },
+        { "quit", no_argument, 0, 'q' },
         { "reload", no_argument, 0, 'r' },
         { "restart", no_argument, 0, 'R' },
         { "connect-timeout", required_argument, 0, 't' },
@@ -146,8 +153,7 @@ bool WindowManager::init(int &argc, char **argv)
     char *display = 0;
     Path socketPath;
     List<String> scripts;
-    bool reload = false;
-    bool restart = false;
+    unsigned int flags = 0;
     int connectTimeout = 0;
 
     while (true) {
@@ -181,10 +187,13 @@ bool WindowManager::init(int &argc, char **argv)
             scripts.append(optarg);
             break; }
         case 'r':
-            reload = true;
+            flags |= NWMMessage::Reload;
+            break;
+        case 'q':
+            flags |= NWMMessage::Quit;
             break;
         case 'R':
-            restart = true;
+            flags |= NWMMessage::Restart;
             break;
         case 'n':
             userConfig = false;
@@ -315,14 +324,17 @@ bool WindowManager::init(int &argc, char **argv)
                                 return;
                             }
                             const NWMMessage *m = static_cast<NWMMessage*>(msg);
-                            if (m->restart()) {
+                            if (m->flags() & NWMMessage::Restart) {
                                 mRestart = true;
+                                EventLoop::eventLoop()->quit();
+                                return;
+                            } else if (m->flags() & NWMMessage::Quit) {
                                 EventLoop::eventLoop()->quit();
                                 return;
                             }
 
                             String err;
-                            if (m->reload() && !mJS.reload(&err)) {
+                            if (m->flags() & NWMMessage::Reload && !mJS.reload(&err)) {
                                 c->write<128>("Error in init file(s): %s", err.constData());
                                 EventLoop::eventLoop()->quit();
                             }
@@ -349,7 +361,7 @@ bool WindowManager::init(int &argc, char **argv)
         ::crashHandlerSocketPath = socketPath;
         mServer.listen(socketPath);
         return true;
-    } else if (scripts.isEmpty() && !reload && !restart) {
+    } else if (scripts.isEmpty() && !flags) {
         error() << "nwm is already running on display" << mDisplay;
         return false;
     } else {
@@ -372,8 +384,7 @@ bool WindowManager::init(int &argc, char **argv)
         }
         NWMMessage msg;
         msg.setScripts(scripts);
-        msg.setReload(reload);
-        msg.setRestart(restart);
+        msg.setFlags(flags);
         connection->send(msg);
         return true;
     }
