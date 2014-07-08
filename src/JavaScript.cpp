@@ -484,3 +484,18 @@ bool JavaScript::reload(String *err)
     mClientClass.reset();
     return init(err);
 }
+
+void JavaScript::onClientRaised(const Client::SharedPtr &client)
+{
+    mClients.append(client);
+    auto it = mOns.find("clientRaised");
+    if (it == mOns.end()) {
+        return;
+    }
+    Object::SharedPtr func = toObject(it->second);
+    if (!func || !func->isFunction()) {
+        error() << "onRaised is not a function";
+        return;
+    }
+    func->call({ client->jsValue() });
+}

@@ -51,6 +51,7 @@ void ClientGroup::raise(const Client::SharedPtr& client)
     xcb_configure_window(conn, client->frame(), XCB_CONFIG_WINDOW_STACK_MODE, stackMode);
     if (Workspace::SharedPtr ws = client->workspace())
         ws->notifyRaised(client);
+    WindowManager::instance()->js().onClientRaised(client);
 
     // raise any remaining dialogs
     while (it != end) {

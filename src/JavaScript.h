@@ -24,6 +24,7 @@ public:
     const Class::SharedPtr& fileClass() const { return mFileClass; }
 
     void onClientDestroyed(const Client::SharedPtr &client);
+    void onClientRaised(const Client::SharedPtr &client);
     void clear() { mClients.clear(); }
 private:
     bool init(String *error);

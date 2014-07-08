@@ -111,6 +111,7 @@ void Workspace::activate()
 
 void Workspace::notifyRaised(const Client::SharedPtr& client)
 {
+    warning() << "raised" << client->className();
     // find and remove
     auto it = mClients.begin();
     while (it != mClients.end()) {
