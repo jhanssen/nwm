@@ -39,12 +39,13 @@ public:
 
     xcb_connection_t* connection() const { return mConn; }
     xcb_ewmh_connection_t* ewmhConnection() const { return mEwmhConn; }
-    const List<xcb_screen_t*> &screens() const { return mScreens; }
+    List<xcb_screen_t*> screens() const;
     List<xcb_window_t> roots() const;
     enum { AllScreens = -1 };
     int preferredScreenIndex() const { return mPreferredScreenIndex; }
     int screenNumber(xcb_window_t root) const;
     int screenCount() const { return mScreens.size(); }
+    const List<Workspace::SharedPtr>& workspaces(int screenNumber) const { return mScreens.at(screenNumber).workspaces; }
 
     xcb_key_symbols_t* keySymbols() const { return mSyms; }
     int32_t xkbDevice() const { return mXkb.device; }
@@ -65,16 +66,17 @@ public:
     void setMovingOrigin(const Point& point) { mMovingOrigin = point; }
     bool isMoving() const { return mIsMoving; }
     Client::SharedPtr moving() const { return mMoving.lock(); }
+    Client::SharedPtr focusedClient() const { return mFocused.lock(); }
+    void setFocusedClient(const Client::SharedPtr &client) { mFocused = client; }
     const Point& movingOrigin() const { return mMovingOrigin; }
 
     enum FocusPolicy { FocusFollowsMouse, FocusClick };
     void setFocusPolicy(FocusPolicy policy) { mFocusPolicy = policy; }
     FocusPolicy focusPolicy() const { return mFocusPolicy; }
 
-    const List<Workspace::SharedPtr>& workspaces() const { return mWorkspaces; }
     void addWorkspace(unsigned int layoutType, int screenNumber);
 
-    Rect rect(int idx) const { return mRects.value(idx); }
+    Rect rect(int idx) const { return mScreens.value(idx).rect; }
     void setRect(const Rect& rect, int idx);
 
     JavaScript& js() { return mJS; }
@@ -96,18 +98,25 @@ private:
 
     xcb_connection_t* mConn;
     xcb_ewmh_connection_t* mEwmhConn;
-    List<xcb_screen_t*> mScreens;
-    List<Rect> mRects;
+    struct Screen {
+        Screen()
+            : screen(0)
+        {}
+
+        xcb_screen_t *screen;
+        Rect rect;
+        List<Workspace::SharedPtr> workspaces;
+    };
+    List<Screen> mScreens;
     int mPreferredScreenIndex;
     uint8_t mXkbEvent;
     xcb_key_symbols_t* mSyms;
-    List<Workspace::SharedPtr> mWorkspaces;
     xcb_timestamp_t mTimestamp;
     JavaScript mJS;
     Keybindings mBindings;
     String mMoveModifier;
     uint16_t mMoveModifierMask;
-    Client::WeakPtr mMoving;
+    Client::WeakPtr mMoving, mFocused;
     bool mIsMoving;
     Point mMovingOrigin;
     FocusPolicy mFocusPolicy;

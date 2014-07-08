@@ -131,12 +131,13 @@ void handleClientMessage(const xcb_client_message_event_t* event)
             client->focus();
         }
     } else if (event->type == ewmhConn->_NET_CURRENT_DESKTOP) {
-        const uint32_t ws = event->data.data32[0];
-        const List<Workspace::SharedPtr>& wss = wm->workspaces();
-        if (ws >= static_cast<uint32_t>(wss.size()))
-            return;
-        wss[ws]->activate();
-        xcb_ewmh_set_current_desktop(ewmhConn, wss.at(ws)->screenNumber(), ws);
+        // const uint32_t ws = event->data.data32[0];
+        // const List<Workspace::SharedPtr>& wss = wm->workspaces();
+        // if (ws >= static_cast<uint32_t>(wss.size()))
+        //     return;
+        // wss[ws]->activate();
+        // xcb_ewmh_set_current_desktop(ewmhConn, wss.at(ws)->screenNumber(), ws);
+#warning not done
     }
 }
 
@@ -156,35 +157,36 @@ void handleConfigureRequest(const xcb_configure_request_event_t* event)
         uint32_t windowValues[7];
         int i = 0;
 
-        if(event->value_mask & XCB_CONFIG_WINDOW_X) {
+        if (event->value_mask & XCB_CONFIG_WINDOW_X) {
             windowMask |= XCB_CONFIG_WINDOW_X;
             windowValues[i++] = event->x;
         }
-        if(event->value_mask & XCB_CONFIG_WINDOW_Y) {
+        if (event->value_mask & XCB_CONFIG_WINDOW_Y) {
             windowMask |= XCB_CONFIG_WINDOW_Y;
             windowValues[i++] = event->y;
         }
-        if(event->value_mask & XCB_CONFIG_WINDOW_WIDTH) {
+        if (event->value_mask & XCB_CONFIG_WINDOW_WIDTH) {
             windowMask |= XCB_CONFIG_WINDOW_WIDTH;
             windowValues[i++] = event->width;
         }
-        if(event->value_mask & XCB_CONFIG_WINDOW_HEIGHT) {
+        if (event->value_mask & XCB_CONFIG_WINDOW_HEIGHT) {
             windowMask |= XCB_CONFIG_WINDOW_HEIGHT;
             windowValues[i++] = event->height;
         }
-        if(event->value_mask & XCB_CONFIG_WINDOW_BORDER_WIDTH) {
+        if (event->value_mask & XCB_CONFIG_WINDOW_BORDER_WIDTH) {
             windowMask |= XCB_CONFIG_WINDOW_BORDER_WIDTH;
             windowValues[i++] = event->border_width;
         }
-        if(event->value_mask & XCB_CONFIG_WINDOW_SIBLING) {
+        if (event->value_mask & XCB_CONFIG_WINDOW_SIBLING) {
             windowMask |= XCB_CONFIG_WINDOW_SIBLING;
             windowValues[i++] = event->sibling;
         }
-        if(event->value_mask & XCB_CONFIG_WINDOW_STACK_MODE) {
+        if (event->value_mask & XCB_CONFIG_WINDOW_STACK_MODE) {
             windowMask |= XCB_CONFIG_WINDOW_STACK_MODE;
             windowValues[i++] = event->stack_mode;
         }
 
+        error() << event->width << event->height;
         xcb_configure_window(conn, event->window, windowMask, windowValues);
     }
 }
@@ -272,7 +274,7 @@ void handleMapRequest(const xcb_map_request_event_t* event)
     if (client) {
         // stuff
     } else {
-        client = Client::manage(event->window, treeReply->root);
+        client = Client::manage(event->window, WindowManager::instance()->screenNumber(treeReply->root));
         // more stuff
     }
     client->map();

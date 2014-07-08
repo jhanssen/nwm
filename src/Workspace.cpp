@@ -6,11 +6,14 @@
 #include <assert.h>
 #include <stdlib.h>
 
-Workspace::WeakPtr Workspace::sActive;
+List<Workspace::WeakPtr> Workspace::sActive;
 
 Workspace::Workspace(unsigned int layoutType, int screenNo, const Rect& rect, const String& name)
     : mRect(rect), mName(name), mScreenNumber(screenNo)
 {
+    if (sActive.isEmpty())
+        sActive.resize(WindowManager::instance()->screenCount());
+    error() << screenNo << rect;
     switch (layoutType) {
     case GridLayout::Type:
         mLayout = std::make_shared<GridLayout>(mRect);
@@ -91,10 +94,12 @@ void Workspace::deactivate()
 
 void Workspace::activate()
 {
-    if (Workspace::SharedPtr old = sActive.lock()) {
+    printf("[%s:%d]: void Workspace::activate()\n", __FILE__, __LINE__); fflush(stdout);
+    if (Workspace::SharedPtr old = sActive[mScreenNumber].lock()) {
+        assert(old != shared_from_this());
         old->deactivate();
     }
-    sActive = shared_from_this();
+    sActive[mScreenNumber] = shared_from_this();
     // map all clients in the stacking order
     Client::SharedPtr client;
     auto it = mClients.crbegin();

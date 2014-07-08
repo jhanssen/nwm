@@ -286,14 +286,14 @@ bool WindowManager::init(int &argc, char **argv)
         // << "pad1[4]" << static_cast<uint32>(setup->pad1[4)];
     }
 
-    const int screens = xcb_setup_roots_length(setup);
+    const int screenCount = xcb_setup_roots_length(setup);
     xcb_screen_iterator_t it = xcb_setup_roots_iterator(setup);
-    for (int i=0; i<screens; ++i) {
-        mScreens.append(it.data);
-        error() << "SCREEN ADDED" << mScreens.last();
+    mScreens.resize(screenCount);
+    for (int i=0; i<screenCount; ++i) {
+        mScreens[i].screen = it.data;
         xcb_screen_next(&it);
     }
-    error() << "GOT SCREENS" << screens;
+    error() << "GOT SCREENS" << screenCount;
 
     mEwmhConn = new xcb_ewmh_connection_t;
     xcb_intern_atom_cookie_t* ewmhCookies = xcb_ewmh_init_atoms(mConn, mEwmhConn);
@@ -332,15 +332,14 @@ bool WindowManager::init(int &argc, char **argv)
             return false;
         }
 
-        if (mWorkspaces.isEmpty()) {
-            error() << "No workspaces";
-            return false;
-        }
-
-        mWorkspaces[0]->activate();
         // update ewmh
-        for (int i=0; i<screens; ++i) {
-            xcb_ewmh_set_number_of_desktops(mEwmhConn, i, mWorkspaces.size());
+        for (int i=0; i<screenCount; ++i) {
+            if (mScreens[i].workspaces.isEmpty()) {
+                error() << "No workspaces for screen" << i;
+                return false;
+            }
+            mScreens[i].workspaces.first()->activate();
+            xcb_ewmh_set_number_of_desktops(mEwmhConn, i, mScreens.at(i).workspaces.size());
             xcb_ewmh_set_current_desktop(mEwmhConn, i, 0);
         }
 
@@ -438,7 +437,7 @@ bool WindowManager::init(int &argc, char **argv)
 WindowManager::~WindowManager()
 {
     mJS.clear();
-    mWorkspaces.clear();
+    mScreens.clear();
     if (mXkb.ctx) {
         xkb_state_unref(mXkb.state);
         xkb_keymap_unref(mXkb.keymap);
@@ -473,9 +472,9 @@ bool WindowManager::manage()
 {
     // Manage all existing windows
     int screenNumber = 0;
-    for (const xcb_screen_t *screen : mScreens) {
+    for (const auto &it : mScreens) {
         AutoPointer<xcb_generic_error_t> err;
-        xcb_query_tree_cookie_t treeCookie = xcb_query_tree(mConn, screen->root);
+        xcb_query_tree_cookie_t treeCookie = xcb_query_tree(mConn, it.screen->root);
         AutoPointer<xcb_query_tree_reply_t> treeReply = xcb_query_tree_reply(mConn, treeCookie, &err);
         if (err) {
             LOG_ERROR(err, "Unable to query window tree");
@@ -490,7 +489,7 @@ bool WindowManager::manage()
             attrs.reserve(clientLength);
             states.reserve(clientLength);
 
-            warning() << "Got clients" << clientLength << screen << screenNumber;
+            warning() << "Got clients" << clientLength << it.screen << screenNumber;
 
             for (int i = 0; i < clientLength; ++i) {
                 attrs.push_back(xcb_get_window_attributes_unchecked(mConn, clients[i]));
@@ -532,7 +531,7 @@ bool WindowManager::install()
     // check if another WM is running
     {
         const uint32_t values[] = { XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT };
-        cookie = xcb_change_window_attributes_checked(mConn, mScreens.at(mPreferredScreenIndex)->root, XCB_CW_EVENT_MASK, values);
+        cookie = xcb_change_window_attributes_checked(mConn, mScreens.at(mPreferredScreenIndex).screen->root, XCB_CW_EVENT_MASK, values);
         err = xcb_request_check(mConn, cookie);
         if (err) {
             LOG_ERROR(err, "Unable to change window attributes 1");
@@ -669,10 +668,9 @@ bool WindowManager::install()
     };
 
 
-    assert(mRects.isEmpty());
-    for (xcb_screen_t *screen : mScreens) {
-        mRects.append({ 0, 0, screen->width_in_pixels, screen->height_in_pixels });
-        cookie = xcb_change_window_attributes_checked(mConn, screen->root, XCB_CW_EVENT_MASK, values);
+    for (Screen &s : mScreens) {
+        s.rect = { 0, 0, s.screen->width_in_pixels, s.screen->height_in_pixels };
+        cookie = xcb_change_window_attributes_checked(mConn, s.screen->root, XCB_CW_EVENT_MASK, values);
         err = xcb_request_check(mConn, cookie);
         if (err) {
             LOG_ERROR(err, "Unable to change window attributes 2");
@@ -681,7 +679,7 @@ bool WindowManager::install()
         }
 
         cookie = xcb_change_property(mConn, XCB_PROP_MODE_REPLACE,
-                                     screen->root, mEwmhConn->_NET_SUPPORTED, XCB_ATOM_ATOM, 32,
+                                     s.screen->root, mEwmhConn->_NET_SUPPORTED, XCB_ATOM_ATOM, 32,
                                      Rct::countof(atom), atom);
         err = xcb_request_check(mConn, cookie);
         if (err) {
@@ -690,7 +688,7 @@ bool WindowManager::install()
             return false;
         }
 
-        xcb_ewmh_set_wm_pid(mEwmhConn, screen->root, getpid());
+        xcb_ewmh_set_wm_pid(mEwmhConn, s.screen->root, getpid());
     }
     xcb_flush(mConn);
 
@@ -789,7 +787,7 @@ bool WindowManager::install()
 
 bool WindowManager::isRunning()
 {
-    xcb_get_property_cookie_t cookie = xcb_ewmh_get_wm_pid(mEwmhConn, mScreens.at(mPreferredScreenIndex)->root);
+    xcb_get_property_cookie_t cookie = xcb_ewmh_get_wm_pid(mEwmhConn, mScreens.at(mPreferredScreenIndex).screen->root);
     uint32_t pid;
     if (!xcb_ewmh_get_wm_pid_reply(mEwmhConn, cookie, &pid, 0))
         return false;
@@ -834,10 +832,10 @@ void WindowManager::updateXkbMap(xcb_xkb_map_notify_event_t* map)
 
 void WindowManager::setRect(const Rect& rect, int idx)
 {
-    mRects[idx] = rect;
-    for (const Workspace::SharedPtr& ws : mWorkspaces) {
-        if (ws->screenNumber() == idx)
-            ws->setRect(rect);
+    Screen &screen = mScreens[idx];
+    screen.rect = rect;
+    for (const Workspace::SharedPtr& ws : screen.workspaces) {
+        ws->setRect(rect);
     }
 }
 
@@ -845,11 +843,11 @@ void WindowManager::addWorkspace(unsigned int layoutType, int screenNumber)
 {
     if (screenNumber == AllScreens) {
         const int count = mScreens.size();
-        for (int i=0; i<count; ++i) {
-            mWorkspaces.append(std::make_shared<Workspace>(layoutType, i, mRects.at(i)));
-        }
+        for (int i=0; i<count; ++i)
+            addWorkspace(layoutType, i);
     } else {
-        mWorkspaces.append(std::make_shared<Workspace>(layoutType, screenNumber, mRects.at(screenNumber)));
+        Screen &screen = mScreens[screenNumber];
+        screen.workspaces.append(std::make_shared<Workspace>(layoutType, screenNumber, screen.rect));
     }
 }
 
@@ -863,18 +861,27 @@ List<xcb_window_t> WindowManager::roots() const
 {
     List<xcb_window_t> roots;
     roots.reserve(mScreens.size());
-    for (xcb_screen_t *screen : mScreens) {
-        roots.append(screen->root);
+    for (const auto &it : mScreens) {
+        roots.append(it.screen->root);
     }
     return roots;
 }
 int WindowManager::screenNumber(xcb_window_t root) const
 {
     int screenNumber = 0;
-    for (xcb_screen_t *screen : mScreens) {
-        if (screen->root == root)
+    for (const auto &it : mScreens) {
+        if (it.screen->root == root)
             return screenNumber;
         ++screenNumber;
     }
     return -1;
+}
+
+List<xcb_screen_t*> WindowManager::screens() const
+{
+    List<xcb_screen_t*> ret;
+    ret.reserve(mScreens.size());
+    for (const auto &it : mScreens)
+        ret.append(it.screen);
+    return ret;
 }

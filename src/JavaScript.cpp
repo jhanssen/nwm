@@ -17,7 +17,7 @@ static inline GridLayout::SharedPtr gridParent()
     WindowManager *wm = WindowManager::instance();
     if (!wm)
         return GridLayout::SharedPtr();
-    Client::SharedPtr current = Workspace::active()->focusedClient();
+    Client::SharedPtr current = wm->focusedClient();
     if (!current)
         return GridLayout::SharedPtr();
     const Layout::SharedPtr& layout = current->layout();
@@ -67,8 +67,7 @@ bool JavaScript::init(String *err)
                 if (prop == "window")
                     return static_cast<int32_t>(client->window());
                 if (prop == "focused") {
-                    assert(client->workspace());
-                    return (client->workspace() == Workspace::active() && Workspace::active()->focusedClient() == client);
+                    return (WindowManager::instance()->focusedClient() == client);
                 }
             }
             return Value();
@@ -248,11 +247,9 @@ bool JavaScript::init(String *err)
                           });
     nwm->registerProperty("focusedClient",
                           [](const Object::SharedPtr&) -> Value {
-                              if (Workspace::SharedPtr activeWorkspace = Workspace::active()) {
-                                  auto client = activeWorkspace->focusedClient();
-                                  if (client)
-                                      return client->jsValue();
-                              }
+                              auto client = WindowManager::instance()->focusedClient();
+                              if (client)
+                                  return client->jsValue();
                               return Value::undefined();
                           });
 
@@ -338,15 +335,17 @@ bool JavaScript::init(String *err)
     workspace->registerFunction("moveTo", [](const Object::SharedPtr&, const List<Value>& args) -> Value {
             if (args.isEmpty())
                 return Value::undefined();
+            Client::SharedPtr client = WindowManager::instance()->focusedClient();
+            if (!client)
+                return Value::undefined();
             const int32_t ws = args[0].toInteger();
-            const List<Workspace::SharedPtr>& wss = WindowManager::instance()->workspaces();
+            const List<Workspace::SharedPtr>& wss = WindowManager::instance()->workspaces(client->screenNumber());
             if (ws < 0 || ws >= wss.size())
                 return instance()->throwException<Value>("Invalid workspace");
             Workspace::SharedPtr dst = wss[ws];
-            Workspace::SharedPtr src = Workspace::active();
+            Workspace::SharedPtr src = Workspace::active(client->screenNumber());
             if (dst == src)
                 return Value::undefined();
-            Client::SharedPtr client = src->focusedClient();
             dst->addClient(client);
             return Value::undefined();
         });
@@ -354,7 +353,15 @@ bool JavaScript::init(String *err)
             if (args.isEmpty())
                 return Value::undefined();
             const int32_t ws = args[0].toInteger();
-            const List<Workspace::SharedPtr>& wss = WindowManager::instance()->workspaces();
+            int screenNumber = 0;
+            if (WindowManager::instance()->screenCount() > 1) {
+                if (args.size() == 1) {
+                    return instance()->throwException<Value>("Need to specify a screen number");
+                } else {
+                    screenNumber = args[1].toInteger();
+                }
+            }
+            const List<Workspace::SharedPtr>& wss = WindowManager::instance()->workspaces(screenNumber);
             if (ws < 0 || ws >= wss.size())
                 return instance()->throwException<Value>("Invalid workspace");
             wss[ws]->activate();
@@ -363,7 +370,10 @@ bool JavaScript::init(String *err)
             return Value::undefined();
         });
     workspace->registerFunction("raiseLast", [](const Object::SharedPtr&, const List<Value>&) -> Value {
-            Workspace::SharedPtr active = Workspace::active();
+            Client::SharedPtr focusedClient = WindowManager::instance()->focusedClient();
+            if (!focusedClient)
+                return Value::undefined();
+            Workspace::SharedPtr active = Workspace::active(focusedClient->screenNumber());
             if (!active)
                 return Value::undefined();
             active->raise(Workspace::Last);

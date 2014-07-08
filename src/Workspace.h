@@ -29,7 +29,6 @@ public:
     void removeClient(const Client::SharedPtr& client);
 
     void updateFocus(const Client::SharedPtr& client = Client::SharedPtr());
-    Client::SharedPtr focusedClient() const;
 
     enum RaiseMode { Next, Last };
     void raise(RaiseMode mode);
@@ -39,7 +38,9 @@ public:
     Rect rect() const { return mRect; }
     Layout::SharedPtr layout() const { return mLayout; }
 
-    static SharedPtr active() { return sActive.lock(); }
+    static SharedPtr active(int screenNumber) { return sActive.at(screenNumber).lock(); }
+
+    inline bool isActive() const { return sActive.at(mScreenNumber).lock() == shared_from_this(); }
 
 private:
     void deactivate();
@@ -52,23 +53,16 @@ private:
     LinkedList<Client::WeakPtr> mClients;
     const int mScreenNumber;
 
-    static Workspace::WeakPtr sActive;
+    static List<Workspace::WeakPtr> sActive;
 };
-
-inline Client::SharedPtr Workspace::focusedClient() const
-{
-    for (const Client::WeakPtr& client : mClients) {
-        if (Client::SharedPtr c = client.lock())
-            return c;
-    }
-    return Client::SharedPtr();
-}
 
 inline void Workspace::addClient(const Client::SharedPtr& client)
 {
+    assert(client);
+    assert(client->screenNumber() == mScreenNumber);
     Workspace::SharedPtr that = shared_from_this();
     if (client->updateWorkspace(that)) {
-        if (sActive.lock() == shared_from_this()) {
+        if (active(mScreenNumber) == shared_from_this()) {
             client->map();
         } else {
             client->unmap();

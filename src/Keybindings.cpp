@@ -117,17 +117,20 @@ void Keybindings::rebindAll()
     WindowManager *wm = WindowManager::instance();
     xcb_connection_t* conn = wm->connection();
     const List<Client::SharedPtr>& clients = Client::clients();
+#warning clients should return a list per screen
 
     for (xcb_window_t root : wm->roots()) {
         xcb_ungrab_key(conn, XCB_GRAB_ANY, root, XCB_BUTTON_MASK_ANY);
         for (const Client::SharedPtr& client : clients) {
-            xcb_ungrab_key(conn, XCB_GRAB_ANY, client->window(), XCB_BUTTON_MASK_ANY);
+            if (client->root() == root)
+                xcb_ungrab_key(conn, XCB_GRAB_ANY, client->window(), XCB_BUTTON_MASK_ANY);
         }
 
         for (const Keybinding& binding : mKeybindings) {
             rebind(binding, conn, root);
             for (const Client::SharedPtr& client : clients) {
-                rebind(binding, conn, client->window());
+                if (client->root() == root)
+                    rebind(binding, conn, client->window());
             }
         }
     }

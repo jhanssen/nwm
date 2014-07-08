@@ -78,10 +78,10 @@ void Client::complete()
         warning() << "fixed at" << layoutRect;
     } else {
         if (shouldLayout()) {
-            mLayout = Workspace::active()->layout()->add(Size({ mRequestedGeom.width, mRequestedGeom.height }));
+            mLayout = Workspace::active(mScreenNumber)->layout()->add(Size({ mRequestedGeom.width, mRequestedGeom.height }));
             layoutRect = mLayout->rect();
             warning() << "laid out at" << layoutRect;
-            Workspace::active()->layout()->dump();
+            Workspace::active(mScreenNumber)->layout()->dump();
             mLayout->rectChanged().connect(std::bind(&Client::onLayoutChanged, this, std::placeholders::_1));
         } else {
             layoutRect = mRequestedGeom;
@@ -393,7 +393,7 @@ void Client::updatePid(xcb_ewmh_connection_t* conn, xcb_get_property_cookie_t co
 
 void Client::onLayoutChanged(const Rect& rect)
 {
-    warning() << "layout changed" << rect;
+    warning() << "layout changed" << rect << mClass.className;
     xcb_connection_t* conn = WindowManager::instance()->connection();
     {
         const uint16_t mask = XCB_CONFIG_WINDOW_X|XCB_CONFIG_WINDOW_Y|XCB_CONFIG_WINDOW_WIDTH|XCB_CONFIG_WINDOW_HEIGHT;
@@ -417,7 +417,7 @@ Client::SharedPtr Client::manage(xcb_window_t window, int screenNumber)
     wm->js().onClient(ptr);
     ptr->complete();
     if (ptr->isFloating() || ptr->mLayout) {
-        Workspace::SharedPtr ws = Workspace::active();
+        Workspace::SharedPtr ws = Workspace::active(screenNumber);
         assert(ws);
         ptr->mWorkspace = ws;
         ws->addClient(ptr);
