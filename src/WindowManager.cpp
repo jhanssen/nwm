@@ -437,6 +437,9 @@ bool WindowManager::init(int &argc, char **argv)
 WindowManager::~WindowManager()
 {
     mJS.clear();
+    for (Screen &screen : mScreens) {
+        screen.workspaces.deleteAll();
+    }
     mScreens.clear();
     if (mXkb.ctx) {
         xkb_state_unref(mXkb.state);

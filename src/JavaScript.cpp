@@ -12,20 +12,18 @@ JavaScript::JavaScript()
 {
 }
 
-static inline GridLayout::SharedPtr gridParent()
+static inline GridLayout *gridParent()
 {
     WindowManager *wm = WindowManager::instance();
     if (!wm)
-        return GridLayout::SharedPtr();
+        return 0;
     Client::SharedPtr current = wm->focusedClient();
     if (!current)
-        return GridLayout::SharedPtr();
-    const Layout::SharedPtr& layout = current->layout();
+        return 0;
+    Layout *layout = current->layout();
     if (!layout || layout->type() != GridLayout::Type)
-        return GridLayout::SharedPtr();
-    const GridLayout::SharedPtr& parent = std::static_pointer_cast<GridLayout>(layout)->parent();
-    if (!parent)
-        return GridLayout::SharedPtr();
+        return 0;
+    GridLayout *parent = static_cast<GridLayout*>(layout)->parent();
     return parent;
 }
 
@@ -383,7 +381,7 @@ bool JavaScript::init(String *err)
     // --------------- nwm.layout ---------------
     auto layout = nwm->child("layout");
     layout->registerFunction("toggleOrientation", [](const Object::SharedPtr&, const List<Value>&) -> Value {
-            GridLayout::SharedPtr parent = gridParent();
+            GridLayout *parent = gridParent();
             if (!parent)
                 return Value::undefined();
             const GridLayout::Direction dir = parent->direction();
@@ -399,7 +397,7 @@ bool JavaScript::init(String *err)
             return Value::undefined();
         });
     layout->registerFunction("adjust", [](const Object::SharedPtr&, const List<Value>& args) -> Value {
-            GridLayout::SharedPtr parent = gridParent();
+            GridLayout *parent = gridParent();
             if (!parent)
                 return Value::undefined();
             const int adjust = args.isEmpty() ? 10 : args[0].toInteger();
@@ -407,14 +405,14 @@ bool JavaScript::init(String *err)
             return Value::undefined();
         });
     layout->registerFunction("adjustLeft", [](const Object::SharedPtr&, const List<Value>&) -> Value {
-            GridLayout::SharedPtr parent = gridParent();
+            GridLayout *parent = gridParent();
             if (!parent)
                 return Value::undefined();
             parent->adjust(-10);
             return Value::undefined();
         });
     layout->registerFunction("adjustRight", [](const Object::SharedPtr&, const List<Value>&) -> Value {
-            GridLayout::SharedPtr parent = gridParent();
+            GridLayout *parent = gridParent();
             if (!parent)
                 return Value::undefined();
             parent->adjust(10);

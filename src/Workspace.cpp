@@ -9,17 +9,17 @@
 List<Workspace*> Workspace::sActive;
 
 Workspace::Workspace(unsigned int layoutType, int screenNo, const Rect& rect, const String& name)
-    : mRect(rect), mName(name), mScreenNumber(screenNo)
+    : mRect(rect), mName(name), mLayout(0), mScreenNumber(screenNo)
 {
     if (sActive.isEmpty())
         sActive.resize(WindowManager::instance()->screenCount());
-    error() << screenNo << rect;
+    // error() << screenNo << rect;
     switch (layoutType) {
     case GridLayout::Type:
-        mLayout = std::make_shared<GridLayout>(mRect);
+        mLayout = new GridLayout(mRect);
         break;
     case StackLayout::Type:
-        mLayout = std::make_shared<StackLayout>(mRect);
+        mLayout = new StackLayout(mRect);
         break;
     default:
         error() << "Invalid layout type" << layoutType << "for Workspace";
@@ -29,6 +29,7 @@ Workspace::Workspace(unsigned int layoutType, int screenNo, const Rect& rect, co
 
 Workspace::~Workspace()
 {
+    delete mLayout;
 }
 
 void Workspace::setRect(const Rect& rect)

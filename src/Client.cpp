@@ -151,7 +151,7 @@ void Client::complete()
 
 void Client::clearWorkspace()
 {
-    mLayout.reset();
+    mLayout = 0;
     mWorkspace = 0;
 }
 

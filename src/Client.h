@@ -55,7 +55,7 @@ public:
     Workspace *workspace() const { return mWorkspace; }
     ClientGroup::SharedPtr group() const { return mGroup; }
 
-    const Layout::SharedPtr& layout() const { return mLayout; }
+    Layout *layout() const { return mLayout; }
     xcb_window_t window() const { return mWindow; }
     xcb_window_t frame() const { return mFrame; }
     xcb_window_t root() const { return screen()->root; }
@@ -97,7 +97,7 @@ private:
     xcb_window_t mWindow;
     xcb_window_t mFrame;
     bool mNoFocus;
-    Layout::SharedPtr mLayout;
+    Layout *mLayout;
     Workspace *mWorkspace;
 
     Rect mRequestedGeom;

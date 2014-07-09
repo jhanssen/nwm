@@ -6,9 +6,6 @@
 class GridLayout : public Layout
 {
 public:
-    typedef std::shared_ptr<GridLayout> SharedPtr;
-    typedef std::weak_ptr<GridLayout> WeakPtr;
-
     enum { Type = 0 };
     enum Direction { LeftRight, TopBottom };
 
@@ -18,9 +15,9 @@ public:
 
     void setRect(const Rect& rect) { mRect = rect; relayout(); }
 
-    virtual Layout::SharedPtr add(const Size& size);
+    virtual Layout *add(const Size& size);
 
-    SharedPtr parent() const { return mParent; }
+    GridLayout *parent() const { return mParent; }
     virtual void dump();
 
     const Rect& rect() const { return mRect; }
@@ -32,21 +29,22 @@ public:
 
     Signal<std::function<void(const Rect&)> >& rectChanged() { return mRectChanged; }
 
+    void removeChild(GridLayout *child);
 private:
     virtual void relayout();
 
-    int children(SharedPtr& first, SharedPtr& second);
-    static void dumpHelper(const GridLayout::SharedPtr&, int indent);
+    int children(GridLayout *&first, GridLayout *&second);
+    static void dumpHelper(GridLayout *, int indent);
 
-    bool forEach(const std::function<bool(const SharedPtr& layout)>& func);
-    SharedPtr clone() const;
+    bool forEach(const std::function<bool(GridLayout *layout)>& func);
+    GridLayout *clone() const;
 
 private:
-    SharedPtr mParent;
+    GridLayout *mParent;
     bool mUsed;
 
     Direction mDirection;
-    std::pair<WeakPtr, WeakPtr> mChildren;
+    std::pair<GridLayout*, GridLayout*> mChildren;
 };
 
 #endif

@@ -33,7 +33,7 @@ public:
 
     String name() const { return mName; }
     Rect rect() const { return mRect; }
-    Layout::SharedPtr layout() const { return mLayout; }
+    Layout *layout() const { return mLayout; }
 
     static Workspace *active(int screenNumber) { return sActive.at(screenNumber); }
 
@@ -45,7 +45,7 @@ private:
 private:
     Rect mRect;
     String mName;
-    Layout::SharedPtr mLayout;
+    Layout *mLayout;
     // ordered by focus
     LinkedList<Client::WeakPtr> mClients;
     const int mScreenNumber;
