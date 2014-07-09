@@ -45,7 +45,7 @@ public:
     int preferredScreenIndex() const { return mPreferredScreenIndex; }
     int screenNumber(xcb_window_t root) const;
     int screenCount() const { return mScreens.size(); }
-    const List<Workspace::SharedPtr>& workspaces(int screenNumber) const { return mScreens.at(screenNumber).workspaces; }
+    const List<Workspace*> & workspaces(int screenNumber) const { return mScreens.at(screenNumber).workspaces; }
 
     xcb_key_symbols_t* keySymbols() const { return mSyms; }
     int32_t xkbDevice() const { return mXkb.device; }
@@ -105,7 +105,7 @@ private:
 
         xcb_screen_t *screen;
         Rect rect;
-        List<Workspace::SharedPtr> workspaces;
+        List<Workspace*> workspaces;
     };
     List<Screen> mScreens;
     int mPreferredScreenIndex;

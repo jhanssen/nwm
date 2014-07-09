@@ -834,7 +834,7 @@ void WindowManager::setRect(const Rect& rect, int idx)
 {
     Screen &screen = mScreens[idx];
     screen.rect = rect;
-    for (const Workspace::SharedPtr& ws : screen.workspaces) {
+    for (Workspace *ws : screen.workspaces) {
         ws->setRect(rect);
     }
 }
@@ -847,7 +847,7 @@ void WindowManager::addWorkspace(unsigned int layoutType, int screenNumber)
             addWorkspace(layoutType, i);
     } else {
         Screen &screen = mScreens[screenNumber];
-        screen.workspaces.append(std::make_shared<Workspace>(layoutType, screenNumber, screen.rect));
+        screen.workspaces.append(new Workspace(layoutType, screenNumber, screen.rect));
     }
 }
 

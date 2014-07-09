@@ -6,7 +6,7 @@
 #include <assert.h>
 #include <stdlib.h>
 
-List<Workspace::WeakPtr> Workspace::sActive;
+List<Workspace*> Workspace::sActive;
 
 Workspace::Workspace(unsigned int layoutType, int screenNo, const Rect& rect, const String& name)
     : mRect(rect), mName(name), mScreenNumber(screenNo)
@@ -64,6 +64,7 @@ void Workspace::updateFocus(const Client::SharedPtr& client)
         mClients.erase(it);
         mClients.prepend(client);
         client->focus();
+#warning should this tell WindowManager which client is the focused one?
     } else {
         // focus the first available one in our list
         for (const Client::WeakPtr& candidate : mClients) {
@@ -84,6 +85,7 @@ void Workspace::updateFocus(const Client::SharedPtr& client)
 
 void Workspace::deactivate()
 {
+#warning should this unset sActive if it is pointing to this?
     // unmap all clients
     for (const Client::WeakPtr& client : mClients) {
         if (Client::SharedPtr c = client.lock()) {
@@ -95,11 +97,11 @@ void Workspace::deactivate()
 void Workspace::activate()
 {
     printf("[%s:%d]: void Workspace::activate()\n", __FILE__, __LINE__); fflush(stdout);
-    if (Workspace::SharedPtr old = sActive[mScreenNumber].lock()) {
-        assert(old != shared_from_this());
+    if (Workspace *old = sActive[mScreenNumber]) {
+        assert(old != this);
         old->deactivate();
     }
-    sActive[mScreenNumber] = shared_from_this();
+    sActive[mScreenNumber] = this;
     // map all clients in the stacking order
     Client::SharedPtr client;
     auto it = mClients.crbegin();
