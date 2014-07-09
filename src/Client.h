@@ -53,7 +53,7 @@ public:
     void clearJSValue() { mJSValue.clear(); }
 
     Workspace *workspace() const { return mWorkspace; }
-    ClientGroup::SharedPtr group() const { return mGroup; }
+    ClientGroup *group() const { return mGroup; }
 
     Layout *layout() const { return mLayout; }
     xcb_window_t window() const { return mWindow; }
@@ -113,7 +113,7 @@ private:
     Set<xcb_atom_t> mEwmhState;
     Set<xcb_atom_t> mWindowType;
     xcb_ewmh_wm_strut_partial_t mStrut;
-    ClientGroup::SharedPtr mGroup;
+    ClientGroup *mGroup;
     bool mFloating;
     Value mJSValue;
     uint32_t mPid;

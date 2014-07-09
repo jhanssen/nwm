@@ -3,7 +3,7 @@
 #include "WindowManager.h"
 #include "Workspace.h"
 
-Map<xcb_window_t, ClientGroup::WeakPtr> ClientGroup::sGroups;
+Map<xcb_window_t, ClientGroup*> ClientGroup::sGroups;
 
 void ClientGroup::raise(const Client::SharedPtr& client)
 {
