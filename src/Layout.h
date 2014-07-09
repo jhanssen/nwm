@@ -6,12 +6,9 @@
 #include <rct/SignalSlot.h>
 #include <memory>
 
-class Layout : public std::enable_shared_from_this<Layout>
+class Layout
 {
 public:
-    typedef std::shared_ptr<Layout> SharedPtr;
-    typedef std::weak_ptr<Layout> WeakPtr;
-
     Layout(unsigned int type, const Rect& rect);
     Layout(unsigned int type, const Size& size);
     virtual ~Layout() { }
@@ -20,7 +17,7 @@ public:
 
     void setRect(const Rect& rect) { mRect = rect; relayout(); }
 
-    virtual SharedPtr add(const Size& size) = 0;
+    virtual Layout *add(const Size& size) = 0;
 
     const Rect& rect() const { return mRect; }
     const Size& requestedSize() const { return mRequested; }

@@ -10,9 +10,14 @@ StackLayout::StackLayout(const Size& size)
 {
 }
 
-Layout::SharedPtr StackLayout::add(const Size& size)
+StackLayout::~StackLayout()
 {
-    SharedPtr sub = std::make_shared<StackLayout>(mRect);
+    mChildren.deleteAll();
+}
+
+Layout *StackLayout::add(const Size& size)
+{
+    StackLayout *sub = new StackLayout(mRect);
     sub->mRequested = size;
     mChildren.append(sub);
     return sub;
@@ -20,12 +25,10 @@ Layout::SharedPtr StackLayout::add(const Size& size)
 
 void StackLayout::relayout()
 {
-    for (const WeakPtr& weak : mChildren) {
-        if (SharedPtr child = weak.lock()) {
-            assert(child->mChildren.isEmpty());
-            child->mRect = mRect;
-            child->mRectChanged(mRect);
-        }
+    for (StackLayout *child : mChildren) {
+        assert(child->mChildren.isEmpty());
+        child->mRect = mRect;
+        child->mRectChanged(mRect);
     }
     mRectChanged(mRect);
 }

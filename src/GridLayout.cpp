@@ -17,33 +17,23 @@ GridLayout::GridLayout(const Size& size)
 GridLayout::~GridLayout()
 {
     if (mParent) {
-        if (EventLoop::SharedPtr loop = EventLoop::eventLoop()) {
-            WeakPtr parent = mParent;
-            loop->callLater([parent]() {
-                    if (SharedPtr p = parent.lock()) {
-                        p->relayout();
-                    }
-                });
-        }
+        mParent->removeChild(this);
     }
 }
 
-int GridLayout::children(SharedPtr& first, SharedPtr& second)
+int GridLayout::children(GridLayout *& first, GridLayout *&second)
 {
-    SharedPtr* ptrs[2] = { &first, &second };
-    int n = 0;
-    if (SharedPtr ptr = mChildren.first.lock())
-        *ptrs[n++] = ptr;
-    if (SharedPtr ptr = mChildren.second.lock())
-        *ptrs[n++] = ptr;
-    return n;
+    first = mChildren.first;
+    second = mChildren.second;
+    return (first ? 0 : 1) + (second ? 0 : 1);
 }
 
-bool GridLayout::forEach(const std::function<bool(const SharedPtr& layout)>& func)
+bool GridLayout::forEach(const std::function<bool(GridLayout *layout)>& func)
 {
-    if (!func(std::static_pointer_cast<GridLayout>(shared_from_this())))
+    if (!func(this))
         return false;
-    SharedPtr first, second;
+    GridLayout *first = 0;
+    GridLayout *second = 0;
     children(first, second);
     if (first) {
         if (!first->forEach(func))
@@ -56,7 +46,7 @@ bool GridLayout::forEach(const std::function<bool(const SharedPtr& layout)>& fun
     return true;
 }
 
-static inline Size calcSize(const GridLayout::SharedPtr& c1, const GridLayout::SharedPtr& c2, const GridLayout::SharedPtr& p)
+static inline Size calcSize(GridLayout *c1, GridLayout *c2, GridLayout *p)
 {
     const unsigned int w2 = (c2 ? c2->requestedSize().width : 0);
     const unsigned int h2 = (c2 ? c2->requestedSize().height : 0);
@@ -66,16 +56,17 @@ static inline Size calcSize(const GridLayout::SharedPtr& c1, const GridLayout::S
     return Size({ std::max(c1->requestedSize().width, w2), p->rect().height });
 }
 
-Layout::SharedPtr GridLayout::add(const Size& size)
+Layout *GridLayout::add(const Size& size)
 {
     // find either a child with sufficient amount of remaining space or the one
     // with the highest ratio of unused vs. used space
     float curRatio = 1.;
     unsigned int curGeom = 0;
-    GridLayout::SharedPtr curGridLayout;
-    forEach([&curRatio, &curGeom, &curGridLayout, size](const SharedPtr& layout) -> bool {
+    GridLayout *curGridLayout = 0;
+    forEach([&curRatio, &curGeom, &curGridLayout, size](GridLayout *layout) -> bool {
             error() << "looking at" << layout->rect();
-            SharedPtr c1, c2;
+            GridLayout *c1 = 0;
+            GridLayout *c2 = 0;
             const int num = layout->children(c1, c2);
             if (num <= 1) {
                 // do we fit in the remaining space?
@@ -140,25 +131,26 @@ Layout::SharedPtr GridLayout::add(const Size& size)
         });
 
     assert(curGridLayout);
-    SharedPtr c1, c2;
+    GridLayout *c1 = 0;
+    GridLayout *c2 = 0;
     curGridLayout->children(c1, c2);
-    SharedPtr created = std::make_shared<GridLayout>(size);
+    GridLayout *created = new GridLayout(size);
     created->mUsed = true;
     if (c1) {
         // let's make a new child for each child
 
         if (c2) {
             // make yet another child for c1 and c2, put us as the second of the current
-            SharedPtr ncp = std::make_shared<GridLayout>(calcSize(c1, c2, curGridLayout));
+            GridLayout *ncp = new GridLayout(calcSize(c1, c2, curGridLayout));
             ncp->mParent = curGridLayout;
 
-            SharedPtr nc1 = std::make_shared<GridLayout>(c1->requestedSize());
+            GridLayout *nc1 = new GridLayout(c1->requestedSize());
             nc1->mChildren.first = c1;
             nc1->mParent = ncp;
             c1->mParent = nc1;
             ncp->mChildren.first = nc1;
 
-            SharedPtr nc2 = std::make_shared<GridLayout>(c2->requestedSize());
+            GridLayout *nc2 = new GridLayout(c2->requestedSize());
             nc2->mChildren.first = c2;
             nc2->mParent = ncp;
             c2->mParent = nc2;
@@ -173,12 +165,12 @@ Layout::SharedPtr GridLayout::add(const Size& size)
         assert(!c2);
         if (curGridLayout->mUsed) {
             // split and move down
-            SharedPtr ncp = std::make_shared<GridLayout>(curGridLayout->requestedSize());
-            SharedPtr parent = curGridLayout->mParent;
+            GridLayout *ncp = new GridLayout(curGridLayout->requestedSize());
+            GridLayout *parent = curGridLayout->mParent;
             if (parent) {
-                if (parent->mChildren.first.lock() == curGridLayout)
+                if (parent->mChildren.first == curGridLayout)
                     parent->mChildren.first = ncp;
-                else if (parent->mChildren.second.lock() == curGridLayout)
+                else if (parent->mChildren.second == curGridLayout)
                     parent->mChildren.second = ncp;
             }
             ncp->mParent = parent;
@@ -187,7 +179,7 @@ Layout::SharedPtr GridLayout::add(const Size& size)
             created->mParent = ncp;
             ncp->mChildren.second = created;
             if (parent) {
-                ncp->mRequested = calcSize(parent->mChildren.first.lock(), parent->mChildren.second.lock(), parent);
+                ncp->mRequested = calcSize(parent->mChildren.first, parent->mChildren.second, parent);
                 ncp->mDirection = (ncp->mRequested.width > ncp->mRequested.height) ? LeftRight : TopBottom;
                 parent->relayout();
             } else {
@@ -203,9 +195,9 @@ Layout::SharedPtr GridLayout::add(const Size& size)
     return created;
 }
 
-GridLayout::SharedPtr GridLayout::clone() const
+GridLayout* GridLayout::clone() const
 {
-    return std::make_shared<GridLayout>(mRequested);
+    return new GridLayout(mRequested);
 }
 
 void GridLayout::relayout()
@@ -213,7 +205,8 @@ void GridLayout::relayout()
     mRectChanged(mRect);
 
     // layout all children in parent direction
-    SharedPtr first, second;
+    GridLayout *first = 0;
+    GridLayout *second = 0;
     const int num = children(first, second);
     if (!num)
         return;
@@ -364,7 +357,8 @@ void GridLayout::relayout()
 void GridLayout::adjust(int delta)
 {
     // adjust child layout in parent direction
-    SharedPtr first, second;
+    GridLayout *first = 0;
+    GridLayout *second = 0;
     const int num = children(first, second);
     if (num <= 1)
         return;
@@ -386,12 +380,13 @@ void GridLayout::adjust(int delta)
     second->relayout();
 }
 
-void GridLayout::dumpHelper(const SharedPtr& layout, int indent)
+void GridLayout::dumpHelper(GridLayout *layout, int indent)
 {
     char buf[1024];
     const Rect& r = layout->rect();
     const Size& req = layout->requestedSize();
-    SharedPtr c1, c2;
+    GridLayout *c1, *c2;
+    c1 = c2 = 0;
     layout->children(c1, c2);
     const float ratio = static_cast<float>(req.width * req.height) / (r.width * r.height);
     snprintf(buf, sizeof(buf), "%*s%u,%u+%u,%u, req %ux%u, ratio %f dir %s %s", indent, " ",
@@ -408,5 +403,16 @@ void GridLayout::dumpHelper(const SharedPtr& layout, int indent)
 void GridLayout::dump()
 {
     int indent = 0;
-    dumpHelper(std::static_pointer_cast<GridLayout>(shared_from_this()), indent);
+    dumpHelper(this, indent);
+}
+
+void GridLayout::removeChild(GridLayout *child)
+{
+    if (child == mChildren.first) {
+        mChildren.first = 0;
+    } else {
+        assert(child == mChildren.second);
+        mChildren.second = 0;
+    }
+    relayout();
 }
