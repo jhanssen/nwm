@@ -266,7 +266,7 @@ void Client::updateTransient(xcb_connection_t* conn, xcb_get_property_cookie_t c
                 mTransientFor = XCB_NONE;
                 return;
             }
-            ClientGroup::SharedPtr otherGroup = other->group();
+            ClientGroup *otherGroup = other->group();
             if (mGroup != otherGroup) {
                 mGroup = otherGroup;
                 mGroup->add(shared_from_this());
