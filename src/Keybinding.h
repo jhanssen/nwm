@@ -16,9 +16,6 @@ class Keybindings;
 class Keybinding
 {
 public:
-    typedef std::shared_ptr<Keybinding> SharedPtr;
-    typedef std::weak_ptr<Keybinding> WeakPtr;
-
     Keybinding() { };
     Keybinding(const String& key, const Value& func);
 
