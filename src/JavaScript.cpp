@@ -339,11 +339,11 @@ bool JavaScript::init(String *err)
             if (!client)
                 return Value::undefined();
             const int32_t ws = args[0].toInteger();
-            const List<Workspace::SharedPtr>& wss = WindowManager::instance()->workspaces(client->screenNumber());
+            const List<Workspace*> &wss = WindowManager::instance()->workspaces(client->screenNumber());
             if (ws < 0 || ws >= wss.size())
                 return instance()->throwException<Value>("Invalid workspace");
-            Workspace::SharedPtr dst = wss[ws];
-            Workspace::SharedPtr src = Workspace::active(client->screenNumber());
+            Workspace *dst = wss[ws];
+            Workspace *src = Workspace::active(client->screenNumber());
             if (dst == src)
                 return Value::undefined();
             dst->addClient(client);
@@ -362,7 +362,7 @@ bool JavaScript::init(String *err)
                     screenNumber = args[1].toInteger();
                 }
             }
-            const List<Workspace::SharedPtr>& wss = wm->workspaces(screenNumber);
+            const List<Workspace*> &wss = WindowManager::instance()->workspaces(screenNumber);
             if (ws < 0 || ws >= wss.size())
                 return instance()->throwException<Value>("Invalid workspace");
             wss[ws]->activate();
@@ -373,7 +373,7 @@ bool JavaScript::init(String *err)
             Client::SharedPtr focusedClient = WindowManager::instance()->focusedClient();
             if (!focusedClient)
                 return Value::undefined();
-            Workspace::SharedPtr active = Workspace::active(focusedClient->screenNumber());
+            Workspace *active = Workspace::active(focusedClient->screenNumber());
             if (!active)
                 return Value::undefined();
             active->raise(Workspace::Last);

@@ -9,12 +9,9 @@
 #include <rct/Set.h>
 #include <memory>
 
-class Workspace : public std::enable_shared_from_this<Workspace>
+class Workspace
 {
 public:
-    typedef std::shared_ptr<Workspace> SharedPtr;
-    typedef std::weak_ptr<Workspace> WeakPtr;
-
     Workspace(unsigned int layoutType, int screenNo, const Rect& rect, const String& name = String());
     ~Workspace();
 
@@ -38,9 +35,9 @@ public:
     Rect rect() const { return mRect; }
     Layout::SharedPtr layout() const { return mLayout; }
 
-    static SharedPtr active(int screenNumber) { return sActive.at(screenNumber).lock(); }
+    static Workspace *active(int screenNumber) { return sActive.at(screenNumber); }
 
-    inline bool isActive() const { return sActive.at(mScreenNumber).lock() == shared_from_this(); }
+    inline bool isActive() const { return sActive.at(mScreenNumber) == this; }
 
 private:
     void deactivate();
@@ -53,16 +50,15 @@ private:
     LinkedList<Client::WeakPtr> mClients;
     const int mScreenNumber;
 
-    static List<Workspace::WeakPtr> sActive;
+    static List<Workspace*> sActive;
 };
 
 inline void Workspace::addClient(const Client::SharedPtr& client)
 {
     assert(client);
     assert(client->screenNumber() == mScreenNumber);
-    Workspace::SharedPtr that = shared_from_this();
-    if (client->updateWorkspace(that)) {
-        if (active(mScreenNumber) == shared_from_this()) {
+    if (client->updateWorkspace(this)) {
+        if (active(mScreenNumber) == this) {
             client->map();
         } else {
             client->unmap();

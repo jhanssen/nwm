@@ -49,7 +49,7 @@ void ClientGroup::raise(const Client::SharedPtr& client)
     // raise the selected client
     warning() << "raising selected client" << client.get() << client->className();
     xcb_configure_window(conn, client->frame(), XCB_CONFIG_WINDOW_STACK_MODE, stackMode);
-    if (Workspace::SharedPtr ws = client->workspace())
+    if (Workspace *ws = client->workspace())
         ws->notifyRaised(client);
     WindowManager::instance()->js().onClientRaised(client);
 

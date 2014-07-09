@@ -10,7 +10,7 @@
 Hash<xcb_window_t, Client::SharedPtr> Client::sClients;
 
 Client::Client(xcb_window_t win)
-    : mWindow(win), mFrame(XCB_NONE), mNoFocus(false), mFloating(false), mPid(0), mScreenNumber(0)
+    : mWindow(win), mFrame(XCB_NONE), mNoFocus(false), mWorkspace(0), mFloating(false), mPid(0), mScreenNumber(0)
 {
     warning() << "making client";
 }
@@ -23,11 +23,8 @@ Client::~Client()
     xcb_destroy_window(conn, mFrame);
 
     if (EventLoop::SharedPtr loop = EventLoop::eventLoop()) {
-        Workspace::WeakPtr workspace = mWorkspace;
-        loop->callLater([workspace]() {
-                if (Workspace::SharedPtr ws = workspace.lock())
-                    ws->updateFocus();
-            });
+        Workspace *workspace = mWorkspace;
+        loop->callLater([workspace]() { workspace->updateFocus(); });
     }
 }
 
@@ -155,17 +152,16 @@ void Client::complete()
 void Client::clearWorkspace()
 {
     mLayout.reset();
-    mWorkspace.reset();
+    mWorkspace = 0;
 }
 
-bool Client::updateWorkspace(const Workspace::SharedPtr& workspace)
+bool Client::updateWorkspace(Workspace *workspace)
 {
-    Workspace::SharedPtr old = mWorkspace.lock();
-    if (!old)
+    if (!mWorkspace) // ### is this right/
         return false;
-    if (workspace == old)
+    if (workspace == mWorkspace)
         return true;
-    old->removeClient(shared_from_this());
+    mWorkspace->removeClient(shared_from_this());
     if (shouldLayout()) {
         mLayout = workspace->layout()->add(Size({ mRequestedGeom.width, mRequestedGeom.height }));
         mLayout->rectChanged().connect(std::bind(&Client::onLayoutChanged, this, std::placeholders::_1));
@@ -417,7 +413,7 @@ Client::SharedPtr Client::manage(xcb_window_t window, int screenNumber)
     wm->js().onClient(ptr);
     ptr->complete();
     if (ptr->isFloating() || ptr->mLayout) {
-        Workspace::SharedPtr ws = Workspace::active(screenNumber);
+        Workspace *ws = Workspace::active(screenNumber);
         assert(ws);
         ptr->mWorkspace = ws;
         ws->addClient(ptr);
@@ -440,8 +436,8 @@ void Client::release(xcb_window_t window)
 {
     Hash<xcb_window_t, Client::SharedPtr>::iterator it = sClients.find(window);
     if (it != sClients.end()) {
-        if (Workspace::SharedPtr ws = it->second->mWorkspace.lock()) {
-            ws->removeClient(it->second);
+        if (it->second->mWorkspace) {
+            it->second->mWorkspace->removeClient(it->second);
         }
         WindowManager::instance()->js().onClientDestroyed(it->second);
         sClients.erase(it);
@@ -486,8 +482,8 @@ void Client::focus()
     xcb_set_input_focus(wm->connection(), XCB_INPUT_FOCUS_PARENT, mWindow, wm->timestamp());
     xcb_ewmh_set_active_window(wm->ewmhConnection(), mScreenNumber, mWindow);
     wm->setFocusedClient(shared_from_this());
-    if (Workspace::SharedPtr ws = mWorkspace.lock())
-        ws->updateFocus(shared_from_this());
+    if (mWorkspace)
+        mWorkspace->updateFocus(shared_from_this());
 }
 
 void Client::destroy()

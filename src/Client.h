@@ -52,7 +52,7 @@ public:
     const Value& jsValue() { if (mJSValue.type() == Value::Type_Invalid) createJSValue(); return mJSValue; }
     void clearJSValue() { mJSValue.clear(); }
 
-    std::shared_ptr<Workspace> workspace() const { return mWorkspace.lock(); }
+    Workspace *workspace() const { return mWorkspace; }
     ClientGroup::SharedPtr group() const { return mGroup; }
 
     const Layout::SharedPtr& layout() const { return mLayout; }
@@ -68,7 +68,7 @@ public:
 
 private:
     void clearWorkspace();
-    bool updateWorkspace(const std::shared_ptr<Workspace>& workspace);
+    bool updateWorkspace(Workspace *workspace);
     bool shouldLayout();
     void createJSValue();
 
@@ -98,7 +98,7 @@ private:
     xcb_window_t mFrame;
     bool mNoFocus;
     Layout::SharedPtr mLayout;
-    std::weak_ptr<Workspace> mWorkspace;
+    Workspace *mWorkspace;
 
     Rect mRequestedGeom;
     xcb_size_hints_t mNormalHints;
