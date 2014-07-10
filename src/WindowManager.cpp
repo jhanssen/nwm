@@ -265,25 +265,25 @@ bool WindowManager::init(int &argc, char **argv)
     }
     const xcb_setup_t *setup = xcb_get_setup(mConn);
     if (setup) {
-        error() << "status" << static_cast<uint32_t>(setup->status) << '\n'
-                << "pad0" << static_cast<uint32_t>(setup->pad0) << '\n'
-                << "protocol_major_version" << static_cast<uint32_t>(setup->protocol_major_version) << '\n'
-                << "protocol_minor_version" << static_cast<uint32_t>(setup->protocol_minor_version) << '\n'
-                << "length" << static_cast<uint32_t>(setup->length) << '\n'
-                << "release_number" << static_cast<uint32_t>(setup->release_number) << '\n'
-                << "resource_id_base" << static_cast<uint32_t>(setup->resource_id_base) << '\n'
-                << "resource_id_mask" << static_cast<uint32_t>(setup->resource_id_mask) << '\n'
-                << "motion_buffer_size" << static_cast<uint32_t>(setup->motion_buffer_size) << '\n'
-                << "vendor_len" << static_cast<uint32_t>(setup->vendor_len) << '\n'
-                << "maximum_request_length" << static_cast<uint32_t>(setup->maximum_request_length) << '\n'
-                << "roots_len" << static_cast<uint32_t>(setup->roots_len) << '\n'
-                << "pixmap_formats_len" << static_cast<uint32_t>(setup->pixmap_formats_len) << '\n'
-                << "image_byte_order" << static_cast<uint32_t>(setup->image_byte_order) << '\n'
-                << "bitmap_format_bit_order" << static_cast<uint32_t>(setup->bitmap_format_bit_order) << '\n'
-                << "bitmap_format_scanline_unit" << static_cast<uint32_t>(setup->bitmap_format_scanline_unit) << '\n'
-                << "bitmap_format_scanline_pad" << static_cast<uint32_t>(setup->bitmap_format_scanline_pad) << '\n'
-                << "min_keycode" << static_cast<uint32_t>(setup->min_keycode) << '\n'
-                << "max_keycode" << static_cast<uint32_t>(setup->max_keycode);
+        warning() << "status" << static_cast<uint32_t>(setup->status) << '\n'
+                  << "pad0" << static_cast<uint32_t>(setup->pad0) << '\n'
+                  << "protocol_major_version" << static_cast<uint32_t>(setup->protocol_major_version) << '\n'
+                  << "protocol_minor_version" << static_cast<uint32_t>(setup->protocol_minor_version) << '\n'
+                  << "length" << static_cast<uint32_t>(setup->length) << '\n'
+                  << "release_number" << static_cast<uint32_t>(setup->release_number) << '\n'
+                  << "resource_id_base" << static_cast<uint32_t>(setup->resource_id_base) << '\n'
+                  << "resource_id_mask" << static_cast<uint32_t>(setup->resource_id_mask) << '\n'
+                  << "motion_buffer_size" << static_cast<uint32_t>(setup->motion_buffer_size) << '\n'
+                  << "vendor_len" << static_cast<uint32_t>(setup->vendor_len) << '\n'
+                  << "maximum_request_length" << static_cast<uint32_t>(setup->maximum_request_length) << '\n'
+                  << "roots_len" << static_cast<uint32_t>(setup->roots_len) << '\n'
+                  << "pixmap_formats_len" << static_cast<uint32_t>(setup->pixmap_formats_len) << '\n'
+                  << "image_byte_order" << static_cast<uint32_t>(setup->image_byte_order) << '\n'
+                  << "bitmap_format_bit_order" << static_cast<uint32_t>(setup->bitmap_format_bit_order) << '\n'
+                  << "bitmap_format_scanline_unit" << static_cast<uint32_t>(setup->bitmap_format_scanline_unit) << '\n'
+                  << "bitmap_format_scanline_pad" << static_cast<uint32_t>(setup->bitmap_format_scanline_pad) << '\n'
+                  << "min_keycode" << static_cast<uint32_t>(setup->min_keycode) << '\n'
+                  << "max_keycode" << static_cast<uint32_t>(setup->max_keycode);
         // << "pad1[4]" << static_cast<uint32>(setup->pad1[4)];
     }
 
@@ -294,7 +294,7 @@ bool WindowManager::init(int &argc, char **argv)
         mScreens[i].screen = it.data;
         xcb_screen_next(&it);
     }
-    error() << "GOT SCREENS" << screenCount;
+    error() << "Got screens" << screenCount;
 
     mEwmhConn = new xcb_ewmh_connection_t;
     xcb_intern_atom_cookie_t* ewmhCookies = xcb_ewmh_init_atoms(mConn, mEwmhConn);

@@ -98,7 +98,6 @@ void Workspace::deactivate()
 
 void Workspace::activate()
 {
-    printf("[%s:%d]: void Workspace::activate()\n", __FILE__, __LINE__); fflush(stdout);
     if (Workspace *old = sActive[mScreenNumber]) {
         assert(old != this);
         old->deactivate();
