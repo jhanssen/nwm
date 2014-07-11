@@ -866,6 +866,7 @@ List<xcb_window_t> WindowManager::roots() const
     }
     return roots;
 }
+
 int WindowManager::screenNumber(xcb_window_t root) const
 {
     int screenNumber = 0;

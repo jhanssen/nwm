@@ -120,6 +120,18 @@ void handleMotionNotify(const xcb_motion_notify_event_t* event)
     }
 }
 
+static inline int screenFromWindow(xcb_window_t win)
+{
+    WindowManager* wm = WindowManager::instance();
+    int scrn = wm->screenNumber(win);
+    if (scrn != -1)
+        return scrn;
+    Client::SharedPtr client = Client::client(win);
+    if (client)
+        return client->screenNumber();
+    return -1;
+}
+
 void handleClientMessage(const xcb_client_message_event_t* event)
 {
     WindowManager *wm = WindowManager::instance();
@@ -131,13 +143,18 @@ void handleClientMessage(const xcb_client_message_event_t* event)
             client->focus();
         }
     } else if (event->type == ewmhConn->_NET_CURRENT_DESKTOP) {
-        // const uint32_t ws = event->data.data32[0];
-        // const List<Workspace::SharedPtr>& wss = wm->workspaces();
-        // if (ws >= static_cast<uint32_t>(wss.size()))
-        //     return;
-        // wss[ws]->activate();
-        // xcb_ewmh_set_current_desktop(ewmhConn, wss.at(ws)->screenNumber(), ws);
-#warning not done
+        const int scrn = screenFromWindow(event->window);
+        if (scrn == -1) {
+            error() << "Couldn't get screen from window for _NET_CURRENT_DESKTOP" << event->window;
+            return;
+        }
+
+        const uint32_t ws = event->data.data32[0];
+        const List<Workspace::SharedPtr>& wss = wm->workspaces(scrn);
+        if (ws >= static_cast<uint32_t>(wss.size()))
+            return;
+        wss[ws]->activate();
+        xcb_ewmh_set_current_desktop(ewmhConn, scrn, ws);
     }
 }
 
