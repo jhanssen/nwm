@@ -67,7 +67,9 @@ public:
     bool isMoving() const { return mIsMoving; }
     Client::SharedPtr moving() const { return mMoving.lock(); }
     Client::SharedPtr focusedClient() const { return mFocused.lock(); }
-    void setFocusedClient(const Client::SharedPtr &client) { mFocused = client; }
+    void setFocusedClient(const Client::SharedPtr &client) { mFocused = client; mCurrentScreen = client->screenNumber(); }
+    void updateCurrentScreen(int screen) { mCurrentScreen = screen; }
+    int currentScreen() const { return mCurrentScreen; }
     const Point& movingOrigin() const { return mMovingOrigin; }
 
     enum FocusPolicy { FocusFollowsMouse, FocusClick };
@@ -120,6 +122,7 @@ private:
     bool mIsMoving;
     Point mMovingOrigin;
     FocusPolicy mFocusPolicy;
+    int mCurrentScreen;
 
     SocketServer mServer;
     bool mRestart;

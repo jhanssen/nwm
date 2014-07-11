@@ -354,18 +354,18 @@ bool JavaScript::init(String *err)
                 return Value::undefined();
             const int32_t ws = args[0].toInteger();
             int screenNumber = 0;
-            if (WindowManager::instance()->screenCount() > 1) {
+            WindowManager* wm = WindowManager::instance();
+            if (wm->screenCount() > 1) {
                 if (args.size() == 1) {
-                    return instance()->throwException<Value>("Need to specify a screen number");
+                    screenNumber = wm->currentScreen();
                 } else {
                     screenNumber = args[1].toInteger();
                 }
             }
-            const List<Workspace::SharedPtr>& wss = WindowManager::instance()->workspaces(screenNumber);
+            const List<Workspace::SharedPtr>& wss = wm->workspaces(screenNumber);
             if (ws < 0 || ws >= wss.size())
                 return instance()->throwException<Value>("Invalid workspace");
             wss[ws]->activate();
-            WindowManager *wm = WindowManager::instance();
             xcb_ewmh_set_current_desktop(wm->ewmhConnection(), wss[ws]->screenNumber(), ws);
             return Value::undefined();
         });

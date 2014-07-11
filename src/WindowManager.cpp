@@ -91,7 +91,7 @@ WindowManager *WindowManager::sInstance;
 
 WindowManager::WindowManager()
     : mConn(0), mEwmhConn(0), mPreferredScreenIndex(0), mXkbEvent(0), mSyms(0), mTimestamp(XCB_CURRENT_TIME),
-      mMoveModifierMask(0), mIsMoving(false), mFocusPolicy(FocusFollowsMouse), mRestart(false)
+      mMoveModifierMask(0), mIsMoving(false), mFocusPolicy(FocusFollowsMouse), mCurrentScreen(-1), mRestart(false)
 {
     Messages::registerMessage<NWMMessage>();
     memset(&mXkb, '\0', sizeof(mXkb));
