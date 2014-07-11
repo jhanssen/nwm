@@ -30,7 +30,7 @@ public:
 
     Keybindings& bindings() { return mBindings; }
 
-    String displayString() const { return mDisplay; }
+    String displayString() const;
 
     static WindowManager *instance() { return sInstance; }
 

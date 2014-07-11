@@ -255,6 +255,15 @@ bool WindowManager::init(int &argc, char **argv)
         error() << "No display set";
         return false;
     }
+    // strip out the screen part, if any
+    {
+        const int dotIdx = mDisplay.lastIndexOf('.');
+        const int colonIdx = mDisplay.lastIndexOf(':');
+        assert(colonIdx != -1);
+        if (dotIdx != -1 && dotIdx > colonIdx) {
+            mDisplay.truncate(dotIdx);
+        }
+    }
 
     assert(!mDisplay.isEmpty());
     mConn = xcb_connect(mDisplay.constData(), &mPreferredScreenIndex);
@@ -885,4 +894,11 @@ List<xcb_screen_t*> WindowManager::screens() const
     for (const auto &it : mScreens)
         ret.append(it.screen);
     return ret;
+}
+
+String WindowManager::displayString() const
+{
+    if (mCurrentScreen <= 0)
+        return mDisplay;
+    return mDisplay + "." + String::number(mCurrentScreen);
 }
