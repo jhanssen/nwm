@@ -246,27 +246,19 @@ bool WindowManager::init(int &argc, char **argv)
     if (systemConfig)
         configFiles << "/etc/xdg/nwm.js";
 
+    String displayStr;
     if (display) {
-        mDisplay = display;
-    } else if (mDisplay.isEmpty()) {
-        mDisplay = getenv("DISPLAY");
+        displayStr = display;
+    } else if (displayStr.isEmpty()) {
+        displayStr = getenv("DISPLAY");
     }
-    if (mDisplay.isEmpty()) {
+    if (displayStr.isEmpty()) {
         error() << "No display set";
         return false;
     }
-    // strip out the screen part, if any
-    {
-        const int dotIdx = mDisplay.lastIndexOf('.');
-        const int colonIdx = mDisplay.lastIndexOf(':');
-        assert(colonIdx != -1);
-        if (dotIdx != -1 && dotIdx > colonIdx) {
-            mDisplay.truncate(dotIdx);
-        }
-    }
 
-    assert(!mDisplay.isEmpty());
-    mConn = xcb_connect(mDisplay.constData(), &mPreferredScreenIndex);
+    assert(!displayStr.isEmpty());
+    mConn = xcb_connect(displayStr.constData(), &mPreferredScreenIndex);
 
     if (!mConn || xcb_connection_has_error(mConn)) {
         return false;
@@ -325,7 +317,7 @@ bool WindowManager::init(int &argc, char **argv)
 
 
     if (socketPath.isEmpty())
-        socketPath = Path::home() + ".nwm.sock." + mDisplay;
+        socketPath = Path::home() + ".nwm.sock." + displayStr;
 
     if (!isRunning()) {
         ServerGrabScope scope(mConn);
@@ -413,7 +405,7 @@ bool WindowManager::init(int &argc, char **argv)
         mServer.listen(socketPath);
         return true;
     } else if (scripts.isEmpty() && !flags) {
-        error() << "nwm is already running on display" << mDisplay;
+        error() << "nwm is already running on display" << displayStr;
         return false;
     } else {
         Connection *connection = new Connection;
@@ -438,6 +430,16 @@ bool WindowManager::init(int &argc, char **argv)
         msg.setFlags(flags);
         connection->send(msg);
         return true;
+    }
+    mDisplay = displayStr;
+    // strip out the screen part if we need to
+    if (mScreens.size() > 1) {
+        const int dotIdx = mDisplay.lastIndexOf('.');
+        const int colonIdx = mDisplay.lastIndexOf(':');
+        assert(colonIdx != -1);
+        if (dotIdx != -1 && dotIdx > colonIdx) {
+            mDisplay.truncate(dotIdx);
+        }
     }
 
     return true;
