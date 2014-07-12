@@ -511,7 +511,7 @@ bool JavaScript::reload(String *err)
 
 void JavaScript::onClientRaised(const Client::SharedPtr &client)
 {
-    mClients.append(client);
+    assert(mClients.contains(client));
     auto it = mOns.find("clientRaised");
     if (it == mOns.end()) {
         return;
