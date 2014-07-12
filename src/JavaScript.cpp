@@ -65,7 +65,7 @@ bool JavaScript::init(String *err)
                 if (prop == "window")
                     return static_cast<int32_t>(client->window());
                 if (prop == "focused") {
-                    return (WindowManager::instance()->focusedClient() == client);
+                    return Value(WindowManager::instance()->focusedClient() == client);
                 }
             }
             return Value();
