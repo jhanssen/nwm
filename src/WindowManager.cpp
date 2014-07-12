@@ -319,6 +319,18 @@ bool WindowManager::init(int &argc, char **argv)
     if (socketPath.isEmpty())
         socketPath = Path::home() + ".nwm.sock." + displayStr;
 
+    mDisplay = displayStr;
+    // strip out the screen part if we need to
+    if (mScreens.size() > 1) {
+        const int dotIdx = mDisplay.lastIndexOf('.');
+        const int colonIdx = mDisplay.lastIndexOf(':');
+        assert(colonIdx != -1);
+        if (dotIdx != -1 && dotIdx > colonIdx) {
+            mDisplay.truncate(dotIdx);
+        }
+    }
+
+
     if (!isRunning()) {
         ServerGrabScope scope(mConn);
 
@@ -431,17 +443,6 @@ bool WindowManager::init(int &argc, char **argv)
         connection->send(msg);
         return true;
     }
-    mDisplay = displayStr;
-    // strip out the screen part if we need to
-    if (mScreens.size() > 1) {
-        const int dotIdx = mDisplay.lastIndexOf('.');
-        const int colonIdx = mDisplay.lastIndexOf(':');
-        assert(colonIdx != -1);
-        if (dotIdx != -1 && dotIdx > colonIdx) {
-            mDisplay.truncate(dotIdx);
-        }
-    }
-
     return true;
 }
 
