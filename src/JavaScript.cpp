@@ -65,7 +65,7 @@ bool JavaScript::init(String *err)
                 if (prop == "window")
                     return static_cast<int32_t>(client->window());
                 if (prop == "focused") {
-                    return (WindowManager::instance()->focusedClient() == client);
+                    return Value(WindowManager::instance()->focusedClient() == client);
                 }
             }
             return Value();
@@ -470,6 +470,7 @@ Value JavaScript::evaluateFile(const Path &file, String *err)
 
 void JavaScript::onClient(const Client::SharedPtr& client)
 {
+    error() << "onClient" << mClients.contains(client);
     mClients.append(client);
     auto it = mOns.find("client");
     if (it == mOns.end())
@@ -511,7 +512,7 @@ bool JavaScript::reload(String *err)
 
 void JavaScript::onClientRaised(const Client::SharedPtr &client)
 {
-    mClients.append(client);
+    assert(mClients.contains(client));
     auto it = mOns.find("clientRaised");
     if (it == mOns.end()) {
         return;
