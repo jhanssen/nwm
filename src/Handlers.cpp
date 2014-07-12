@@ -150,7 +150,7 @@ void handleClientMessage(const xcb_client_message_event_t* event)
         }
 
         const uint32_t ws = event->data.data32[0];
-        const List<Workspace::SharedPtr>& wss = wm->workspaces(scrn);
+        const List<Workspace*>& wss = wm->workspaces(scrn);
         if (ws >= static_cast<uint32_t>(wss.size()))
             return;
         wss[ws]->activate();
