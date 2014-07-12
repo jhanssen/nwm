@@ -447,6 +447,7 @@ bool WindowManager::init(int &argc, char **argv)
 
 WindowManager::~WindowManager()
 {
+    Client::clear();
     mJS.clear();
     for (Screen &screen : mScreens) {
         screen.workspaces.deleteAll();
@@ -460,7 +461,6 @@ WindowManager::~WindowManager()
     if (mSyms)
         xcb_key_symbols_free(mSyms);
 
-    Client::clear();
     if (mConn) {
         if (EventLoop::SharedPtr eventLoop = EventLoop::eventLoop()) {
             const int fd = xcb_get_file_descriptor(mConn);
