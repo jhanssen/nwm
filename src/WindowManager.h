@@ -94,6 +94,11 @@ public:
         assert(screenNumber >= 0 && screenNumber < mScreens.size());
         mScreens.at(screenNumber).activeWorkspace = workspace;
     }
+    void restart()
+    {
+        mRestart = true;
+        EventLoop::eventLoop()->quit();
+    }
 private:
     bool install();
     bool isRunning();

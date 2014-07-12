@@ -380,8 +380,7 @@ bool WindowManager::init(int &argc, char **argv)
                             }
                             const NWMMessage *m = static_cast<NWMMessage*>(msg);
                             if (m->flags() & NWMMessage::Restart) {
-                                mRestart = true;
-                                EventLoop::eventLoop()->quit();
+                                restart();
                             }
 
                             if (m->flags() & NWMMessage::Quit) {

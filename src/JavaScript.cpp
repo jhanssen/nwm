@@ -234,6 +234,10 @@ bool JavaScript::init(String *err)
             mOns[name.toString()] = func;
             return Value::undefined();
         });
+    nwm->registerFunction("restart", [](const Object::SharedPtr&, const List<Value>&) -> Value {
+            WindowManager::instance()->restart();
+            return Value::undefined();
+        });
     nwm->registerProperty("clients",
                           [this](const Object::SharedPtr&) -> Value {
                               List<Value> ret;
