@@ -67,7 +67,7 @@ public:
     bool isMoving() const { return mIsMoving; }
     Client::SharedPtr moving() const { return mMoving.lock(); }
     Client::SharedPtr focusedClient() const { return mFocused.lock(); }
-    void setFocusedClient(const Client::SharedPtr &client) { mFocused = client; mCurrentScreen = client->screenNumber(); }
+    void setFocusedClient(const Client::SharedPtr &client);
     void updateCurrentScreen(int screen) { mCurrentScreen = screen; }
     int currentScreen() const { return mCurrentScreen; }
     const Point& movingOrigin() const { return mMovingOrigin; }

@@ -99,6 +99,17 @@ bool JavaScript::init(String *err)
         []() -> Value {
             return List<Value>() << "title" << "class" << "instance" << "floating" << "dialog" << "window" << "focused";
         });
+    mClientClass->registerFunction("activate", [](const Object::SharedPtr &obj, const List<Value> &) -> Value {
+            Client::WeakPtr weak = obj->extraData<Client::WeakPtr>();
+            if (Client::SharedPtr client = weak.lock()) {
+                client->raise();
+                client->focus();
+                WindowManager *wm = WindowManager::instance();
+                assert(wm);
+                xcb_flush(wm->connection());
+            }
+            return Value::undefined();
+        });
     mClientClass->registerFunction("raise", [](const Object::SharedPtr &obj, const List<Value> &) -> Value {
             Client::WeakPtr weak = obj->extraData<Client::WeakPtr>();
             if (Client::SharedPtr client = weak.lock()) {
@@ -485,28 +496,19 @@ Value JavaScript::evaluateFile(const Path &file, String *err)
 void JavaScript::onClient(const Client::SharedPtr& client)
 {
     mClients.append(client);
-    auto it = mOns.find("client");
-    if (it == mOns.end())
-        return;
-    Object::SharedPtr func = toObject(it->second);
-    if (!func || !func->isFunction()) {
-        error() << "onClient is not a function";
-        return;
-    }
-    func->call({ client->jsValue() });
+    onClientEvent(client, "client");
 }
 
-void JavaScript::onClientDestroyed(const Client::SharedPtr &client)
+void JavaScript::onClientEvent(const Client::SharedPtr &client, const String &event)
 {
-    const int idx = mClients.indexOf(client);
-    assert(idx != -1);
-    mClients.removeAt(idx);
-    auto it = mOns.find("clientRemoved");
-    if (it == mOns.end())
+    assert(mClients.contains(client));
+    auto it = mOns.find(event);
+    if (it == mOns.end()) {
         return;
+    }
     Object::SharedPtr func = toObject(it->second);
     if (!func || !func->isFunction()) {
-        error() << "clientRemoved is not a function";
+        error() << event << "is not a function";
         return;
     }
     func->call({ client->jsValue() });
@@ -521,19 +523,4 @@ bool JavaScript::reload(String *err)
     mOns.clear();
     mClientClass.reset();
     return init(err);
-}
-
-void JavaScript::onClientRaised(const Client::SharedPtr &client)
-{
-    assert(mClients.contains(client));
-    auto it = mOns.find("clientRaised");
-    if (it == mOns.end()) {
-        return;
-    }
-    Object::SharedPtr func = toObject(it->second);
-    if (!func || !func->isFunction()) {
-        error() << "onRaised is not a function";
-        return;
-    }
-    func->call({ client->jsValue() });
 }

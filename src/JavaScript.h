@@ -19,12 +19,19 @@ public:
     bool reload(String *error = 0);
     Value evaluateFile(const Path &path, String *error);
 
-    void onClient(const Client::SharedPtr& client);
     const Class::SharedPtr& clientClass() const { return mClientClass; }
     const Class::SharedPtr& fileClass() const { return mFileClass; }
 
-    void onClientDestroyed(const Client::SharedPtr &client);
-    void onClientRaised(const Client::SharedPtr &client);
+    void onClient(const Client::SharedPtr& client);
+    void onClientEvent(const Client::SharedPtr &client, const String &event);
+    void onClientRaised(const Client::SharedPtr &client) { onClientEvent(client, "raised"); }
+    void onClientFocusLost(const Client::SharedPtr &client) { onClientEvent(client, "focusLost"); }
+    void onClientFocused(const Client::SharedPtr &client) { onClientEvent(client, "focused"); }
+    void onClientDestroyed(const Client::SharedPtr &client)
+    {
+        onClientEvent(client, "destroyed");
+        mClients.remove(client);
+    }
     void clear() { mClients.clear(); }
 private:
     bool init(String *error);

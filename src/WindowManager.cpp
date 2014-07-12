@@ -907,3 +907,15 @@ String WindowManager::displayString() const
         return mDisplay;
     return mDisplay + "." + String::number(mCurrentScreen);
 }
+void WindowManager::setFocusedClient(const Client::SharedPtr &client)
+{
+    if (auto shared = mFocused.lock()) {
+        if (shared == client)
+            return;
+        mJS.onClientFocusLost(shared);
+    }
+    mFocused = client;
+    mCurrentScreen = client->screenNumber();
+    if (client)
+        mJS.onClientFocused(client);
+}
