@@ -23,7 +23,7 @@ void launch(const String& cmd, const String& dpy)
             if (!dpy.isEmpty()) {
                 setenv("DISPLAY", dpy.constData(), 1);
             }
-            execl(shell, "sh", "-c", cmd.constData());
+            execl(shell, "sh", "-c", cmd.constData(), 0);
         }
         exit(p == -1 ? 1 : 0);
         break; }
