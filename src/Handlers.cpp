@@ -16,6 +16,7 @@ void handleButtonPress(const xcb_button_press_event_t* event)
     Client::SharedPtr client = Client::client(event->event);
     if (client) {
         xcb_connection_t* conn = wm->connection();
+#warning shouldn't call raise if we're raised
         client->raise();
         if (wm->focusPolicy() == WindowManager::FocusClick)
             client->focus();
