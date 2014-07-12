@@ -341,7 +341,7 @@ bool JavaScript::init(String *err)
             if (ws < 0 || ws >= wss.size())
                 return instance()->throwException<Value>("Invalid workspace");
             Workspace *dst = wss[ws];
-            Workspace *src = Workspace::active(client->screenNumber());
+            Workspace *src = WindowManager::instance()->activeWorkspace(client->screenNumber());
             if (dst == src)
                 return Value::undefined();
             dst->addClient(client);
@@ -371,7 +371,7 @@ bool JavaScript::init(String *err)
             Client::SharedPtr focusedClient = WindowManager::instance()->focusedClient();
             if (!focusedClient)
                 return Value::undefined();
-            Workspace *active = Workspace::active(focusedClient->screenNumber());
+            Workspace *active = WindowManager::instance()->activeWorkspace(focusedClient->screenNumber());
             if (!active)
                 return Value::undefined();
             active->raise(Workspace::Last);

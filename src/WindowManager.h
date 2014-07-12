@@ -83,6 +83,17 @@ public:
 
     JavaScript& js() { return mJS; }
     bool shouldRestart() const { return mRestart; }
+    Workspace *activeWorkspace(int screenNumber)
+    {
+        assert(screenNumber >= 0 && screenNumber < mScreens.size());
+        return mScreens.at(screenNumber).activeWorkspace;
+    }
+    void activateWorkspace(Workspace *workspace)
+    {
+        const int screenNumber = workspace->screenNumber();
+        assert(screenNumber >= 0 && screenNumber < mScreens.size());
+        mScreens.at(screenNumber).activeWorkspace = workspace;
+    }
 private:
     bool install();
     bool isRunning();
@@ -102,13 +113,15 @@ private:
     xcb_ewmh_connection_t* mEwmhConn;
     struct Screen {
         Screen()
-            : screen(0)
+            : screen(0), activeWorkspace(0)
         {}
 
         xcb_screen_t *screen;
         Rect rect;
         List<Workspace*> workspaces;
+        Workspace *activeWorkspace;
     };
+
     List<Screen> mScreens;
     int mPreferredScreenIndex;
     uint8_t mXkbEvent;

@@ -6,13 +6,9 @@
 #include <assert.h>
 #include <stdlib.h>
 
-List<Workspace*> Workspace::sActive;
-
 Workspace::Workspace(unsigned int layoutType, int screenNo, const Rect& rect, const String& name)
     : mRect(rect), mName(name), mLayout(0), mScreenNumber(screenNo)
 {
-    if (sActive.isEmpty())
-        sActive.resize(WindowManager::instance()->screenCount());
     // error() << screenNo << rect;
     switch (layoutType) {
     case GridLayout::Type:
@@ -87,8 +83,6 @@ void Workspace::updateFocus(const Client::SharedPtr& client)
 
 void Workspace::deactivate()
 {
-#warning should this unset sActive if it is pointing to this?
-    // unmap all clients
     for (const Client::WeakPtr& client : mClients) {
         if (Client::SharedPtr c = client.lock()) {
             c->unmap();
@@ -98,11 +92,7 @@ void Workspace::deactivate()
 
 void Workspace::activate()
 {
-    if (Workspace *old = sActive[mScreenNumber]) {
-        assert(old != this);
-        old->deactivate();
-    }
-    sActive[mScreenNumber] = this;
+    WindowManager::instance()->activateWorkspace(this);
     // map all clients in the stacking order
     Client::SharedPtr client;
     auto it = mClients.crbegin();
@@ -200,4 +190,23 @@ void Workspace::raise(RaiseMode mode)
 xcb_screen_t * Workspace::screen() const
 {
     return WindowManager::instance()->screens().at(mScreenNumber);
+}
+
+inline bool Workspace::isActive() const
+{
+    return WindowManager::instance()->activeWorkspace(mScreenNumber) == this;
+}
+
+void Workspace::addClient(const Client::SharedPtr& client)
+{
+    assert(client);
+    assert(client->screenNumber() == mScreenNumber);
+    if (client->updateWorkspace(this)) {
+        if (WindowManager::instance()->activeWorkspace(mScreenNumber) == this) {
+            client->map();
+        } else {
+            client->unmap();
+        }
+        mClients.append(client);
+    }
 }

@@ -35,10 +35,7 @@ public:
     Rect rect() const { return mRect; }
     Layout *layout() const { return mLayout; }
 
-    static Workspace *active(int screenNumber) { return sActive.at(screenNumber); }
-
-    inline bool isActive() const { return sActive.at(mScreenNumber) == this; }
-
+    inline bool isActive() const;
 private:
     void deactivate();
 
@@ -49,23 +46,7 @@ private:
     // ordered by focus
     LinkedList<Client::WeakPtr> mClients;
     const int mScreenNumber;
-
-    static List<Workspace*> sActive;
 };
-
-inline void Workspace::addClient(const Client::SharedPtr& client)
-{
-    assert(client);
-    assert(client->screenNumber() == mScreenNumber);
-    if (client->updateWorkspace(this)) {
-        if (active(mScreenNumber) == this) {
-            client->map();
-        } else {
-            client->unmap();
-        }
-        mClients.append(client);
-    }
-}
 
 inline void Workspace::removeClient(const Client::SharedPtr& client)
 {
