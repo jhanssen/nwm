@@ -10,7 +10,8 @@
 Hash<xcb_window_t, Client::SharedPtr> Client::sClients;
 
 Client::Client(xcb_window_t win)
-    : mWindow(win), mFrame(XCB_NONE), mNoFocus(false), mWorkspace(0), mFloating(false), mPid(0), mScreenNumber(0)
+    : mWindow(win), mFrame(XCB_NONE), mNoFocus(false), mLayout(0),
+      mWorkspace(0), mFloating(false), mPid(0), mScreenNumber(0)
 {
     warning() << "making client";
 }
@@ -142,8 +143,7 @@ void Client::complete()
         xcb_configure_window(conn, mWindow, windowMask, windowValues);
     }
 
-    const uint32_t stackMode[] = { XCB_STACK_MODE_ABOVE };
-    xcb_configure_window(conn, mFrame, XCB_CONFIG_WINDOW_STACK_MODE, stackMode);
+    raise();
 #warning do xinerama placement
     const uint32_t stateMode[] = { XCB_ICCCM_WM_STATE_NORMAL, XCB_NONE };
     xcb_change_property(conn, XCB_PROP_MODE_REPLACE, mWindow, Atoms::WM_STATE, Atoms::WM_STATE, 32, 2, stateMode);
