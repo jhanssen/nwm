@@ -109,6 +109,16 @@ bool JavaScript::init(String *err)
             }
             return Value::undefined();
         });
+    mClientClass->registerFunction("focus", [](const Object::SharedPtr &obj, const List<Value> &) -> Value {
+            Client::WeakPtr weak = obj->extraData<Client::WeakPtr>();
+            if (Client::SharedPtr client = weak.lock()) {
+                client->focus();
+                WindowManager *wm = WindowManager::instance();
+                assert(wm);
+                xcb_flush(wm->connection());
+            }
+            return Value::undefined();
+        });
     mClientClass->registerFunction("close", [](const Object::SharedPtr &obj, const List<Value> &) -> Value {
             Client::WeakPtr weak = obj->extraData<Client::WeakPtr>();
             if (Client::SharedPtr client = weak.lock()) {

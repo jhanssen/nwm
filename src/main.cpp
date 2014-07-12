@@ -2,6 +2,7 @@
 #include <rct/EventLoop.h>
 #include <rct/Log.h>
 #include <rct/Path.h>
+#include <rct/Value.h>
 
 int main(int argc, char** argv)
 {

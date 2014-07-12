@@ -11,7 +11,7 @@ Hash<xcb_window_t, Client::SharedPtr> Client::sClients;
 
 Client::Client(xcb_window_t win)
     : mWindow(win), mFrame(XCB_NONE), mNoFocus(false), mLayout(0),
-      mWorkspace(0), mFloating(false), mPid(0), mScreenNumber(0)
+      mWorkspace(0), mGroup(0), mFloating(false), mPid(0), mScreenNumber(0)
 {
     warning() << "making client";
 }
@@ -27,6 +27,7 @@ Client::~Client()
         Workspace *workspace = mWorkspace;
         loop->callLater([workspace]() { workspace->updateFocus(); });
     }
+    delete mGroup;
 }
 
 void Client::init()
@@ -106,6 +107,11 @@ void Client::complete()
          | XCB_EVENT_MASK_BUTTON_RELEASE)
     };
     warning() << "creating frame window" << layoutRect << mRequestedGeom;
+    if (mFloating) {
+        const Rect &wsRect = wm->activeWorkspace(mScreenNumber)->rect();
+        layoutRect.x = std::max<int>(0, (wsRect.width - layoutRect.width) / 2);
+        layoutRect.y = std::max<int>(0, (wsRect.height - layoutRect.height) / 2);
+    }
     xcb_create_window(conn, XCB_COPY_FROM_PARENT, mFrame, scr->root,
                       layoutRect.x, layoutRect.y, layoutRect.width, layoutRect.height, 0,
                       XCB_COPY_FROM_PARENT, XCB_COPY_FROM_PARENT,
