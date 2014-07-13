@@ -39,6 +39,12 @@ kbd.set("Insert D", function() {
     c.close();
 });
 
+kbd.mode("Insert K", [
+    { seq: "Left", action: function() { console.log("left"); }},
+    { seq: "Right", action: function() { console.log("right"); }},
+    { seq: "Insert A", action: function() { console.log("sub ins a"); }}
+]);
+
 console.log(nwm.exec("/bin/uname", "-a"));
 
 kbd.set("Insert C", function() {

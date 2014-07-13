@@ -602,6 +602,38 @@ bool JavaScript::init(String *err)
             WindowManager::instance()->bindings().add(binding);
             return Value::undefined();
         });
+    kbd->registerFunction("mode", [](const Object::SharedPtr&, const List<Value> &args) -> Value {
+            if (args.size() != 2)
+                return instance()->throwException<Value>("Invalid number of arguments to kbd.mode, 2 required");
+            const Value& key = args.at(0);
+            const Value& subs = args.at(1);
+            if (!key.isString())
+                return instance()->throwException<Value>("Invalid first argument to kbd.mode, needs to be a string");
+            if (!subs.isList())
+                return instance()->throwException<Value>("Invalid second argument to kbd.mode, needs to be a list of bindings");
+            Set<Keybinding> subbindings;
+            for (const Value& sub : subs.toList()) {
+                if (!sub.isMap())
+                    return instance()->throwException<Value>("Invalid entry in kbd.mode array, all arguments needs to be objects");
+                const Map<String, Value>& submap = sub.toMap();
+                if (!submap.contains("seq"))
+                    return instance()->throwException<Value>("Invalid entry in kbd.mode array, need a seq property");
+                if (!submap.contains("action"))
+                    return instance()->throwException<Value>("Invalid entry in kbd.mode array, need an action property");
+                const Value& seq = submap["seq"];
+                const Value& act = submap["action"];
+                if (!seq.isString())
+                    return instance()->throwException<Value>("Invalid entry in kbd.mode array, seq needs to be a string");
+                if (!act.isCustom())
+                    return instance()->throwException<Value>("Invalid entry in kbd.mode array, act needs to be a JS function");
+                subbindings.insert(Keybinding(seq.toString(), act));
+            }
+            if (subbindings.isEmpty())
+                return instance()->throwException<Value>("Need at least one keybinding in the array for kbd.mode");
+            Keybinding toggle(key.toString());
+            WindowManager::instance()->bindings().toggle(toggle, subbindings);
+            return Value::undefined();
+        });
 
     for (int i=mConfigFiles.size() - 1; i>=0; --i) {
         const String contents = mConfigFiles[i].readAll();

@@ -9,6 +9,12 @@ Keybinding::Keybinding(const String& key, const Value& func)
     parse(key);
 }
 
+void Keybinding::init(const String& key, const Value& func)
+{
+    mFunc = func;
+    parse(key);
+}
+
 void Keybinding::parse(const String& key)
 {
     // parse expressions in the form of

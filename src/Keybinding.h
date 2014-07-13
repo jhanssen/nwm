@@ -17,7 +17,9 @@ class Keybinding
 {
 public:
     Keybinding() { };
-    Keybinding(const String& key, const Value& func);
+    Keybinding(const String& key, const Value& func = Value());
+
+    void init(const String& key, const Value& func = Value());
 
     bool isValid() const { return !mSeq.empty(); };
     void recreate();
@@ -68,6 +70,8 @@ inline bool Keybinding::operator<(const Keybinding& other) const
     while (it != end && oit != oend) {
         if (*it < *oit)
             return true;
+        if (*oit < *it)
+            return false;
         ++it;
         ++oit;
     }
