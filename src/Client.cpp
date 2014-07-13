@@ -505,6 +505,9 @@ void Client::release(xcb_window_t window)
 
 void Client::setBackgroundColor(const Color& color)
 {
+    // We don't want to draw on clients we don't own
+    if (!mOwned)
+        return;
     if (!mGraphics)
         mGraphics = new Graphics(shared_from_this());
     mGraphics->setBackgroundColor(color);
@@ -513,6 +516,9 @@ void Client::setBackgroundColor(const Color& color)
 
 void Client::setText(const Rect& rect, const Font& font, const Color& color, const String& string)
 {
+    // We don't want to draw on clients we don't own
+    if (!mOwned)
+        return;
     if (!mGraphics)
         mGraphics = new Graphics(shared_from_this());
     mGraphics->setText(rect.isEmpty() ? Rect({ 0, 0, mRequestedGeom.width, mRequestedGeom.height }) : rect, font, color, string);

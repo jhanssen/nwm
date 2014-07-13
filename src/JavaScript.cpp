@@ -202,7 +202,8 @@ bool JavaScript::init(String *err)
             Rect rect = toRect(arg);
             if (rect.isEmpty())
                 return instance()->throwException<Value>("Client constructor needs an object argument with geometry");
-            Client::SharedPtr client = Client::create(rect, 0);
+            WindowManager* wm = WindowManager::instance();
+            Client::SharedPtr client = Client::create(rect, wm->currentScreen());
             return client->jsValue();
         });
     mClientClass->registerFunction("activate", [](const Object::SharedPtr &obj, const List<Value> &) -> Value {
