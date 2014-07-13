@@ -510,6 +510,9 @@ void Client::resize(const Size& size)
 {
     if (!mFloating)
         return;
+    mRequestedGeom.width = size.width;
+    mRequestedGeom.height = size.height;
+
     xcb_connection_t* conn = WindowManager::instance()->connection();
     const uint16_t mask = XCB_CONFIG_WINDOW_WIDTH|XCB_CONFIG_WINDOW_HEIGHT;
     const uint32_t values[2] = { size.width, size.height };
@@ -519,7 +522,8 @@ void Client::resize(const Size& size)
 
 void Client::move(const Point& point)
 {
-    assert(mFloating);
+    if (!mFloating)
+        return;
     mRequestedGeom.x = point.x;
     mRequestedGeom.y = point.y;
 
