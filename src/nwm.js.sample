@@ -31,8 +31,6 @@ kbd.set("Alt-Tab", function() { ws.raiseLast(); });
 
 kbd.set("Insert A", function() { console.log("Got Insert A"); });
 kbd.set("Insert Shift-B", function() { console.log("Got Insert Shift-B"); });
-kbd.set("Insert C A", function() { console.log("Got Insert C A"); });
-kbd.set("Insert C D", function() { console.log("Got Insert C D"); });
 
 kbd.set("Insert D", function() {
     var c = nwm.focusedClient;
@@ -42,3 +40,10 @@ kbd.set("Insert D", function() {
 });
 
 console.log(nwm.exec("/bin/uname", "-a"));
+
+kbd.set("Insert C", function() {
+    var f = new Client({ width: 300, height: 300 });
+    console.log(f);
+    f.backgroundColor = { r: 255 };
+    f.text = { font: { family: "Sans Bold", pointSize: 27 }, color: { g: 255 }, text: "test foo" };
+});

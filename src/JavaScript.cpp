@@ -43,6 +43,44 @@ static inline void logValues(FILE* file, const List<Value>& args)
     fprintf(file, "%s\n", str.constData());
 }
 
+static inline Rect toRect(const Value& value)
+{
+    assert(value.isMap());
+    Rect rect;
+    if (!value.contains("width"))
+        return rect;
+    rect.width = value["width"].toInteger();
+    if (!value.contains("height"))
+        return rect;
+    rect.height = value["height"].toInteger();
+    if (value.contains("x")) {
+        rect.x = value["x"].toInteger();
+    } else {
+        rect.x = 0;
+    }
+    if (value.contains("y")) {
+        rect.y = value["y"].toInteger();
+    } else {
+        rect.y = 0;
+    }
+    return rect;
+}
+
+static inline Color toColor(const Value& value)
+{
+    assert(value.isMap() || value.isNull() || value.isUndefined());
+    Color color;
+    if (value.contains("r"))
+        color.r = value["r"].toInteger();
+    if (value.contains("g"))
+        color.g = value["g"].toInteger();
+    if (value.contains("b"))
+        color.b = value["b"].toInteger();
+    if (value.contains("a"))
+        color.a = value["a"].toInteger();
+    return color;
+}
+
 bool JavaScript::init(String *err)
 {
     // --------------- Client class ---------------
@@ -80,6 +118,64 @@ bool JavaScript::init(String *err)
                 if (Client::SharedPtr client = weak.lock()) {
                     client->setFloating(value.toBool());
                 }
+            } else if (prop == "backgroundColor") {
+                if (!value.isMap() && !value.isNull() && !value.isUndefined()) {
+                    return instance()->throwException<Value>("Client.backgroundColor needs to be a color");
+                }
+                Client::WeakPtr weak = obj->extraData<Client::WeakPtr>();
+                if (Client::SharedPtr client = weak.lock()) {
+                    client->setBackgroundColor(toColor(value));
+                }
+            } else if (prop == "text") {
+                if (value.isUndefined() || value.isNull()) {
+                    Client::WeakPtr weak = obj->extraData<Client::WeakPtr>();
+                    if (Client::SharedPtr client = weak.lock()) {
+                        client->clearText();
+                    }
+                } else if (value.isMap()) {
+                    Rect rect = { 0, 0, 0, 0 };
+                    if (value.contains("rect")) {
+                        const Value& val = value["rect"];
+                        if (val.isMap())
+                            rect = toRect(val);
+                    }
+                    if (!value.contains("text")) {
+                        return instance()->throwException<Value>("Client.text needs to have a text property");
+                    }
+                    const Value& text = value["text"];
+                    if (!text.isString()) {
+                        return instance()->throwException<Value>("Client.text text needs to be a string");
+                    }
+                    Color color;
+                    if (value.contains("color")) {
+                        const Value& col = value["color"];
+                        if (!col.isMap() && !col.isNull() && !col.isUndefined()) {
+                            return instance()->throwException<Value>("Client.text color needs to be a color");
+                        }
+                        color = toColor(col);
+                    }
+                    Font font;
+                    if (value.contains("font")) {
+                        const Value& fnt = value["font"];
+                        if (fnt.isMap() && fnt.contains("family") && fnt.contains("pointSize")) {
+                            const Value& fam = fnt["family"];
+                            const Value& pt = fnt["pointSize"];
+                            if (fam.isString() && pt.isInteger()) {
+                                font.setFamily(fam.toString());
+                                font.setPointSize(pt.toInteger());
+                            }
+                        }
+                    }
+                    if (font.family().isEmpty()) {
+                        return instance()->throwException<Value>("Client.text needs to have a font property");
+                    }
+                    Client::WeakPtr weak = obj->extraData<Client::WeakPtr>();
+                    if (Client::SharedPtr client = weak.lock()) {
+                        client->setText(rect, font, color, text.toString());
+                    }
+                } else {
+                    return instance()->throwException<Value>("Client.text needs to be an object");
+                }
             }
             return Value();
         },
@@ -87,7 +183,7 @@ bool JavaScript::init(String *err)
         [](const String& prop) -> Value {
             if (prop == "title" || prop == "class" || prop == "instance" || prop == "dialog" || prop == "window" || prop == "focused")
                 return Class::ReadOnly|Class::DontDelete;
-            if (prop == "floating")
+            if (prop == "floating" || prop == "backgroundColor" || prop == "text")
                 return Class::DontDelete;
             return Value();
         },
@@ -97,7 +193,17 @@ bool JavaScript::init(String *err)
         },
         // enumerator, return List of property names intercepted
         []() -> Value {
-            return List<Value>() << "title" << "class" << "instance" << "floating" << "dialog" << "window" << "focused";
+            return List<Value>() << "title" << "class" << "instance" << "floating" << "dialog"
+                                 << "window" << "focused" << "backgroundColor" << "text";
+        });
+    mClientClass->registerConstructor([](const Value& arg) -> Value {
+            if (!arg.isMap())
+                return instance()->throwException<Value>("Client constructor needs an object argument with geometry");
+            Rect rect = toRect(arg);
+            if (rect.isEmpty())
+                return instance()->throwException<Value>("Client constructor needs an object argument with geometry");
+            Client::SharedPtr client = Client::create(rect, 0);
+            return client->jsValue();
         });
     mClientClass->registerFunction("activate", [](const Object::SharedPtr &obj, const List<Value> &) -> Value {
             Client::WeakPtr weak = obj->extraData<Client::WeakPtr>();
@@ -526,10 +632,11 @@ Value JavaScript::evaluateFile(const Path &file, String *err)
     return evaluate(code, Path(), err);
 }
 
-void JavaScript::onClient(const Client::SharedPtr& client)
+void JavaScript::onClient(const Client::SharedPtr& client, bool notify)
 {
     mClients.append(client);
-    onClientEvent(client, "client");
+    if (notify)
+        onClientEvent(client, "client");
 }
 
 void JavaScript::onClientEvent(const Client::SharedPtr &client, const String &event)

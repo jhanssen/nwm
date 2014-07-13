@@ -10,7 +10,7 @@
 Hash<xcb_window_t, Client::SharedPtr> Client::sClients;
 
 Client::Client(xcb_window_t win)
-    : mWindow(win), mFrame(XCB_NONE), mNoFocus(false), mLayout(0),
+    : mWindow(win), mFrame(XCB_NONE), mNoFocus(false), mOwned(false), mLayout(0),
       mWorkspace(0), mGraphics(0), mGroup(0), mFloating(false), mPid(0),
       mScreenNumber(0)
 {
@@ -21,8 +21,12 @@ Client::~Client()
 {
     delete mGraphics;
     xcb_connection_t* conn = WindowManager::instance()->connection();
-    if (mWindow)
-        xcb_reparent_window(conn, mWindow, root(), 0, 0);
+    if (mWindow) {
+        if (!mOwned)
+            xcb_reparent_window(conn, mWindow, root(), 0, 0);
+        else
+            xcb_destroy_window(conn, mWindow);
+    }
     xcb_destroy_window(conn, mFrame);
 
     if (EventLoop::SharedPtr loop = EventLoop::eventLoop()) {
@@ -91,7 +95,8 @@ void Client::complete()
         }
     }
 #warning do startup-notification stuff here
-    xcb_change_save_set(conn, XCB_SET_MODE_INSERT, mWindow);
+    if (!mOwned)
+        xcb_change_save_set(conn, XCB_SET_MODE_INSERT, mWindow);
     xcb_screen_t* scr = screen();
     mFrame = xcb_generate_id(conn);
     const uint32_t values[] = {
@@ -113,6 +118,8 @@ void Client::complete()
         const Rect &wsRect = wm->activeWorkspace(mScreenNumber)->rect();
         layoutRect.x = std::max<int>(0, (wsRect.width - layoutRect.width) / 2);
         layoutRect.y = std::max<int>(0, (wsRect.height - layoutRect.height) / 2);
+        mRequestedGeom.x = layoutRect.x;
+        mRequestedGeom.y = layoutRect.y;
     }
     xcb_create_window(conn, XCB_COPY_FROM_PARENT, mFrame, scr->root,
                       layoutRect.x, layoutRect.y, layoutRect.width, layoutRect.height, 0,
@@ -411,6 +418,50 @@ void Client::onLayoutChanged(const Rect& rect)
     }
 }
 
+Client::SharedPtr Client::create(const Rect& rect, int screenNumber)
+{
+    WindowManager *wm = WindowManager::instance();
+    xcb_connection_t* conn = wm->connection();
+    xcb_screen_t* scr = wm->screens().at(screenNumber);
+
+    xcb_window_t window = xcb_generate_id(conn);
+    const uint32_t values[] = {
+        scr->black_pixel,
+        XCB_GRAVITY_NORTH_WEST,
+        XCB_GRAVITY_NORTH_WEST,
+        1,
+        (XCB_EVENT_MASK_STRUCTURE_NOTIFY
+         | XCB_EVENT_MASK_ENTER_WINDOW
+         | XCB_EVENT_MASK_LEAVE_WINDOW
+         | XCB_EVENT_MASK_EXPOSURE
+         | XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT
+         | XCB_EVENT_MASK_POINTER_MOTION
+         | XCB_EVENT_MASK_BUTTON_PRESS
+         | XCB_EVENT_MASK_BUTTON_RELEASE)
+    };
+    warning() << "creating client window" << rect;
+    xcb_create_window(conn, XCB_COPY_FROM_PARENT, window, scr->root,
+                      rect.x, rect.y, rect.width, rect.height, 0,
+                      XCB_COPY_FROM_PARENT, XCB_COPY_FROM_PARENT,
+                      XCB_CW_BORDER_PIXEL | XCB_CW_BIT_GRAVITY | XCB_CW_WIN_GRAVITY
+                      | XCB_CW_OVERRIDE_REDIRECT | XCB_CW_EVENT_MASK, values);
+    Client::SharedPtr ptr(new Client(window));
+    ptr->mOwned = true;
+    ptr->mScreenNumber = screenNumber;
+    ptr->init();
+    ptr->mFloating = true;
+    // false = don't tell JS about the new client
+    wm->js().onClient(ptr, false);
+    ptr->complete();
+    Workspace *ws = wm->activeWorkspace(screenNumber);
+    assert(ws);
+    ptr->mWorkspace = ws;
+    ws->addClient(ptr);
+    ptr->focus();
+    sClients[window] = ptr;
+    return ptr;
+}
+
 Client::SharedPtr Client::manage(xcb_window_t window, int screenNumber)
 {
     assert(sClients.count(window) == 0);
@@ -452,11 +503,19 @@ void Client::release(xcb_window_t window)
     }
 }
 
+void Client::setBackgroundColor(const Color& color)
+{
+    if (!mGraphics)
+        mGraphics = new Graphics(shared_from_this());
+    mGraphics->setBackgroundColor(color);
+    mGraphics->redraw();
+}
+
 void Client::setText(const Rect& rect, const Font& font, const Color& color, const String& string)
 {
     if (!mGraphics)
         mGraphics = new Graphics(shared_from_this());
-    mGraphics->setText(rect, font, color, string);
+    mGraphics->setText(rect.isEmpty() ? Rect({ 0, 0, mRequestedGeom.width, mRequestedGeom.height }) : rect, font, color, string);
     mGraphics->redraw();
 }
 

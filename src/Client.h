@@ -25,6 +25,7 @@ public:
 
     static SharedPtr client(xcb_window_t window);
     static SharedPtr manage(xcb_window_t window, int screenNumber);
+    static SharedPtr create(const Rect& rect, int screenNumber);
     static void release(xcb_window_t window);
     static void clear() { sClients.clear(); }
 
@@ -33,6 +34,7 @@ public:
 
     void release() { release(mWindow); mWindow = 0; }
 
+    void setBackgroundColor(const Color& color);
     void setText(const Rect& rect, const Font& font, const Color& color, const String& string);
     void clearText();
 
@@ -104,7 +106,7 @@ private:
 private:
     xcb_window_t mWindow;
     xcb_window_t mFrame;
-    bool mNoFocus;
+    bool mNoFocus, mOwned;
     Layout* mLayout;
     Workspace* mWorkspace;
     Graphics* mGraphics;

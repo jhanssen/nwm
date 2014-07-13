@@ -33,7 +33,7 @@ private:
 class Color
 {
 public:
-    Color() : r(0), g(0), b(0), a(0) { }
+    Color() : r(0), g(0), b(0), a(255) { }
 
     uint8_t r, g, b, a;
 };
@@ -45,18 +45,40 @@ public:
     ~Graphics();
 
     void redraw();
+
+    void setBackgroundColor(const Color& color) { mBackgroundColor = color; }
+
     void setText(const Rect& rect, const Font& font, const Color& color, const String& string);
     void clearText();
 
 private:
 #if defined(HAVE_CAIRO) && defined(HAVE_PANGO)
+    Size mSize;
     cairo_t* mCairo;
     cairo_surface_t* mSurface;
     PangoLayout* mTextLayout;
     Font mFont;
+    Color mBackgroundColor;
     Color mTextColor;
     Rect mTextRect;
 #endif
 };
 
+inline Log operator<<(Log stream, const Color& color)
+{
+    stream << "Color(";
+    const bool old = stream.setSpacing(false);
+    stream << String::format<32>("r:%u, g:%u, b:%u, a:%u", color.r, color.g, color.b, color.a) << ")";
+    stream.setSpacing(old);
+    return stream;
+}
+
+inline Log operator<<(Log stream, const Font& font)
+{
+    stream << "Font(";
+    const bool old = stream.setSpacing(false);
+    stream << String::format<32>("%s-%d", font.family().constData(), font.pointSize()) << ")";
+    stream.setSpacing(old);
+    return stream;
+}
 #endif

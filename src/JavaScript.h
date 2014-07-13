@@ -22,7 +22,7 @@ public:
     const Class::SharedPtr& clientClass() const { return mClientClass; }
     const Class::SharedPtr& fileClass() const { return mFileClass; }
 
-    void onClient(const Client::SharedPtr& client);
+    void onClient(const Client::SharedPtr& client, bool notify = true);
     void onClientEvent(const Client::SharedPtr &client, const String &event);
     void onClientRaised(const Client::SharedPtr &client) { onClientEvent(client, "raised"); }
     void onClientFocusLost(const Client::SharedPtr &client) { onClientEvent(client, "focusLost"); }

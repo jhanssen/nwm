@@ -24,6 +24,7 @@ public:
 
     Point point() const { return Point({ x, y }); }
     Size size() const { return Size({ width, height }); }
+    bool isEmpty() const { return !width || !height; }
 };
 
 inline Log operator<<(Log stream, const Size& size)
