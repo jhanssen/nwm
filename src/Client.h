@@ -40,6 +40,7 @@ public:
     void raise();
     Point position() const { return mRequestedGeom.point(); }
     void move(const Point& point);
+    void resize(const Size& size);
     void close(); // delete or kill
     bool kill(int signal); // kill if we have a _NET_WM_PID
 

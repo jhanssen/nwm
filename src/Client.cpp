@@ -506,6 +506,17 @@ void Client::raise()
     mGroup->raise(shared_from_this());
 }
 
+void Client::resize(const Size& size)
+{
+    if (!mFloating)
+        return;
+    xcb_connection_t* conn = WindowManager::instance()->connection();
+    const uint16_t mask = XCB_CONFIG_WINDOW_WIDTH|XCB_CONFIG_WINDOW_HEIGHT;
+    const uint32_t values[2] = { size.width, size.height };
+    xcb_configure_window(conn, mFrame, mask, values);
+    xcb_configure_window(conn, mWindow, mask, values);
+}
+
 void Client::move(const Point& point)
 {
     assert(mFloating);

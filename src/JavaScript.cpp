@@ -153,7 +153,40 @@ bool JavaScript::init(String *err)
             }
             return Value::undefined();
         });
-
+    mClientClass->registerFunction("move", [](const Object::SharedPtr &obj, const List<Value> &args) -> Value {
+            if (args.size() != 2) {
+                return instance()->throwException<Value>("Invalid number of arguments to Client.move, 2 required");
+            }
+            if (!args[0].isInteger() || !args[1].isInteger()) {
+                return instance()->throwException<Value>("Invalid arguments to Client.move. Args must be integers");
+            }
+            Client::WeakPtr weak = obj->extraData<Client::WeakPtr>();
+            if (Client::SharedPtr client = weak.lock()) {
+                client->move(Point({ static_cast<uint32_t>(args[0].toInteger()),
+                                     static_cast<uint32_t>(args[1].toInteger()) }));
+                WindowManager *wm = WindowManager::instance();
+                assert(wm);
+                xcb_flush(wm->connection());
+            }
+            return Value::undefined();
+        });
+    mClientClass->registerFunction("resize", [](const Object::SharedPtr &obj, const List<Value> &args) -> Value {
+            if (args.size() != 2) {
+                return instance()->throwException<Value>("Invalid number of arguments to Client.resize, 2 required");
+            }
+            if (!args[0].isInteger() || !args[1].isInteger()) {
+                return instance()->throwException<Value>("Invalid arguments to Client.resize. Args must be integers");
+            }
+            Client::WeakPtr weak = obj->extraData<Client::WeakPtr>();
+            if (Client::SharedPtr client = weak.lock()) {
+                client->resize(Size({ static_cast<uint32_t>(args[0].toInteger()),
+                                      static_cast<uint32_t>(args[1].toInteger()) }));
+                WindowManager *wm = WindowManager::instance();
+                assert(wm);
+                xcb_flush(wm->connection());
+            }
+            return Value::undefined();
+        });
 
     auto global = globalObject();
 
