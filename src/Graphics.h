@@ -30,6 +30,14 @@ private:
     int mSize;
 };
 
+class Color
+{
+public:
+    Color() : r(0), g(0), b(0), a(0) { }
+
+    uint8_t r, g, b, a;
+};
+
 class Graphics
 {
 public:
@@ -37,7 +45,7 @@ public:
     ~Graphics();
 
     void redraw();
-    void setText(const Rect& rect, const Font& font, const String& string);
+    void setText(const Rect& rect, const Font& font, const Color& color, const String& string);
     void clearText();
 
 private:
@@ -46,6 +54,7 @@ private:
     cairo_surface_t* mSurface;
     PangoLayout* mTextLayout;
     Font mFont;
+    Color mTextColor;
     Rect mTextRect;
 #endif
 };

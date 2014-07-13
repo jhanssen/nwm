@@ -33,7 +33,7 @@ public:
 
     void release() { release(mWindow); mWindow = 0; }
 
-    void setText(const Rect& rect, const Font& font, const String& string);
+    void setText(const Rect& rect, const Font& font, const Color& color, const String& string);
     void clearText();
 
     void map();

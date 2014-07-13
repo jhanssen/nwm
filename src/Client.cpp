@@ -452,11 +452,11 @@ void Client::release(xcb_window_t window)
     }
 }
 
-void Client::setText(const Rect& rect, const Font& font, const String& string)
+void Client::setText(const Rect& rect, const Font& font, const Color& color, const String& string)
 {
     if (!mGraphics)
         mGraphics = new Graphics(shared_from_this());
-    mGraphics->setText(rect, font, string);
+    mGraphics->setText(rect, font, color, string);
     mGraphics->redraw();
 }
 

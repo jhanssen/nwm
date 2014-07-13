@@ -35,7 +35,7 @@ void Graphics::redraw()
 #if defined(HAVE_CAIRO) && defined(HAVE_PANGO)
     if (!mCairo || !mTextLayout)
         return;
-    cairo_set_source_rgb(mCairo, 0.0, 0.0, 1.0);
+    cairo_set_source_rgba(mCairo, mTextColor.r / 255., mTextColor.g / 255., mTextColor.b / 255., mTextColor.a / 255.);
     cairo_translate(mCairo, mTextRect.x, mTextRect.y);
     pango_cairo_update_layout(mCairo, mTextLayout);
     pango_cairo_show_layout(mCairo, mTextLayout);
@@ -45,12 +45,13 @@ void Graphics::redraw()
 #endif
 }
 
-void Graphics::setText(const Rect& rect, const Font& font, const String& string)
+void Graphics::setText(const Rect& rect, const Font& font, const Color& color, const String& string)
 {
 #if defined(HAVE_CAIRO) && defined(HAVE_PANGO)
     assert(mCairo && mSurface);
     mFont = font;
     mTextRect = rect;
+    mTextColor = color;
     if (mTextLayout)
         g_object_unref(mTextLayout);
     mTextLayout = pango_cairo_create_layout(mCairo);
