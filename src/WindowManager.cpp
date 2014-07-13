@@ -292,6 +292,7 @@ bool WindowManager::init(int &argc, char **argv)
     mScreens.resize(screenCount);
     for (int i=0; i<screenCount; ++i) {
         mScreens[i].screen = it.data;
+        mScreens[i].visual = xcb_aux_get_visualtype(mConn, i, it.data->root_visual);
         xcb_screen_next(&it);
     }
     error() << "Got screens" << screenCount;
@@ -890,6 +891,12 @@ int WindowManager::screenNumber(xcb_window_t root) const
         ++screenNumber;
     }
     return -1;
+}
+
+xcb_visualtype_t* WindowManager::visualForScreen(unsigned int screen) const
+{
+    assert(screen < static_cast<unsigned int>(mScreens.size()));
+    return mScreens[screen].visual;
 }
 
 List<xcb_screen_t*> WindowManager::screens() const

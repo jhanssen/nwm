@@ -2,6 +2,7 @@
 #define CLIENT_H
 
 #include "ClientGroup.h"
+#include "Graphics.h"
 #include "Layout.h"
 #include "Rect.h"
 #include <rct/Hash.h>
@@ -32,6 +33,9 @@ public:
 
     void release() { release(mWindow); mWindow = 0; }
 
+    void setText(const Rect& rect, const Font& font, const String& string);
+    void clearText();
+
     void map();
     void unmap();
     void focus();
@@ -39,10 +43,12 @@ public:
     void configure();
     void raise();
     Point position() const { return mRequestedGeom.point(); }
+    Size size() const { return mRequestedGeom.size(); }
     void move(const Point& point);
     void resize(const Size& size);
     void close(); // delete or kill
     bool kill(int signal); // kill if we have a _NET_WM_PID
+    void expose(const Rect& rect);
 
     bool noFocus() const { return mNoFocus; }
     bool isFloating() const { return mFloating; }
@@ -53,14 +59,15 @@ public:
     const Value& jsValue() { if (mJSValue.type() == Value::Type_Invalid) createJSValue(); return mJSValue; }
     void clearJSValue() { mJSValue.clear(); }
 
-    Workspace *workspace() const { return mWorkspace; }
-    ClientGroup *group() const { return mGroup; }
+    Workspace* workspace() const { return mWorkspace; }
+    ClientGroup* group() const { return mGroup; }
 
-    Layout *layout() const { return mLayout; }
+    Layout* layout() const { return mLayout; }
     xcb_window_t window() const { return mWindow; }
     xcb_window_t frame() const { return mFrame; }
     xcb_window_t root() const { return screen()->root; }
-    xcb_screen_t *screen() const;
+    xcb_screen_t* screen() const;
+    xcb_visualtype_t* visual() const;
     int screenNumber() const { return mScreenNumber; }
 
     String wmName() const { return mName; }
@@ -69,7 +76,7 @@ public:
 
 private:
     void clearWorkspace();
-    bool updateWorkspace(Workspace *workspace);
+    bool updateWorkspace(Workspace* workspace);
     bool shouldLayout();
     void createJSValue();
 
@@ -98,8 +105,9 @@ private:
     xcb_window_t mWindow;
     xcb_window_t mFrame;
     bool mNoFocus;
-    Layout *mLayout;
-    Workspace *mWorkspace;
+    Layout* mLayout;
+    Workspace* mWorkspace;
+    Graphics* mGraphics;
 
     Rect mRequestedGeom;
     xcb_size_hints_t mNormalHints;
@@ -114,7 +122,7 @@ private:
     Set<xcb_atom_t> mEwmhState;
     Set<xcb_atom_t> mWindowType;
     xcb_ewmh_wm_strut_partial_t mStrut;
-    ClientGroup *mGroup;
+    ClientGroup* mGroup;
     bool mFloating;
     Value mJSValue;
     uint32_t mPid;

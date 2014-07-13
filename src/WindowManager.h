@@ -41,6 +41,7 @@ public:
     xcb_ewmh_connection_t* ewmhConnection() const { return mEwmhConn; }
     List<xcb_screen_t*> screens() const;
     List<xcb_window_t> roots() const;
+    xcb_visualtype_t* visualForScreen(unsigned int screen) const;
     enum { AllScreens = -1 };
     int preferredScreenIndex() const { return mPreferredScreenIndex; }
     int screenNumber(xcb_window_t root) const;
@@ -118,10 +119,11 @@ private:
     xcb_ewmh_connection_t* mEwmhConn;
     struct Screen {
         Screen()
-            : screen(0), activeWorkspace(0)
+            : screen(0), visual(0), activeWorkspace(0)
         {}
 
         xcb_screen_t *screen;
+        xcb_visualtype_t* visual;
         Rect rect;
         List<Workspace*> workspaces;
         Workspace *activeWorkspace;

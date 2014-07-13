@@ -234,6 +234,10 @@ void handleEnterNotify(const xcb_enter_notify_event_t* event)
 
 void handleExpose(const xcb_expose_event_t* event)
 {
+    Client::SharedPtr client = Client::client(event->window);
+    if (client) {
+        client->expose(Rect({ event->x, event->y, event->width, event->height }));
+    }
 }
 
 void handleFocusIn(const xcb_focus_in_event_t* event)

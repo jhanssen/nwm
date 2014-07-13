@@ -11,13 +11,15 @@ Hash<xcb_window_t, Client::SharedPtr> Client::sClients;
 
 Client::Client(xcb_window_t win)
     : mWindow(win), mFrame(XCB_NONE), mNoFocus(false), mLayout(0),
-      mWorkspace(0), mGroup(0), mFloating(false), mPid(0), mScreenNumber(0)
+      mWorkspace(0), mGraphics(0), mGroup(0), mFloating(false), mPid(0),
+      mScreenNumber(0)
 {
     warning() << "making client";
 }
 
 Client::~Client()
 {
+    delete mGraphics;
     xcb_connection_t* conn = WindowManager::instance()->connection();
     if (mWindow)
         xcb_reparent_window(conn, mWindow, root(), 0, 0);
@@ -450,6 +452,21 @@ void Client::release(xcb_window_t window)
     }
 }
 
+void Client::setText(const Rect& rect, const Font& font, const String& string)
+{
+    if (!mGraphics)
+        mGraphics = new Graphics(shared_from_this());
+    mGraphics->setText(rect, font, string);
+    mGraphics->redraw();
+}
+
+void Client::clearText()
+{
+    if (!mGraphics)
+        return;
+    mGraphics->clearText();
+}
+
 void Client::map()
 {
     xcb_connection_t* conn = WindowManager::instance()->connection();
@@ -592,6 +609,12 @@ bool Client::shouldLayout()
     return (mWindowType.contains(conn->_NET_WM_WINDOW_TYPE_NORMAL));
 }
 
+void Client::expose(const Rect& rect)
+{
+    if (mGraphics)
+        mGraphics->redraw();
+}
+
 void Client::createJSValue()
 {
     JavaScript& js = WindowManager::instance()->js();
@@ -603,4 +626,9 @@ void Client::createJSValue()
 xcb_screen_t *Client::screen() const
 {
     return WindowManager::instance()->screens().at(mScreenNumber);
+}
+
+xcb_visualtype_t* Client::visual() const
+{
+    return WindowManager::instance()->visualForScreen(mScreenNumber);
 }

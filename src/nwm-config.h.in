@@ -1,0 +1,7 @@
+#ifndef NWM_CONFIG_H
+#define NWM_CONFIG_H
+
+#cmakedefine HAVE_CAIRO
+#cmakedefine HAVE_PANGO
+
+#endif
