@@ -198,8 +198,6 @@ void Keybindings::rebind(const Keybinding& binding, xcb_connection_t* conn, xcb_
     const uint8_t keymode = (seqs.size() == 1) ? XCB_GRAB_MODE_ASYNC : XCB_GRAB_MODE_SYNC;
     const auto& seq = seqs.front();
     if (keymode == XCB_GRAB_MODE_SYNC) {
-        if (mPrefixes.contains(seq))
-            return;
         mPrefixes.insert(seq);
     }
     for (xcb_keycode_t code : seq.codes) {
