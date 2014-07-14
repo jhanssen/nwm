@@ -223,7 +223,7 @@ void Client::updateState(xcb_ewmh_connection_t* ewmhConn)
 
 void Client::updateLeader(xcb_connection_t* conn, xcb_get_property_cookie_t cookie)
 {
-    AutoPointer<xcb_get_property_reply_t> leader = xcb_get_property_reply(conn, cookie, 0);
+    AutoPointer<xcb_get_property_reply_t> leader(xcb_get_property_reply(conn, cookie, 0));
     if (!leader || leader->type != XCB_ATOM_WINDOW || leader->format != 32 || !leader->length) {
         mGroup = ClientGroup::clientGroup(mWindow);
         mGroup->add(shared_from_this());
@@ -237,7 +237,7 @@ void Client::updateLeader(xcb_connection_t* conn, xcb_get_property_cookie_t cook
 
 void Client::updateSize(xcb_connection_t* conn, xcb_get_geometry_cookie_t cookie)
 {
-    AutoPointer<xcb_get_geometry_reply_t> geom = xcb_get_geometry_reply(conn, cookie, 0);
+    AutoPointer<xcb_get_geometry_reply_t> geom(xcb_get_geometry_reply(conn, cookie, 0));
     mRequestedGeom = { static_cast<uint32_t>(geom->x), static_cast<uint32_t>(geom->y), geom->width, geom->height };
 }
 

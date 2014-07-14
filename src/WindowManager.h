@@ -170,12 +170,31 @@ public:
             free(mPtr);
     }
 
+    AutoPointer<T> &operator=(T *ptr)
+    {
+        if (mPtr) {
+            free(mPtr);
+        }
+        mPtr = ptr;
+        return *this;
+    }
+
+    AutoPointer<T> &operator=(AutoPointer<T> &&t)
+    {
+        if (mPtr) {
+            free(mPtr);
+        }
+        mPtr = std::move(t.mPtr);
+        return *this;
+    }
     T *operator->() { return mPtr; }
     bool operator!() const { return !mPtr; }
     operator T*() { return mPtr; }
     T **operator&() { return &mPtr; }
     template <typename J> J *cast() { return reinterpret_cast<J*>(mPtr); }
 private:
+    AutoPointer(const AutoPointer<T> &) = delete;
+    AutoPointer<T> &operator=(const AutoPointer<T> &) = delete;
     T *mPtr;
 };
 

@@ -26,7 +26,7 @@ bool Keybindings::feed(xkb_keysym_t sym, uint16_t mods)
         for (xcb_window_t root : roots) {
             xcb_grab_keyboard_cookie_t cookie = xcb_grab_keyboard(conn, 1, root, XCB_CURRENT_TIME, XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC);
             xcb_generic_error_t* err = 0;
-            AutoPointer<xcb_grab_keyboard_reply_t> reply = xcb_grab_keyboard_reply(conn, cookie, &err);
+            AutoPointer<xcb_grab_keyboard_reply_t> reply(xcb_grab_keyboard_reply(conn, cookie, &err));
 
             assert(!err);
         }

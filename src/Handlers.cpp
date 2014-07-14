@@ -282,8 +282,8 @@ void handleMapRequest(const xcb_map_request_event_t* event)
     xcb_connection_t* conn = WindowManager::instance()->connection();
     const xcb_get_window_attributes_cookie_t cookie = xcb_get_window_attributes_unchecked(conn, event->window);
     const xcb_query_tree_cookie_t treeCookie = xcb_query_tree(conn, event->window);
-    AutoPointer<xcb_get_window_attributes_reply_t> reply = xcb_get_window_attributes_reply(conn, cookie, 0);
-    AutoPointer<xcb_query_tree_reply_t> treeReply = xcb_query_tree_reply(conn, treeCookie, 0);
+    AutoPointer<xcb_get_window_attributes_reply_t> reply(xcb_get_window_attributes_reply(conn, cookie, 0));
+    AutoPointer<xcb_query_tree_reply_t> treeReply(xcb_query_tree_reply(conn, treeCookie, 0));
 
     if (!reply || !treeReply)
         return;

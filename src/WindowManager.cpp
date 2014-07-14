@@ -490,7 +490,7 @@ bool WindowManager::manage()
     for (const auto &it : mScreens) {
         AutoPointer<xcb_generic_error_t> err;
         xcb_query_tree_cookie_t treeCookie = xcb_query_tree(mConn, it.screen->root);
-        AutoPointer<xcb_query_tree_reply_t> treeReply = xcb_query_tree_reply(mConn, treeCookie, &err);
+        AutoPointer<xcb_query_tree_reply_t> treeReply(xcb_query_tree_reply(mConn, treeCookie, &err));
         if (err) {
             LOG_ERROR(err, "Unable to query window tree");
             return false;
@@ -512,7 +512,7 @@ bool WindowManager::manage()
             }
             for (int i = 0; i < clientLength; ++i) {
                 AutoPointer<xcb_generic_error_t> err;
-                AutoPointer<xcb_get_window_attributes_reply_t> attr = xcb_get_window_attributes_reply(mConn, attrs[i], &err);
+                AutoPointer<xcb_get_window_attributes_reply_t> attr(xcb_get_window_attributes_reply(mConn, attrs[i], &err));
                 xcb_get_property_reply_t* state = xcb_get_property_reply(mConn, states[i], 0);
                 if (err) {
                     LOG_ERROR(err, "Unable to get attrs");
@@ -717,7 +717,7 @@ bool WindowManager::install()
                     }
                     return;
                 }
-                AutoPointer<xcb_generic_event_t> event = xcb_poll_for_event(conn);
+                AutoPointer<xcb_generic_event_t> event(xcb_poll_for_event(conn));
                 if (event) {
                     const unsigned int responseType = event->response_type & ~0x80;
                     switch (responseType) {
@@ -957,7 +957,7 @@ bool WindowManager::warpPointer(int16_t x, int16_t y, int screen, PointerMode mo
         y -= cur.second;
     }
     xcb_void_cookie_t cookie = xcb_warp_pointer_checked(mConn, XCB_NONE, XCB_NONE, 0, 0, 0, 0, x, y);
-    AutoPointer<xcb_generic_error_t> err = xcb_request_check(mConn, cookie);
+    AutoPointer<xcb_generic_error_t> err(xcb_request_check(mConn, cookie));
     if (err) {
         LOG_ERROR(err, "Unable to warp pointer");
         return false;
