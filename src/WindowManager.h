@@ -71,6 +71,12 @@ public:
     void setFocusedClient(const Client::SharedPtr &client);
     void updateCurrentScreen(int screen) { mCurrentScreen = screen; }
     int currentScreen() const { return mCurrentScreen; }
+    std::pair<int16_t, int16_t> pointer(bool *ok = 0) const;
+    enum PointerMode {
+        Warp_Absolute,
+        Warp_Relative
+    };
+    bool warpPointer(int16_t x, int16_t y, int screen = -1, PointerMode mode = Warp_Absolute);
     const Point& movingOrigin() const { return mMovingOrigin; }
 
     enum FocusPolicy { FocusFollowsMouse, FocusClick };

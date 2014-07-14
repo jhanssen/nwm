@@ -550,7 +550,6 @@ bool WindowManager::install()
         err = xcb_request_check(mConn, cookie);
         if (err) {
             LOG_ERROR(err, "Unable to change window attributes 1");
-            free(err);
             return false;
         }
     }
@@ -620,7 +619,6 @@ bool WindowManager::install()
         err = xcb_request_check(mConn, select);
         if (err) {
             LOG_ERROR(err, "Unable to select XKB events");
-            free(err);
             xkb_state_unref(state);
             xkb_keymap_unref(keymap);
             xkb_context_unref(ctx);
@@ -689,7 +687,6 @@ bool WindowManager::install()
         err = xcb_request_check(mConn, cookie);
         if (err) {
             LOG_ERROR(err, "Unable to change window attributes 2");
-            free(err);
             return false;
         }
 
@@ -699,7 +696,6 @@ bool WindowManager::install()
         err = xcb_request_check(mConn, cookie);
         if (err) {
             LOG_ERROR(err, "Unable to change _NET_SUPPORTED property on root window");
-            free(err);
             return false;
         }
 
@@ -925,4 +921,47 @@ void WindowManager::setFocusedClient(const Client::SharedPtr &client)
     mCurrentScreen = client->screenNumber();
     if (client)
         mJS.onClientFocused(client);
+}
+
+std::pair<int16_t, int16_t> WindowManager::pointer(bool *ok) const
+{
+    xcb_query_pointer_cookie_t cookie = xcb_query_pointer(mConn, roots()[mCurrentScreen]);
+    AutoPointer<xcb_generic_error_t> err;
+    xcb_query_pointer_reply_t *reply = xcb_query_pointer_reply(mConn, cookie, &err);
+    if (err) {
+        LOG_ERROR(err, "Unable to query pointer");
+        if (ok)
+            *ok = false;
+        return std::pair<int16_t, int16_t>(0, 0);
+    }
+    if (ok)
+        *ok = true;
+
+    return std::make_pair(reply->root_x, reply->root_y);
+}
+
+
+bool WindowManager::warpPointer(int16_t x, int16_t y, int screen, PointerMode mode)
+{
+    if (screen == -1) {
+        screen = mCurrentScreen;
+    } else {
+        #warning "what do to here?"
+    }
+    if (mode == Warp_Absolute) {
+        bool ok;
+        auto cur = pointer(&ok);
+        if (!ok)
+            return false;
+        x -= cur.first;
+        y -= cur.second;
+    }
+    xcb_void_cookie_t cookie = xcb_warp_pointer_checked(mConn, XCB_NONE, XCB_NONE, 0, 0, 0, 0, x, y);
+    AutoPointer<xcb_generic_error_t> err = xcb_request_check(mConn, cookie);
+    if (err) {
+        LOG_ERROR(err, "Unable to warp pointer");
+        return false;
+    }
+
+    return true;
 }

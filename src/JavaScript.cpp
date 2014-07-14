@@ -269,8 +269,7 @@ bool JavaScript::init(String *err)
             }
             Client::WeakPtr weak = obj->extraData<Client::WeakPtr>();
             if (Client::SharedPtr client = weak.lock()) {
-                client->move(Point({ static_cast<uint32_t>(args[0].toInteger()),
-                                     static_cast<uint32_t>(args[1].toInteger()) }));
+                client->move(Point({ static_cast<uint32_t>(args[0].toInteger()), static_cast<uint32_t>(args[1].toInteger()) }));
                 WindowManager *wm = WindowManager::instance();
                 assert(wm);
                 xcb_flush(wm->connection());
@@ -286,8 +285,7 @@ bool JavaScript::init(String *err)
             }
             Client::WeakPtr weak = obj->extraData<Client::WeakPtr>();
             if (Client::SharedPtr client = weak.lock()) {
-                client->resize(Size({ static_cast<uint32_t>(args[0].toInteger()),
-                                      static_cast<uint32_t>(args[1].toInteger()) }));
+                client->resize(Size({ static_cast<uint32_t>(args[0].toInteger()), static_cast<uint32_t>(args[1].toInteger()) }));
                 WindowManager *wm = WindowManager::instance();
                 assert(wm);
                 xcb_flush(wm->connection());
@@ -447,6 +445,52 @@ bool JavaScript::init(String *err)
                               }
                               WindowManager::instance()->setFocusPolicy(static_cast<WindowManager::FocusPolicy>(fp));
                           });
+    nwm->registerProperty("pointer",
+                          [](const Object::SharedPtr&) -> Value {
+                              bool ok;
+                              WindowManager *wm = WindowManager::instance();
+                              auto pointer = wm->pointer(&ok);
+                              if (!ok)
+                                  return instance()->throwException<Value>("Can't query pointer");
+                              Value value;
+                              value["x"] = pointer.first;
+                              value["y"] = pointer.second;
+                              value["screen"] = wm->currentScreen();
+                              return value;
+                          },
+                          [](const Object::SharedPtr&, const Value& value) {
+                              if (value.type() != Value::Type_Map || !value.contains("x") || !value.contains("y")) {
+                                  return instance()->throwException<void>("Warp object needs to be an object with integral x, y and optionally screen and relative");
+                              }
+                              const Value& x = value["x"];
+                              const Value& y = value["y"];
+                              if (x.type() != Value::Type_Integer || y.type() != Value::Type_Integer) {
+                                  return instance()->throwException<void>("Warp object needs to be an object with integral x, y and optionally screen and relative");
+                              }
+                              int screen = -1;
+                              if (value.contains("screen")) {
+                                  const Value& scr = value["screen"];
+                                  if (scr.type() != Value::Type_Integer)
+                                      return instance()->throwException<void>("Warp object needs to be an object with integral x, y and optionally screen and relative");
+                                  screen = value.toInteger();
+                              }
+
+                              WindowManager::PointerMode mode = WindowManager::Warp_Absolute;
+                              if (value.contains("relative")) {
+                                  const Value& rel = value["relative"];
+                                  if (rel.type() != Value::Type_Boolean)
+                                      return instance()->throwException<void>("Warp object needs to be an object with integral x, y and optionally screen and relative");
+                                  if (rel.toBool()) {
+                                      mode = WindowManager::Warp_Relative;
+                                  }
+                              }
+
+                              WindowManager *wm = WindowManager::instance();
+                              if (!wm->warpPointer(x.toInteger(), y.toInteger(), screen, mode)) {
+                                  instance()->throwException<void>("Invalid warp parameters");
+                              }
+                          });
+
     nwm->setProperty("FocusFollowsMouse", WindowManager::FocusFollowsMouse);
     nwm->setProperty("FocusClick", WindowManager::FocusClick);
 
