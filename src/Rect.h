@@ -7,20 +7,30 @@
 class Size
 {
 public:
-    unsigned int width, height;
+    Size(int w = 0, int h = 0)
+        : width(w), height(h)
+    {}
+    int width, height;
 };
 
 class Point
 {
 public:
-    unsigned int x, y;
+    Point(int xx = 0, int yy = 0)
+        : x(xx), y(yy)
+    {}
+    int x, y;
 };
 
 class Rect
 {
 public:
-    unsigned int x, y;
-    unsigned int width, height;
+    Rect(int xx = 0, int yy = 0, int w = 0, int h = 0)
+        : x(xx), y(yy), width(w), height(h)
+    {}
+
+    int x, y;
+    int width, height;
 
     Point point() const { return Point({ x, y }); }
     Size size() const { return Size({ width, height }); }

@@ -44,8 +44,8 @@ public:
     void destroy();
     void configure();
     void raise();
-    Point position() const { return mRequestedGeom.point(); }
-    Size size() const { return mRequestedGeom.size(); }
+    Point position() const { return mRect.point(); }
+    Size size() const { return mRect.size(); }
     void move(const Point& point);
     void resize(const Size& size);
     void close(); // delete or kill
@@ -76,6 +76,8 @@ public:
     String instanceName() const { return mClass.instanceName; }
     String className() const { return mClass.className; }
 
+    Rect rect() const { return mRect; }
+    void setRect(const Rect &rect);
 private:
     void clearWorkspace();
     bool updateWorkspace(Workspace* workspace);
@@ -111,7 +113,7 @@ private:
     Workspace* mWorkspace;
     Graphics* mGraphics;
 
-    Rect mRequestedGeom;
+    Rect mRect;
     xcb_size_hints_t mNormalHints;
     xcb_window_t mTransientFor;
     xcb_icccm_wm_hints_t mWmHints;

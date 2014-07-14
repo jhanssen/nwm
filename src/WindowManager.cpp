@@ -295,8 +295,6 @@ bool WindowManager::init(int &argc, char **argv)
         mScreens[i].visual = xcb_aux_get_visualtype(mConn, i, it.data->root_visual);
         xcb_screen_next(&it);
     }
-    error() << "Got screens" << screenCount;
-
     mEwmhConn = new xcb_ewmh_connection_t;
     xcb_intern_atom_cookie_t* ewmhCookies = xcb_ewmh_init_atoms(mConn, mEwmhConn);
     if (!ewmhCookies) {
@@ -331,8 +329,8 @@ bool WindowManager::init(int &argc, char **argv)
         }
     }
 
-
     if (!isRunning()) {
+        error() << "Got screens" << screenCount;
         ServerGrabScope scope(mConn);
 
         if (!install()) {
@@ -923,7 +921,7 @@ void WindowManager::setFocusedClient(const Client::SharedPtr &client)
         mJS.onClientFocused(client);
 }
 
-std::pair<int16_t, int16_t> WindowManager::pointer(bool *ok) const
+Point WindowManager::pointer(int *screen, bool *ok) const
 {
     xcb_query_pointer_cookie_t cookie = xcb_query_pointer(mConn, roots()[mCurrentScreen]);
     AutoPointer<xcb_generic_error_t> err;
@@ -932,31 +930,34 @@ std::pair<int16_t, int16_t> WindowManager::pointer(bool *ok) const
         LOG_ERROR(err, "Unable to query pointer");
         if (ok)
             *ok = false;
-        return std::pair<int16_t, int16_t>(0, 0);
+        if (screen)
+            *screen = -1;
+        return Point();
     }
     if (ok)
         *ok = true;
+    if (screen)
+        *screen = screenNumber(reply->root);
 
-    return std::make_pair(reply->root_x, reply->root_y);
+    return Point(reply->root_x, reply->root_y);
 }
 
 
-bool WindowManager::warpPointer(int16_t x, int16_t y, int screen, PointerMode mode)
+bool WindowManager::warpPointer(const Point &point, int screen, PointerMode mode)
 {
     if (screen == -1) {
-        screen = mCurrentScreen;
-    } else {
-        #warning "what do to here?"
-    }
-    if (mode == Warp_Absolute) {
         bool ok;
-        auto cur = pointer(&ok);
+        pointer(&screen, &ok);
         if (!ok)
             return false;
-        x -= cur.first;
-        y -= cur.second;
     }
-    xcb_void_cookie_t cookie = xcb_warp_pointer_checked(mConn, XCB_NONE, XCB_NONE, 0, 0, 0, 0, x, y);
+    if (screen < 0 || screen >= mScreens.size()) {
+        error() << "Invalid screen" << screen;
+        return false;
+    }
+
+    xcb_void_cookie_t cookie = xcb_warp_pointer_checked(mConn, XCB_NONE, mScreens.at(screen).screen->root,
+                                                        0, 0, 0, 0, point.x, point.y);
     AutoPointer<xcb_generic_error_t> err(xcb_request_check(mConn, cookie));
     if (err) {
         LOG_ERROR(err, "Unable to warp pointer");

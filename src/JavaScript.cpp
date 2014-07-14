@@ -66,6 +66,16 @@ static inline Rect toRect(const Value& value)
     return rect;
 }
 
+static inline Value fromRect(const Rect &rect)
+{
+    Value ret;
+    ret["x"] = rect.x;
+    ret["y"] = rect.x;
+    ret["width"] = rect.width;
+    ret["height"] = rect.height;
+    return ret;
+}
+
 static inline Color toColor(const Value& value)
 {
     assert(value.isMap() || value.isNull() || value.isUndefined());
@@ -98,13 +108,16 @@ bool JavaScript::init(String *err)
                     return client->instanceName();
                 if (prop == "floating")
                     return client->isFloating();
+                if (prop == "screen")
+                    return client->screenNumber();
                 if (prop == "dialog")
                     return client->isDialog();
                 if (prop == "window")
                     return static_cast<int32_t>(client->window());
-                if (prop == "focused") {
+                if (prop == "rect")
+                    return fromRect(client->rect());
+                if (prop == "focused")
                     return Value(WindowManager::instance()->focusedClient() == client);
-                }
             }
             return Value();
         },
@@ -181,10 +194,15 @@ bool JavaScript::init(String *err)
         },
         // query, return Class::QueryResult
         [](const String& prop) -> Value {
-            if (prop == "title" || prop == "class" || prop == "instance" || prop == "dialog" || prop == "window" || prop == "focused")
+            if (prop == "title" || prop == "class" || prop == "instance" ||
+                prop == "dialog" || prop == "window" || prop == "focused" ||
+                prop == "screen" || prop == "rect") {
                 return Class::ReadOnly|Class::DontDelete;
-            if (prop == "floating" || prop == "backgroundColor" || prop == "text")
+            }
+
+            if (prop == "floating" || prop == "backgroundColor" || prop == "text") {
                 return Class::DontDelete;
+            }
             return Value();
         },
         // deleter, return bool
@@ -194,7 +212,8 @@ bool JavaScript::init(String *err)
         // enumerator, return List of property names intercepted
         []() -> Value {
             return List<Value>() << "title" << "class" << "instance" << "floating" << "dialog"
-                                 << "window" << "focused" << "backgroundColor" << "text";
+                                 << "window" << "focused" << "backgroundColor" << "text"
+                                 << "screen" << "rect";
         });
     mClientClass->registerConstructor([](const Value& arg) -> Value {
             if (!arg.isMap())
@@ -269,7 +288,7 @@ bool JavaScript::init(String *err)
             }
             Client::WeakPtr weak = obj->extraData<Client::WeakPtr>();
             if (Client::SharedPtr client = weak.lock()) {
-                client->move(Point({ static_cast<uint32_t>(args[0].toInteger()), static_cast<uint32_t>(args[1].toInteger()) }));
+                client->move(Point(args[0].toInteger(), args[1].toInteger()));
                 WindowManager *wm = WindowManager::instance();
                 assert(wm);
                 xcb_flush(wm->connection());
@@ -285,7 +304,7 @@ bool JavaScript::init(String *err)
             }
             Client::WeakPtr weak = obj->extraData<Client::WeakPtr>();
             if (Client::SharedPtr client = weak.lock()) {
-                client->resize(Size({ static_cast<uint32_t>(args[0].toInteger()), static_cast<uint32_t>(args[1].toInteger()) }));
+                client->resize(Size(args[0].toInteger(), args[1].toInteger()));
                 WindowManager *wm = WindowManager::instance();
                 assert(wm);
                 xcb_flush(wm->connection());
@@ -449,13 +468,14 @@ bool JavaScript::init(String *err)
                           [](const Object::SharedPtr&) -> Value {
                               bool ok;
                               WindowManager *wm = WindowManager::instance();
-                              auto pointer = wm->pointer(&ok);
+                              int screen;
+                              auto pointer = wm->pointer(&screen, &ok);
                               if (!ok)
                                   return instance()->throwException<Value>("Can't query pointer");
                               Value value;
-                              value["x"] = pointer.first;
-                              value["y"] = pointer.second;
-                              value["screen"] = wm->currentScreen();
+                              value["x"] = static_cast<int>(pointer.x);
+                              value["y"] = static_cast<int>(pointer.y);
+                              value["screen"] = screen;
                               return value;
                           },
                           [](const Object::SharedPtr&, const Value& value) {
@@ -472,7 +492,7 @@ bool JavaScript::init(String *err)
                                   const Value& scr = value["screen"];
                                   if (scr.type() != Value::Type_Integer)
                                       return instance()->throwException<void>("Warp object needs to be an object with integral x, y and optionally screen and relative");
-                                  screen = value.toInteger();
+                                  screen = scr.toInteger();
                               }
 
                               WindowManager::PointerMode mode = WindowManager::Warp_Absolute;
@@ -486,7 +506,7 @@ bool JavaScript::init(String *err)
                               }
 
                               WindowManager *wm = WindowManager::instance();
-                              if (!wm->warpPointer(x.toInteger(), y.toInteger(), screen, mode)) {
+                              if (!wm->warpPointer(Point(x.toInteger(), y.toInteger()), screen, mode)) {
                                   instance()->throwException<void>("Invalid warp parameters");
                               }
                           });

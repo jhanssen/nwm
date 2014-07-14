@@ -48,8 +48,8 @@ bool GridLayout::forEach(const std::function<bool(GridLayout *layout)>& func)
 
 static inline Size calcSize(GridLayout *c1, GridLayout *c2, GridLayout *p)
 {
-    const unsigned int w2 = (c2 ? c2->requestedSize().width : 0);
-    const unsigned int h2 = (c2 ? c2->requestedSize().height : 0);
+    const int w2 = (c2 ? c2->requestedSize().width : 0);
+    const int h2 = (c2 ? c2->requestedSize().height : 0);
 
     if (p->direction() == GridLayout::TopBottom)
         return Size({ p->rect().width, std::max(c1->requestedSize().height, h2) });
@@ -61,7 +61,7 @@ Layout *GridLayout::add(const Size& size)
     // find either a child with sufficient amount of remaining space or the one
     // with the highest ratio of unused vs. used space
     float curRatio = 1.;
-    unsigned int curGeom = 0;
+    int curGeom = 0;
     GridLayout *curGridLayout = 0;
     forEach([&curRatio, &curGeom, &curGridLayout, size](GridLayout *layout) -> bool {
             error() << "looking at" << layout->rect();
@@ -92,7 +92,7 @@ Layout *GridLayout::add(const Size& size)
                     // yes, let's use this one
                     return false;
                 } else {
-                    unsigned int reqGeom;
+                    int reqGeom;
                     const Size pSize = layout->rect().size();
                     if (num == 1) {
                         const Size c1Size = c1->requestedSize();
@@ -102,7 +102,7 @@ Layout *GridLayout::add(const Size& size)
                         reqGeom = 1; // avoid division by zero
                     }
                     const float ratio = reqGeom / static_cast<float>(pSize.width * pSize.height);
-                    const unsigned int geom = (pSize.width * pSize.height) / static_cast<float>(reqGeom);
+                    const int geom = (pSize.width * pSize.height) / static_cast<float>(reqGeom);
                     if (ratio <= curRatio && geom > curGeom) {
                         error() << "    candidate 1";
                         curRatio = ratio;
@@ -116,9 +116,9 @@ Layout *GridLayout::add(const Size& size)
                 const Size c2Size = c2->requestedSize();
                 const Size pSize = layout->rect().size();
 
-                const unsigned int reqGeom = (c1Size.width * c1Size.height) + (c2Size.width * c2Size.height);
+                const int reqGeom = (c1Size.width * c1Size.height) + (c2Size.width * c2Size.height);
                 const float ratio = reqGeom / static_cast<float>(pSize.width * pSize.height);
-                const unsigned int geom = (pSize.width * pSize.height) / static_cast<float>(reqGeom);
+                const int geom = (pSize.width * pSize.height) / static_cast<float>(reqGeom);
                 error() << "considering 2" << c1Size << c2Size << pSize << "req" << reqGeom << ratio << geom << "cur" << curRatio << curGeom;
                 if (ratio <= curRatio && geom > curGeom) {
                     error() << "candidate 2";
@@ -222,7 +222,7 @@ void GridLayout::relayout()
     const Size& secondSize = second->requestedSize();
     switch (mDirection) {
     case LeftRight: {
-        const unsigned int mid = mRect.width / 2;
+        const int mid = mRect.width / 2;
         if (firstSize.width <= mid && secondSize.width <= mid) {
             // we're good
             first->mRect = { mRect.x, mRect.y, mid, mRect.height };
@@ -230,14 +230,14 @@ void GridLayout::relayout()
             second->mRect = { mRect.x + mid, mRect.y, mid, mRect.height };
             second->relayout();
         } else {
-            const unsigned int total = firstSize.width + secondSize.width;
+            const int total = firstSize.width + secondSize.width;
             if (total <= mRect.width) {
                 const float firstRatio = static_cast<float>(firstSize.width) / mRect.width;
                 const float secondRatio = static_cast<float>(secondSize.width) / mRect.width;
-                first->mRect = { mRect.x, mRect.y, static_cast<unsigned int>(mRect.width * firstRatio), mRect.height };
+                first->mRect = { mRect.x, mRect.y, static_cast<int>(mRect.width * firstRatio), mRect.height };
                 first->relayout();
-                second->mRect = { static_cast<unsigned int>(mRect.x + (mRect.width * firstRatio)), mRect.y,
-                                  static_cast<unsigned int>(mRect.width * secondRatio), mRect.height };
+                second->mRect = { static_cast<int>(mRect.x + (mRect.width * firstRatio)), mRect.y,
+                                  static_cast<int>(mRect.width * secondRatio), mRect.height };
                 second->relayout();
             } else {
                 // something's gotta give, can we accomodate one without screwing over the other?
@@ -251,7 +251,7 @@ void GridLayout::relayout()
                         const float ratio = static_cast<float>(remaining) / firstSize.width;
                         if (ratio > 0.7) {
                             // let's go with that
-                            first->mRect = { mRect.x, mRect.y, static_cast<const unsigned int>(remaining), mRect.height };
+                            first->mRect = { mRect.x, mRect.y, static_cast<const int>(remaining), mRect.height };
                             first->relayout();
                             second->mRect = { mRect.x + remaining, mRect.y, secondSize.width, mRect.height };
                             second->relayout();
@@ -267,7 +267,7 @@ void GridLayout::relayout()
                             // let's go with that
                             first->mRect = { mRect.x, mRect.y, firstSize.width, mRect.height };
                             first->relayout();
-                            second->mRect = { mRect.x + firstSize.width, mRect.y, static_cast<const unsigned int>(remaining), mRect.height };
+                            second->mRect = { mRect.x + firstSize.width, mRect.y, static_cast<const int>(remaining), mRect.height };
                             second->relayout();
                             done = true;
                         }
@@ -277,17 +277,17 @@ void GridLayout::relayout()
                     // fall back to a pure ratio calculation
                     const float firstRatio = (static_cast<float>(firstSize.width) / mRect.width) / 2.;
                     const float secondRatio = (static_cast<float>(secondSize.width) / mRect.width) / 2.;
-                    first->mRect = { mRect.x, mRect.y, static_cast<unsigned int>(mRect.width * firstRatio), mRect.height };
+                    first->mRect = { mRect.x, mRect.y, static_cast<int>(mRect.width * firstRatio), mRect.height };
                     first->relayout();
-                    second->mRect = { static_cast<unsigned int>(mRect.x + (mRect.width * firstRatio)), mRect.y,
-                                      static_cast<unsigned int>(mRect.width * secondRatio), mRect.height };
+                    second->mRect = { static_cast<int>(mRect.x + (mRect.width * firstRatio)), mRect.y,
+                                      static_cast<int>(mRect.width * secondRatio), mRect.height };
                     second->relayout();
                 }
             }
         }
         break; }
     case TopBottom: {
-        const unsigned int mid = mRect.height / 2;
+        const int mid = mRect.height / 2;
         if (firstSize.height <= mid && secondSize.height <= mid) {
             // we're good
             first->mRect = { mRect.x, mRect.y, mRect.width, mid };
@@ -295,14 +295,14 @@ void GridLayout::relayout()
             second->mRect = { mRect.x, mRect.y + mid, mRect.width, mid };
             second->relayout();
         } else {
-            const unsigned int total = firstSize.height + secondSize.height;
+            const int total = firstSize.height + secondSize.height;
             if (total <= mRect.height) {
                 const float firstRatio = static_cast<float>(firstSize.height) / mRect.height;
                 const float secondRatio = static_cast<float>(secondSize.height) / mRect.height;
-                first->mRect = { mRect.x, mRect.y, mRect.width, static_cast<unsigned int>(mRect.height * firstRatio) };
+                first->mRect = { mRect.x, mRect.y, mRect.width, static_cast<int>(mRect.height * firstRatio) };
                 first->relayout();
-                second->mRect = { mRect.x, static_cast<unsigned int>(mRect.y + (mRect.height * firstRatio)),
-                                  mRect.width, static_cast<unsigned int>(mRect.height * secondRatio) };
+                second->mRect = { mRect.x, static_cast<int>(mRect.y + (mRect.height * firstRatio)),
+                                  mRect.width, static_cast<int>(mRect.height * secondRatio) };
                 second->relayout();
             } else {
                 // something's gotta give, can we accomodate one without screwing over the other?
@@ -316,7 +316,7 @@ void GridLayout::relayout()
                         const float ratio = static_cast<float>(remaining) / firstSize.height;
                         if (ratio > 0.7) {
                             // let's go with that
-                            first->mRect = { mRect.x, mRect.y, mRect.width, static_cast<const unsigned int>(remaining) };
+                            first->mRect = { mRect.x, mRect.y, mRect.width, static_cast<const int>(remaining) };
                             first->relayout();
                             second->mRect = { mRect.x, mRect.y + remaining, mRect.height, secondSize.height };
                             second->relayout();
@@ -332,7 +332,7 @@ void GridLayout::relayout()
                             // let's go with that
                             first->mRect = { mRect.x, mRect.y, mRect.width, firstSize.height };
                             first->relayout();
-                            second->mRect = { mRect.x, mRect.y + firstSize.height, mRect.width, static_cast<const unsigned int>(remaining) };
+                            second->mRect = { mRect.x, mRect.y + firstSize.height, mRect.width, static_cast<const int>(remaining) };
                             second->relayout();
                             done = true;
                         }
@@ -342,10 +342,10 @@ void GridLayout::relayout()
                     // fall back to a pure ratio calculation
                     const float firstRatio = (static_cast<float>(firstSize.height) / mRect.height) / 2.;
                     const float secondRatio = (static_cast<float>(secondSize.height) / mRect.height) / 2.;
-                    first->mRect = { mRect.x, mRect.y, mRect.width, static_cast<unsigned int>(mRect.height * firstRatio) };
+                    first->mRect = { mRect.x, mRect.y, mRect.width, static_cast<int>(mRect.height * firstRatio) };
                     first->relayout();
-                    second->mRect = { mRect.x, static_cast<unsigned int>(mRect.y + (mRect.height * firstRatio)),
-                                      mRect.width, static_cast<unsigned int>(mRect.height * secondRatio) };
+                    second->mRect = { mRect.x, static_cast<int>(mRect.y + (mRect.height * firstRatio)),
+                                      mRect.width, static_cast<int>(mRect.height * secondRatio) };
                     second->relayout();
                 }
             }
@@ -366,13 +366,13 @@ void GridLayout::adjust(int delta)
     switch (mDirection) {
     case LeftRight: {
         first->mRect = { mRect.x, mRect.y,
-                         static_cast<const unsigned int>(std::min<int>(std::max<int>(1, first->mRect.width + delta), mRect.width - 1)),
+                         static_cast<const int>(std::min<int>(std::max<int>(1, first->mRect.width + delta), mRect.width - 1)),
                          mRect.height };
         second->mRect = { mRect.x + first->mRect.width, mRect.y, mRect.width - first->mRect.width, mRect.height };
         break; }
     case TopBottom: {
         first->mRect = { mRect.x, mRect.y, mRect.width,
-                         static_cast<const unsigned int>(std::min<int>(std::max<int>(1, first->mRect.height + delta), mRect.height - 1)) };
+                         static_cast<const int>(std::min<int>(std::max<int>(1, first->mRect.height + delta), mRect.height - 1)) };
         second->mRect = { mRect.x, mRect.y + first->mRect.height, mRect.width, mRect.height - first->mRect.height };
         break; }
     }

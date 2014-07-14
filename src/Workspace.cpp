@@ -77,6 +77,7 @@ void Workspace::updateFocus(const Client::SharedPtr& client)
         wm->updateCurrentScreen(mScreenNumber);
         const xcb_window_t root = screen()->root;
         xcb_set_input_focus(wm->connection(), XCB_INPUT_FOCUS_PARENT, root, wm->timestamp());
+        // error() << "Setting input focus to root" << root;
         xcb_ewmh_set_active_window(wm->ewmhConnection(), mScreenNumber, root);
     }
 }

@@ -16,7 +16,7 @@ void handleButtonPress(const xcb_button_press_event_t* event)
     Client::SharedPtr client = Client::client(event->event);
     if (client) {
         xcb_connection_t* conn = wm->connection();
-#warning shouldn't call raise if we're raised
+#warning should not call raise if we are raised
         client->raise();
         if (wm->focusPolicy() == WindowManager::FocusClick)
             client->focus();
@@ -59,7 +59,7 @@ void handleButtonPress(const xcb_button_press_event_t* event)
                     return;
                 }
                 free(keyboardReply);
-                wm->startMoving(client, Point({ static_cast<unsigned int>(event->root_x), static_cast<unsigned int>(event->root_y) }));
+                wm->startMoving(client, Point(event->root_x, event->root_y));
             }
             xcb_allow_events(conn, XCB_ALLOW_ASYNC_POINTER, event->time);
             return;
@@ -107,8 +107,7 @@ void handleMotionNotify(const xcb_motion_notify_event_t* event)
     Point origin = wm->movingOrigin();
     if (client) {
         // move window
-        Point point = Point({ static_cast<unsigned int>(event->root_x),
-                              static_cast<unsigned int>(event->root_y) });
+        const Point point = Point(event->root_x, event->root_y);
         Point current = client->position();
         current.x += (point.x - origin.x);
         current.y += (point.y - origin.y);

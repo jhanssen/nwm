@@ -56,40 +56,40 @@ void Client::complete()
 #warning support partial struts
         Rect rect = wm->rect(mScreenNumber);
         if (mStrut.left) {
-            if (mRequestedGeom.width != mStrut.left)
-                mRequestedGeom.width = mStrut.left;
-            mRequestedGeom.x = rect.x;
-            rect.x += mRequestedGeom.width;
-            rect.width -= mRequestedGeom.width;
+            if (mRect.width != static_cast<int>(mStrut.left))
+                mRect.width = mStrut.left;
+            mRect.x = rect.x;
+            rect.x += mRect.width;
+            rect.width -= mRect.width;
         } else if (mStrut.right) {
-            if (mRequestedGeom.width != mStrut.right)
-                mRequestedGeom.width = mStrut.right;
-            mRequestedGeom.x = rect.x + rect.width - mStrut.right;
+            if (mRect.width != static_cast<int>(mStrut.right))
+                mRect.width = mStrut.right;
+            mRect.x = rect.x + rect.width - mStrut.right;
             rect.width -= mStrut.right;
         } else if (mStrut.top) {
-            if (mRequestedGeom.height != mStrut.top)
-                mRequestedGeom.height = mStrut.top;
-            mRequestedGeom.y = rect.y;
-            rect.y += mRequestedGeom.height;
-            rect.height -= mRequestedGeom.height;
+            if (mRect.height != static_cast<int>(mStrut.top))
+                mRect.height = mStrut.top;
+            mRect.y = rect.y;
+            rect.y += mRect.height;
+            rect.height -= mRect.height;
         } else if (mStrut.bottom) {
-            if (mRequestedGeom.height != mStrut.bottom)
-                mRequestedGeom.height = mStrut.bottom;
-            mRequestedGeom.y = rect.y + rect.height - mStrut.bottom;
+            if (mRect.height != static_cast<int>(mStrut.bottom))
+                mRect.height = mStrut.bottom;
+            mRect.y = rect.y + rect.height - mStrut.bottom;
             rect.height -= mStrut.bottom;
         }
         wm->setRect(rect, mScreenNumber);
-        layoutRect = mRequestedGeom;
+        layoutRect = mRect;
         warning() << "fixed at" << layoutRect;
     } else {
         if (shouldLayout()) {
-            mLayout = wm->activeWorkspace(mScreenNumber)->layout()->add(Size({ mRequestedGeom.width, mRequestedGeom.height }));
+            mLayout = wm->activeWorkspace(mScreenNumber)->layout()->add(Size({ mRect.width, mRect.height }));
             layoutRect = mLayout->rect();
             warning() << "laid out at" << layoutRect;
             wm->activeWorkspace(mScreenNumber)->layout()->dump();
             mLayout->rectChanged().connect(std::bind(&Client::onLayoutChanged, this, std::placeholders::_1));
         } else {
-            layoutRect = mRequestedGeom;
+            layoutRect = mRect;
             mFloating = true;
             warning() << "floating at" << layoutRect;
         }
@@ -113,13 +113,13 @@ void Client::complete()
          | XCB_EVENT_MASK_BUTTON_PRESS
          | XCB_EVENT_MASK_BUTTON_RELEASE)
     };
-    warning() << "creating frame window" << layoutRect << mRequestedGeom;
+    warning() << "creating frame window" << layoutRect << mRect;
     if (mFloating) {
         const Rect &wsRect = wm->activeWorkspace(mScreenNumber)->rect();
         layoutRect.x = std::max<int>(0, (wsRect.width - layoutRect.width) / 2);
         layoutRect.y = std::max<int>(0, (wsRect.height - layoutRect.height) / 2);
-        mRequestedGeom.x = layoutRect.x;
-        mRequestedGeom.y = layoutRect.y;
+        mRect.x = layoutRect.x;
+        mRect.y = layoutRect.y;
     }
     xcb_create_window(conn, XCB_COPY_FROM_PARENT, mFrame, scr->root,
                       layoutRect.x, layoutRect.y, layoutRect.width, layoutRect.height, 0,
@@ -145,11 +145,11 @@ void Client::complete()
         uint16_t windowMask = 0;
         uint32_t windowValues[3];
         int i = 0;
-        if (mRequestedGeom.width != layoutRect.width) {
+        if (mRect.width != layoutRect.width) {
             windowMask |= XCB_CONFIG_WINDOW_WIDTH;
             windowValues[i++] = layoutRect.width;
         }
-        if (mRequestedGeom.height != layoutRect.height) {
+        if (mRect.height != layoutRect.height) {
             windowMask |= XCB_CONFIG_WINDOW_HEIGHT;
             windowValues[i++] = layoutRect.height;
         }
@@ -178,7 +178,7 @@ bool Client::updateWorkspace(Workspace *workspace)
         return true;
     mWorkspace->removeClient(shared_from_this());
     if (shouldLayout()) {
-        mLayout = workspace->layout()->add(Size({ mRequestedGeom.width, mRequestedGeom.height }));
+        mLayout = workspace->layout()->add(Size({ mRect.width, mRect.height }));
         mLayout->rectChanged().connect(std::bind(&Client::onLayoutChanged, this, std::placeholders::_1));
     } else {
         assert(mFloating);
@@ -238,7 +238,7 @@ void Client::updateLeader(xcb_connection_t* conn, xcb_get_property_cookie_t cook
 void Client::updateSize(xcb_connection_t* conn, xcb_get_geometry_cookie_t cookie)
 {
     AutoPointer<xcb_get_geometry_reply_t> geom(xcb_get_geometry_reply(conn, cookie, 0));
-    mRequestedGeom = { static_cast<uint32_t>(geom->x), static_cast<uint32_t>(geom->y), geom->width, geom->height };
+    mRect = Rect(geom->x, geom->y, geom->width, geom->height);
 }
 
 void Client::updateNormalHints(xcb_connection_t* conn, xcb_get_property_cookie_t cookie)
@@ -247,12 +247,12 @@ void Client::updateNormalHints(xcb_connection_t* conn, xcb_get_property_cookie_t
         // overwrite the response from xcb_get_geometry_unchecked
         if (mNormalHints.flags & XCB_ICCCM_SIZE_HINT_US_SIZE
             || mNormalHints.flags & XCB_ICCCM_SIZE_HINT_P_SIZE) {
-            mRequestedGeom.width = mNormalHints.width;
-            mRequestedGeom.height = mNormalHints.height;
+            mRect.width = mNormalHints.width;
+            mRect.height = mNormalHints.height;
         }
         if (mNormalHints.flags & XCB_ICCCM_SIZE_HINT_P_POSITION) {
-            mRequestedGeom.x = mNormalHints.x;
-            mRequestedGeom.y = mNormalHints.y;
+            mRect.x = mNormalHints.x;
+            mRect.y = mNormalHints.y;
         }
     } else {
         memset(&mNormalHints, '\0', sizeof(mNormalHints));
@@ -408,12 +408,13 @@ void Client::onLayoutChanged(const Rect& rect)
     xcb_connection_t* conn = WindowManager::instance()->connection();
     {
         const uint16_t mask = XCB_CONFIG_WINDOW_X|XCB_CONFIG_WINDOW_Y|XCB_CONFIG_WINDOW_WIDTH|XCB_CONFIG_WINDOW_HEIGHT;
-        const uint32_t values[4] = { rect.x, rect.y, rect.width, rect.height };
+        const uint32_t values[4] = { static_cast<uint32_t>(rect.x), static_cast<uint32_t>(rect.y),
+                                     static_cast<uint32_t>(rect.width), static_cast<uint32_t>(rect.height) };
         xcb_configure_window(conn, mFrame, mask, values);
     }
     {
         const uint16_t mask = XCB_CONFIG_WINDOW_WIDTH|XCB_CONFIG_WINDOW_HEIGHT;
-        const uint32_t values[2] = { rect.width, rect.height };
+        const uint32_t values[2] = { static_cast<uint32_t>(rect.width), static_cast<uint32_t>(rect.height) };
         xcb_configure_window(conn, mWindow, mask, values);
     }
 }
@@ -521,7 +522,7 @@ void Client::setText(const Rect& rect, const Font& font, const Color& color, con
         return;
     if (!mGraphics)
         mGraphics = new Graphics(shared_from_this());
-    mGraphics->setText(rect.isEmpty() ? Rect({ 0, 0, mRequestedGeom.width, mRequestedGeom.height }) : rect, font, color, string);
+    mGraphics->setText(rect.isEmpty() ? Rect({ 0, 0, mRect.width, mRect.height }) : rect, font, color, string);
     mGraphics->redraw();
 }
 
@@ -568,6 +569,7 @@ void Client::focus()
                        reinterpret_cast<char*>(&event));
     }
     xcb_set_input_focus(wm->connection(), XCB_INPUT_FOCUS_PARENT, mWindow, wm->timestamp());
+    // error() << "Setting input focus to client" << mWindow << mClass.className;
     xcb_ewmh_set_active_window(wm->ewmhConnection(), mScreenNumber, mWindow);
     wm->setFocusedClient(shared_from_this());
     if (mWorkspace)
@@ -592,12 +594,12 @@ void Client::resize(const Size& size)
 {
     if (!mFloating)
         return;
-    mRequestedGeom.width = size.width;
-    mRequestedGeom.height = size.height;
+    mRect.width = size.width;
+    mRect.height = size.height;
 
     xcb_connection_t* conn = WindowManager::instance()->connection();
     const uint16_t mask = XCB_CONFIG_WINDOW_WIDTH|XCB_CONFIG_WINDOW_HEIGHT;
-    const uint32_t values[2] = { size.width, size.height };
+    const uint32_t values[2] = { static_cast<uint32_t>(size.width), static_cast<uint32_t>(size.height) };
     xcb_configure_window(conn, mFrame, mask, values);
     xcb_configure_window(conn, mWindow, mask, values);
 }
@@ -606,12 +608,12 @@ void Client::move(const Point& point)
 {
     if (!mFloating)
         return;
-    mRequestedGeom.x = point.x;
-    mRequestedGeom.y = point.y;
+    mRect.x = point.x;
+    mRect.y = point.y;
 
     xcb_connection_t* conn = WindowManager::instance()->connection();
     const uint16_t mask = XCB_CONFIG_WINDOW_X|XCB_CONFIG_WINDOW_Y;
-    const uint32_t values[2] = { point.x, point.y };
+    const uint32_t values[2] = { static_cast<uint32_t>(point.x), static_cast<uint32_t>(point.y) };
     xcb_configure_window(conn, mFrame, mask, values);
 }
 
@@ -646,7 +648,7 @@ bool Client::kill(int sig)
 
 void Client::configure()
 {
-    const Rect& layoutRect = mLayout ? mLayout->rect() : mRequestedGeom;
+    const Rect& layoutRect = mLayout ? mLayout->rect() : mRect;
     xcb_connection_t* conn = WindowManager::instance()->connection();
 
     xcb_configure_notify_event_t ce;
@@ -696,4 +698,18 @@ xcb_screen_t *Client::screen() const
 xcb_visualtype_t* Client::visual() const
 {
     return WindowManager::instance()->visualForScreen(mScreenNumber);
+}
+
+void Client::setRect(const Rect &rect)
+{
+    if (!mFloating)
+        return;
+    mRect = rect;
+
+    xcb_connection_t* conn = WindowManager::instance()->connection();
+    const uint16_t mask = (XCB_CONFIG_WINDOW_X|XCB_CONFIG_WINDOW_Y
+                           |XCB_CONFIG_WINDOW_WIDTH|XCB_CONFIG_WINDOW_HEIGHT);
+    const uint32_t values[4] = { static_cast<uint32_t>(rect.x), static_cast<uint32_t>(rect.y),
+                                 static_cast<uint32_t>(rect.width), static_cast<uint32_t>(rect.height) };
+    xcb_configure_window(conn, mFrame, mask, values);
 }
