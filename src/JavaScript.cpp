@@ -340,15 +340,27 @@ bool JavaScript::init(String *err)
     // --------------- nwm ---------------
     auto nwm = global->child("nwm");
     nwm->registerFunction("launch", [](const Object::SharedPtr&, const List<Value> &args) -> Value {
-            if (args.size() != 1) {
-                return instance()->throwException<Value>("Invalid number of arguments to launch, 1 required");
+            if (args.size() != 1 && args.size() != 2) {
+                return instance()->throwException<Value>("Invalid number of arguments to launch, 1 or 2 required");
             }
             const Value &arg = args.front();
             if (arg.type() != Value::Type_String) {
                 return instance()->throwException<Value>("Argument to launch needs to be a string");
             }
-            WindowManager *wm = WindowManager::instance();
-            Util::launch(arg.toString(), wm->displayString());
+
+            Hash<String, String> env;
+            if (args.size() == 2 && !args[1].isUndefined()) {
+                if (args[1].type() != Value::Type_Map)
+                    return instance()->throwException<Value>("Second argument to launch needs to be an object");
+                for (const auto &it : args[1].toMap()) {
+                    env[it.first] = it.second.toString();
+                }
+            }
+
+            if (!env.contains("DISPLAY"))
+                env["DISPLAY"] = WindowManager::instance()->displayString();
+
+            Util::launch(arg.toString(), env);
             return true;
         });
     nwm->registerFunction("readFile", [](const Object::SharedPtr&, const List<Value> &args) -> Value {
@@ -364,8 +376,6 @@ bool JavaScript::init(String *err)
                 return Value::undefined();
             return path.readAll();
         });
-
-
     nwm->registerFunction("exec", [](const Object::SharedPtr&, const List<Value> &args) -> Value {
             if (args.size() < 1) {
                 return instance()->throwException<Value>("Invalid number of arguments to exec, at least 1 required");
@@ -429,7 +439,6 @@ bool JavaScript::init(String *err)
             WindowManager::instance()->quit(args.isEmpty() ? 0 : args.first().toInteger());
             return Value::undefined();
         });
-
     nwm->registerProperty("clients",
                           [this](const Object::SharedPtr&) -> Value {
                               List<Value> ret;
@@ -525,6 +534,16 @@ bool JavaScript::init(String *err)
                               }
                           });
 
+    Value env;
+    for (int i=0; environ[i]; ++i) {
+        char *eq = strchr(environ[i], '=');
+        if (eq) {
+            env[String(environ[i], eq - environ[i])] = eq + 1;
+        } else {
+            env[environ[i]] = "";
+        }
+    }
+    nwm->setProperty("env", env);
     nwm->setProperty("FocusFollowsMouse", WindowManager::FocusFollowsMouse);
     nwm->setProperty("FocusClick", WindowManager::FocusClick);
 
