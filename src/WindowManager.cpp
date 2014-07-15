@@ -65,7 +65,7 @@ class NWMMessage : public Message
 public:
     enum { MessageId = 100 };
     NWMMessage()
-        : Message(MessageId), mFlags(0)
+        : Message(MessageId), mFlags(0), mExitCode(0)
     {}
 
     unsigned int flags() const { return mFlags; }
@@ -79,12 +79,15 @@ public:
     void setScripts(const List<String> &scripts) { mScripts = scripts; }
     void setFlag(Flag flag, bool on = true) { if (on) { mFlags |= flag; } else { mFlags &= ~flag; } }
     void setFlags(unsigned int flags) { mFlags = flags; }
+    void setExitCode(int exitCode) { mExitCode = exitCode; }
+    int exitCode() const { return mExitCode; }
 
-    virtual void encode(Serializer &serializer) const { serializer << mScripts << mFlags; }
-    virtual void decode(Deserializer &deserializer) { deserializer >> mScripts >> mFlags; }
+    virtual void encode(Serializer &serializer) const { serializer << mScripts << mFlags << mExitCode; }
+    virtual void decode(Deserializer &deserializer) { deserializer >> mScripts >> mFlags >> mExitCode; }
 private:
     List<String> mScripts;
     unsigned int mFlags;
+    int mExitCode;
 };
 
 WindowManager *WindowManager::sInstance;
@@ -92,7 +95,7 @@ WindowManager *WindowManager::sInstance;
 WindowManager::WindowManager()
     : mConn(0), mEwmhConn(0), mPreferredScreenIndex(0), mXkbEvent(0), mSyms(0), mTimestamp(XCB_CURRENT_TIME),
       mMoveModifierMask(0), mMoving(0), mFocused(0), mFocusPolicy(FocusFollowsMouse),
-      mCurrentScreen(-1), mRestart(false)
+      mCurrentScreen(-1), mExitCode(0), mRestart(false)
 {
     Messages::registerMessage<NWMMessage>();
     memset(&mXkb, '\0', sizeof(mXkb));
@@ -104,21 +107,21 @@ static inline void usage(FILE *out)
 {
     fprintf(out,
             "nwm [...options...]\n"
-            "  -h|--help                   Display this help\n"
-            "  -v|--verbose                Be more verbose\n"
-            "  -S|--silent                 Don't log\n"
-            "  -l|--logfile [file]         Log to this file\n"
-            "  -c|--config [file]          Use this config file instead of ~/.config/nwm.js\n"
-            "  -N|--no-system-config       Don't load /etc/xdg/nwm.js\n"
-            "  -d|--display [display]      Use this display\n"
-            "  -s|--socket-path [path]     Unix socket path (default ~/.nwm.sock)\n"
-            "  -j|--javascript [code]      Evaluate javascript remotely\n"
-            "  -J|--javascript-file [file] Evaluate javascript remotely from file\n"
-            "  -t|--connect-timeout [ms]   Max time to wait for connection\n"
-            "  -r|--reload                 Reload config files\n"
-            "  -R|--restart                Restart window manager\n"
-            "  -q|--quit                   Stop window manager\n"
-            "  -n|--no-user-config         Don't load ~/.config/nwm.js\n");
+            "  -h|--help                           Display this help\n"
+            "  -v|--verbose                        Be more verbose\n"
+            "  -S|--silent                         Don't log\n"
+            "  -l|--logfile [file]                 Log to this file\n"
+            "  -c|--config [file]                  Use this config file instead of ~/.config/nwm.js\n"
+            "  -N|--no-system-config               Don't load /etc/xdg/nwm.js\n"
+            "  -d|--display [display]              Use this display\n"
+            "  -s|--socket-path [path]             Unix socket path (default ~/.nwm.sock)\n"
+            "  -j|--javascript [code]              Evaluate javascript remotely\n"
+            "  -J|--javascript-file [file]         Evaluate javascript remotely from file\n"
+            "  -t|--connect-timeout [ms]           Max time to wait for connection\n"
+            "  -r|--reload                         Reload config files\n"
+            "  -R|--restart                        Restart window manager\n"
+            "  -q|--quit [optional status code]    Stop window manager\n"
+            "  -n|--no-user-config                 Don't load ~/.config/nwm.js\n");
 }
 
 bool WindowManager::init(int &argc, char **argv)
@@ -145,7 +148,7 @@ bool WindowManager::init(int &argc, char **argv)
         { "socket-path", required_argument, 0, 's' },
         { "javascript", required_argument, 0, 'j' },
         { "javascript-file", required_argument, 0, 'J' },
-        { "quit", no_argument, 0, 'q' },
+        { "quit", optional_argument, 0, 'q' },
         { "reload", no_argument, 0, 'r' },
         { "restart", no_argument, 0, 'R' },
         { "connect-timeout", required_argument, 0, 't' },
@@ -163,6 +166,7 @@ bool WindowManager::init(int &argc, char **argv)
     Path socketPath;
     List<String> scripts;
     unsigned int flags = 0;
+    int exitCode = 0;
     int connectTimeout = 0;
 
     while (true) {
@@ -198,9 +202,24 @@ bool WindowManager::init(int &argc, char **argv)
         case 'r':
             flags |= NWMMessage::Reload;
             break;
-        case 'q':
+        case 'q': {
+            const char *arg = 0;
+            if (optarg) {
+                arg = optarg;
+            } else if (optind < argc && argv[optind][0] != '-') {
+                arg = argv[optind++];
+            }
+            if (arg) {
+                bool ok;
+                exitCode = String(arg).toLongLong(&ok);
+                if (!ok) {
+                    fprintf(stderr, "Invalid argument to -q\n");
+                    return 1;
+                }
+            }
+
             flags |= NWMMessage::Quit;
-            break;
+            break; }
         case 'R':
             flags |= NWMMessage::Restart;
             break;
@@ -384,6 +403,7 @@ bool WindowManager::init(int &argc, char **argv)
                             }
 
                             if (m->flags() & NWMMessage::Quit) {
+                                mExitCode = m->exitCode();
                                 EventLoop::eventLoop()->quit();
                             }
 
@@ -439,6 +459,7 @@ bool WindowManager::init(int &argc, char **argv)
         NWMMessage msg;
         msg.setScripts(scripts);
         msg.setFlags(flags);
+        msg.setExitCode(exitCode);
         connection->send(msg);
         return true;
     }

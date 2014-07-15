@@ -89,6 +89,7 @@ public:
 
     JavaScript& js() { return mJS; }
     bool shouldRestart() const { return mRestart; }
+    int exitCode() const { return mExitCode; }
     Workspace *activeWorkspace(int screenNumber)
     {
         assert(screenNumber >= 0 && screenNumber < mScreens.size());
@@ -149,6 +150,7 @@ private:
     int mCurrentScreen;
 
     SocketServer mServer;
+    int mExitCode;
     bool mRestart;
 
     static WindowManager *sInstance;

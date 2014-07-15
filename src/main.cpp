@@ -6,6 +6,7 @@
 
 int main(int argc, char** argv)
 {
+    int code;
     while (true) {
         EventLoop::SharedPtr loop = std::make_shared<EventLoop>();
         loop->init(EventLoop::MainEventLoop|EventLoop::EnableSigIntHandler);
@@ -18,8 +19,9 @@ int main(int argc, char** argv)
         cleanupLogging();
 
         if (!manager.shouldRestart()) {
+            code = manager.exitCode();
             break;
         }
     }
-    return 0;
+    return code;
 }
