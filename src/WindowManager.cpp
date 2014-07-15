@@ -708,6 +708,7 @@ bool WindowManager::install()
     const int fd = xcb_get_file_descriptor(mConn);
     uint8_t xkbEvent = mXkbEvent;
     EventLoop::eventLoop()->registerSocket(fd, EventLoop::SocketRead, [this, conn, fd, xkbEvent](int, unsigned int) {
+            assert(WindowManager::instance());
             List<xcb_generic_event_t*> events;
             for (;;) {
                 if (xcb_connection_has_error(conn)) {
