@@ -5,7 +5,7 @@
 #include <cairo-xcb.h>
 #endif
 
-Graphics::Graphics(const Client::SharedPtr& client)
+Graphics::Graphics(Client *client)
 #if defined(HAVE_CAIRO) && defined(HAVE_PANGO)
     : mCairo(0), mSurface(0), mTextLayout(0)
 #endif

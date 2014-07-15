@@ -17,7 +17,7 @@ static inline GridLayout *gridParent()
     WindowManager *wm = WindowManager::instance();
     if (!wm)
         return 0;
-    Client::SharedPtr current = wm->focusedClient();
+    Client *current = wm->focusedClient();
     if (!current)
         return 0;
     Layout *layout = current->layout();
@@ -27,13 +27,13 @@ static inline GridLayout *gridParent()
     return parent;
 }
 
-static inline void logValues(FILE* file, const List<Value>& args)
+static inline void logValues(FILE* file, const List<Value> &args)
 {
     String str;
     {
         Log log(&str);
-        for (const Value& arg : args) {
-            const String& str = arg.toString();
+        for (const Value &arg : args) {
+            const String &str = arg.toString();
             if (str.isEmpty())
                 log << arg;
             else
@@ -43,7 +43,7 @@ static inline void logValues(FILE* file, const List<Value>& args)
     fprintf(file, "%s\n", str.constData());
 }
 
-static inline Rect toRect(const Value& value)
+static inline Rect toRect(const Value &value)
 {
     assert(value.isMap());
     Rect rect;
@@ -76,7 +76,7 @@ static inline Value fromRect(const Rect &rect)
     return ret;
 }
 
-static inline Color toColor(const Value& value)
+static inline Color toColor(const Value &value)
 {
     assert(value.isMap() || value.isNull() || value.isUndefined());
     Color color;
@@ -97,9 +97,8 @@ bool JavaScript::init(String *err)
     mClientClass = Class::create("Client");
     mClientClass->interceptPropertyName(
         // getter, return value
-        [](const Object::SharedPtr& obj, const String& prop) -> Value {
-            Client::WeakPtr weak = obj->extraData<Client::WeakPtr>();
-            if (Client::SharedPtr client = weak.lock()) {
+        [](const Object::SharedPtr &obj, const String &prop) -> Value {
+            if (Client *client = obj->extraData<Client*>()) {
                 if (prop == "title")
                     return client->wmName();
                 if (prop == "class")
@@ -122,46 +121,43 @@ bool JavaScript::init(String *err)
             return Value();
         },
         // setter return the value set
-        [](const Object::SharedPtr& obj, const String& prop, const Value& value) -> Value {
+        [](const Object::SharedPtr &obj, const String &prop, const Value &value) -> Value {
             if (prop == "floating") {
                 if (value.type() != Value::Type_Boolean) {
                     return instance()->throwException<Value>("Client.floating needs to be a boolean");
                 }
-                Client::WeakPtr weak = obj->extraData<Client::WeakPtr>();
-                if (Client::SharedPtr client = weak.lock()) {
+                if (Client *client = obj->extraData<Client*>()) {
                     client->setFloating(value.toBool());
                 }
             } else if (prop == "backgroundColor") {
                 if (!value.isMap() && !value.isNull() && !value.isUndefined()) {
                     return instance()->throwException<Value>("Client.backgroundColor needs to be a color");
                 }
-                Client::WeakPtr weak = obj->extraData<Client::WeakPtr>();
-                if (Client::SharedPtr client = weak.lock()) {
+                if (Client *client = obj->extraData<Client*>()) {
                     client->setBackgroundColor(toColor(value));
                 }
             } else if (prop == "text") {
                 if (value.isUndefined() || value.isNull()) {
-                    Client::WeakPtr weak = obj->extraData<Client::WeakPtr>();
-                    if (Client::SharedPtr client = weak.lock()) {
+                    if (Client *client = obj->extraData<Client*>()) {
                         client->clearText();
                     }
                 } else if (value.isMap()) {
                     Rect rect = { 0, 0, 0, 0 };
                     if (value.contains("rect")) {
-                        const Value& val = value["rect"];
+                        const Value &val = value["rect"];
                         if (val.isMap())
                             rect = toRect(val);
                     }
                     if (!value.contains("text")) {
                         return instance()->throwException<Value>("Client.text needs to have a text property");
                     }
-                    const Value& text = value["text"];
+                    const Value &text = value["text"];
                     if (!text.isString()) {
                         return instance()->throwException<Value>("Client.text text needs to be a string");
                     }
                     Color color;
                     if (value.contains("color")) {
-                        const Value& col = value["color"];
+                        const Value &col = value["color"];
                         if (!col.isMap() && !col.isNull() && !col.isUndefined()) {
                             return instance()->throwException<Value>("Client.text color needs to be a color");
                         }
@@ -169,10 +165,10 @@ bool JavaScript::init(String *err)
                     }
                     Font font;
                     if (value.contains("font")) {
-                        const Value& fnt = value["font"];
+                        const Value &fnt = value["font"];
                         if (fnt.isMap() && fnt.contains("family") && fnt.contains("pointSize")) {
-                            const Value& fam = fnt["family"];
-                            const Value& pt = fnt["pointSize"];
+                            const Value &fam = fnt["family"];
+                            const Value &pt = fnt["pointSize"];
                             if (fam.isString() && pt.isInteger()) {
                                 font.setFamily(fam.toString());
                                 font.setPointSize(pt.toInteger());
@@ -182,8 +178,7 @@ bool JavaScript::init(String *err)
                     if (font.family().isEmpty()) {
                         return instance()->throwException<Value>("Client.text needs to have a font property");
                     }
-                    Client::WeakPtr weak = obj->extraData<Client::WeakPtr>();
-                    if (Client::SharedPtr client = weak.lock()) {
+                    if (Client *client = obj->extraData<Client*>()) {
                         client->setText(rect, font, color, text.toString());
                     }
                 } else {
@@ -193,7 +188,7 @@ bool JavaScript::init(String *err)
             return Value();
         },
         // query, return Class::QueryResult
-        [](const String& prop) -> Value {
+        [](const String &prop) -> Value {
             if (prop == "title" || prop == "class" || prop == "instance" ||
                 prop == "dialog" || prop == "window" || prop == "focused" ||
                 prop == "screen" || prop == "rect") {
@@ -206,7 +201,7 @@ bool JavaScript::init(String *err)
             return Value();
         },
         // deleter, return bool
-        [](const String& prop) -> Value {
+        [](const String &prop) -> Value {
             return Value();
         },
         // enumerator, return List of property names intercepted
@@ -215,19 +210,18 @@ bool JavaScript::init(String *err)
                                  << "window" << "focused" << "backgroundColor" << "text"
                                  << "screen" << "rect";
         });
-    mClientClass->registerConstructor([](const Value& arg) -> Value {
+    mClientClass->registerConstructor([](const Value &arg) -> Value {
             if (!arg.isMap())
                 return instance()->throwException<Value>("Client constructor needs an object argument with geometry");
             Rect rect = toRect(arg);
             if (rect.isEmpty())
                 return instance()->throwException<Value>("Client constructor needs an object argument with geometry");
             WindowManager* wm = WindowManager::instance();
-            Client::SharedPtr client = Client::create(rect, wm->currentScreen());
+            Client *client = Client::create(rect, wm->currentScreen());
             return client->jsValue();
         });
     mClientClass->registerFunction("activate", [](const Object::SharedPtr &obj, const List<Value> &) -> Value {
-            Client::WeakPtr weak = obj->extraData<Client::WeakPtr>();
-            if (Client::SharedPtr client = weak.lock()) {
+            if (Client *client = obj->extraData<Client*>()) {
                 client->raise();
                 client->focus();
                 WindowManager *wm = WindowManager::instance();
@@ -237,8 +231,7 @@ bool JavaScript::init(String *err)
             return Value::undefined();
         });
     mClientClass->registerFunction("raise", [](const Object::SharedPtr &obj, const List<Value> &) -> Value {
-            Client::WeakPtr weak = obj->extraData<Client::WeakPtr>();
-            if (Client::SharedPtr client = weak.lock()) {
+            if (Client *client = obj->extraData<Client*>()) {
                 client->raise();
                 WindowManager *wm = WindowManager::instance();
                 assert(wm);
@@ -247,8 +240,7 @@ bool JavaScript::init(String *err)
             return Value::undefined();
         });
     mClientClass->registerFunction("focus", [](const Object::SharedPtr &obj, const List<Value> &) -> Value {
-            Client::WeakPtr weak = obj->extraData<Client::WeakPtr>();
-            if (Client::SharedPtr client = weak.lock()) {
+            if (Client *client = obj->extraData<Client*>()) {
                 client->focus();
                 WindowManager *wm = WindowManager::instance();
                 assert(wm);
@@ -257,8 +249,7 @@ bool JavaScript::init(String *err)
             return Value::undefined();
         });
     mClientClass->registerFunction("close", [](const Object::SharedPtr &obj, const List<Value> &) -> Value {
-            Client::WeakPtr weak = obj->extraData<Client::WeakPtr>();
-            if (Client::SharedPtr client = weak.lock()) {
+            if (Client *client = obj->extraData<Client*>()) {
                 client->close();
                 WindowManager *wm = WindowManager::instance();
                 assert(wm);
@@ -273,8 +264,7 @@ bool JavaScript::init(String *err)
             if (!args[0].isInteger()) {
                 return instance()->throwException<Value>("Invalid arguments to Client.kill. First arg must be an integer");
             }
-            Client::WeakPtr weak = obj->extraData<Client::WeakPtr>();
-            if (Client::SharedPtr client = weak.lock()) {
+            if (Client *client = obj->extraData<Client*>()) {
                 client->kill(args[0].toInteger());
             }
             return Value::undefined();
@@ -286,8 +276,7 @@ bool JavaScript::init(String *err)
             if (!args[0].isInteger() || !args[1].isInteger()) {
                 return instance()->throwException<Value>("Invalid arguments to Client.move. Args must be integers");
             }
-            Client::WeakPtr weak = obj->extraData<Client::WeakPtr>();
-            if (Client::SharedPtr client = weak.lock()) {
+            if (Client *client = obj->extraData<Client*>()) {
                 client->move(Point(args[0].toInteger(), args[1].toInteger()));
                 WindowManager *wm = WindowManager::instance();
                 assert(wm);
@@ -302,8 +291,7 @@ bool JavaScript::init(String *err)
             if (!args[0].isInteger() || !args[1].isInteger()) {
                 return instance()->throwException<Value>("Invalid arguments to Client.resize. Args must be integers");
             }
-            Client::WeakPtr weak = obj->extraData<Client::WeakPtr>();
-            if (Client::SharedPtr client = weak.lock()) {
+            if (Client *client = obj->extraData<Client*>()) {
                 client->resize(Size(args[0].toInteger(), args[1].toInteger()));
                 WindowManager *wm = WindowManager::instance();
                 assert(wm);
@@ -316,14 +304,14 @@ bool JavaScript::init(String *err)
 
     // --------------- console ---------------
     auto console = global->child("console");
-    console->registerFunction("log", [](const Object::SharedPtr&, const List<Value>& args) -> Value {
+    console->registerFunction("log", [](const Object::SharedPtr&, const List<Value> &args) -> Value {
             if (args.isEmpty()) {
                 return instance()->throwException<Value>("No arguments passed to console.log");
             }
             logValues(stdout, args);
             return Value::undefined();
         });
-    console->registerFunction("error", [](const Object::SharedPtr&, const List<Value>& args) -> Value {
+    console->registerFunction("error", [](const Object::SharedPtr&, const List<Value> &args) -> Value {
             if (args.isEmpty()) {
                 return instance()->throwException<Value>("No arguments passed to console.log");
             }
@@ -333,11 +321,11 @@ bool JavaScript::init(String *err)
 
     // --------------- nwm ---------------
     auto nwm = global->child("nwm");
-    nwm->registerFunction("launch", [](const Object::SharedPtr&, const List<Value>& args) -> Value {
+    nwm->registerFunction("launch", [](const Object::SharedPtr&, const List<Value> &args) -> Value {
             if (args.size() != 1) {
                 return instance()->throwException<Value>("Invalid number of arguments to launch, 1 required");
             }
-            const Value& arg = args.front();
+            const Value &arg = args.front();
             if (arg.type() != Value::Type_String) {
                 return instance()->throwException<Value>("Argument to launch needs to be a string");
             }
@@ -345,7 +333,7 @@ bool JavaScript::init(String *err)
             Util::launch(arg.toString(), wm->displayString());
             return true;
         });
-    nwm->registerFunction("readFile", [](const Object::SharedPtr&, const List<Value>& args) -> Value {
+    nwm->registerFunction("readFile", [](const Object::SharedPtr&, const List<Value> &args) -> Value {
             if (args.size() != 1) {
                 return instance()->throwException<Value>("Invalid number of arguments to readFile, 1 required");
             }
@@ -360,11 +348,11 @@ bool JavaScript::init(String *err)
         });
 
 
-    nwm->registerFunction("exec", [](const Object::SharedPtr&, const List<Value>& args) -> Value {
+    nwm->registerFunction("exec", [](const Object::SharedPtr&, const List<Value> &args) -> Value {
             if (args.size() < 1) {
                 return instance()->throwException<Value>("Invalid number of arguments to exec, at least 1 required");
             }
-            const Value& arg = args.front();
+            const Value &arg = args.front();
             if (arg.type() != Value::Type_String) {
                 return instance()->throwException<Value>("First argument to exec needs to be a string");
             }
@@ -397,12 +385,12 @@ bool JavaScript::init(String *err)
                 return instance()->throwException<Value>("exec failed for " + path);
             return proc.readAllStdOut();
         });
-    nwm->registerFunction("on", [this](const Object::SharedPtr&, const List<Value>& args) -> Value {
+    nwm->registerFunction("on", [this](const Object::SharedPtr&, const List<Value> &args) -> Value {
             if (args.size() != 2) {
                 return instance()->throwException<Value>("Invalid number of arguments to nwm.on, 2 required");
             }
-            const Value& name = args.at(0);
-            const Value& func = args.at(1);
+            const Value &name = args.at(0);
+            const Value &func = args.at(1);
             if (name.type() != Value::Type_String) {
                 return instance()->throwException<Value>("First argument to nwm.on needs to be a string");
             }
@@ -437,7 +425,7 @@ bool JavaScript::init(String *err)
                           [](const Object::SharedPtr&) -> Value {
                               return WindowManager::instance()->moveModifier();
                           },
-                          [](const Object::SharedPtr&, const Value& value) {
+                          [](const Object::SharedPtr&, const Value &value) {
                               if (value.type() != Value::Type_String) {
                                   return instance()->throwException<void>("Move modifier needs to be a string");
                               }
@@ -450,7 +438,7 @@ bool JavaScript::init(String *err)
                           [](const Object::SharedPtr&) -> Value {
                               return WindowManager::instance()->focusPolicy();
                           },
-                          [](const Object::SharedPtr&, const Value& value) {
+                          [](const Object::SharedPtr&, const Value &value) {
                               if (value.type() != Value::Type_Integer) {
                                   return instance()->throwException<void>("Focus policy needs to be an integer");
                               }
@@ -478,18 +466,18 @@ bool JavaScript::init(String *err)
                               value["screen"] = screen;
                               return value;
                           },
-                          [](const Object::SharedPtr&, const Value& value) {
+                          [](const Object::SharedPtr&, const Value &value) {
                               if (value.type() != Value::Type_Map || !value.contains("x") || !value.contains("y")) {
                                   return instance()->throwException<void>("Warp object needs to be an object with integral x, y and optionally screen and relative");
                               }
-                              const Value& x = value["x"];
-                              const Value& y = value["y"];
+                              const Value &x = value["x"];
+                              const Value &y = value["y"];
                               if (x.type() != Value::Type_Integer || y.type() != Value::Type_Integer) {
                                   return instance()->throwException<void>("Warp object needs to be an object with integral x, y and optionally screen and relative");
                               }
                               int screen = -1;
                               if (value.contains("screen")) {
-                                  const Value& scr = value["screen"];
+                                  const Value &scr = value["screen"];
                                   if (scr.type() != Value::Type_Integer)
                                       return instance()->throwException<void>("Warp object needs to be an object with integral x, y and optionally screen and relative");
                                   screen = scr.toInteger();
@@ -497,7 +485,7 @@ bool JavaScript::init(String *err)
 
                               WindowManager::PointerMode mode = WindowManager::Warp_Absolute;
                               if (value.contains("relative")) {
-                                  const Value& rel = value["relative"];
+                                  const Value &rel = value["relative"];
                                   if (rel.type() != Value::Type_Boolean)
                                       return instance()->throwException<void>("Warp object needs to be an object with integral x, y and optionally screen and relative");
                                   if (rel.toBool()) {
@@ -518,18 +506,18 @@ bool JavaScript::init(String *err)
     auto workspace = nwm->child("workspace");
     workspace->setProperty("Stack", StackLayout::Type);
     workspace->setProperty("Grid", GridLayout::Type);
-    workspace->registerFunction("add", [](const Object::SharedPtr&, const List<Value>& args) -> Value {
+    workspace->registerFunction("add", [](const Object::SharedPtr&, const List<Value> &args) -> Value {
             unsigned int layoutType = GridLayout::Type;
             int screenNumber = WindowManager::AllScreens;
             if (!args.isEmpty()) {
                 if (args.size() > 1)
                     return instance()->throwException<Value>("workspace.add takes zero or one argument");
-                const Value& v = args.front();
+                const Value &v = args.front();
                 if (v.type() != Value::Type_Map)
                     return instance()->throwException<Value>("workspace.add argument needs to be an object");
 
                 if (v.contains("type")) {
-                    const Value& t = v["type"];
+                    const Value &t = v["type"];
                     if (t.type() != Value::Type_Invalid) {
                         if (t.type() != Value::Type_Integer)
                             return instance()->throwException<Value>("workspace.add type needs to be an integer");
@@ -545,7 +533,7 @@ bool JavaScript::init(String *err)
                 }
 
                 if (v.contains("screen")) {
-                    const Value& s = v["screen"];
+                    const Value &s = v["screen"];
                     if (s.type() != Value::Type_Invalid) {
                         if (s.type() != Value::Type_Integer)
                             return instance()->throwException<Value>("workspace.add screen needs to be an integer");
@@ -559,10 +547,10 @@ bool JavaScript::init(String *err)
             WindowManager::instance()->addWorkspace(layoutType, screenNumber);
             return Value::undefined();
         });
-    workspace->registerFunction("moveTo", [](const Object::SharedPtr&, const List<Value>& args) -> Value {
+    workspace->registerFunction("moveTo", [](const Object::SharedPtr&, const List<Value> &args) -> Value {
             if (args.isEmpty())
                 return Value::undefined();
-            Client::SharedPtr client = WindowManager::instance()->focusedClient();
+            Client *client = WindowManager::instance()->focusedClient();
             if (!client)
                 return Value::undefined();
             const int32_t ws = args[0].toInteger();
@@ -576,7 +564,7 @@ bool JavaScript::init(String *err)
             dst->addClient(client);
             return Value::undefined();
         });
-    workspace->registerFunction("select", [](const Object::SharedPtr&, const List<Value>& args) -> Value {
+    workspace->registerFunction("select", [](const Object::SharedPtr&, const List<Value> &args) -> Value {
             if (args.isEmpty())
                 return Value::undefined();
             const int32_t ws = args[0].toInteger();
@@ -597,7 +585,7 @@ bool JavaScript::init(String *err)
             return Value::undefined();
         });
     workspace->registerFunction("raiseLast", [](const Object::SharedPtr&, const List<Value>&) -> Value {
-            Client::SharedPtr focusedClient = WindowManager::instance()->focusedClient();
+            Client *focusedClient = WindowManager::instance()->focusedClient();
             if (!focusedClient)
                 return Value::undefined();
             Workspace *active = WindowManager::instance()->activeWorkspace(focusedClient->screenNumber());
@@ -625,7 +613,7 @@ bool JavaScript::init(String *err)
             parent->dump();
             return Value::undefined();
         });
-    layout->registerFunction("adjust", [](const Object::SharedPtr&, const List<Value>& args) -> Value {
+    layout->registerFunction("adjust", [](const Object::SharedPtr&, const List<Value> &args) -> Value {
             GridLayout *parent = gridParent();
             if (!parent)
                 return Value::undefined();
@@ -653,8 +641,8 @@ bool JavaScript::init(String *err)
     kbd->registerFunction("set", [](const Object::SharedPtr&, const List<Value> &args) -> Value {
             if (args.size() != 2)
                 return instance()->throwException<Value>("Invalid number of arguments to kbd.set, 2 required");
-            const Value& key = args.at(0);
-            const Value& func = args.at(1);
+            const Value &key = args.at(0);
+            const Value &func = args.at(1);
             if (key.type() != Value::Type_String)
                 return instance()->throwException<Value>("Invalid first argument to kbd.set, needs to be a string");
             if (func.type() != Value::Type_Custom)
@@ -669,23 +657,23 @@ bool JavaScript::init(String *err)
     kbd->registerFunction("mode", [](const Object::SharedPtr&, const List<Value> &args) -> Value {
             if (args.size() != 2)
                 return instance()->throwException<Value>("Invalid number of arguments to kbd.mode, 2 required");
-            const Value& key = args.at(0);
-            const Value& subs = args.at(1);
+            const Value &key = args.at(0);
+            const Value &subs = args.at(1);
             if (!key.isString())
                 return instance()->throwException<Value>("Invalid first argument to kbd.mode, needs to be a string");
             if (!subs.isList())
                 return instance()->throwException<Value>("Invalid second argument to kbd.mode, needs to be a list of bindings");
             Set<Keybinding> subbindings;
-            for (const Value& sub : subs.toList()) {
+            for (const Value &sub : subs.toList()) {
                 if (!sub.isMap())
                     return instance()->throwException<Value>("Invalid entry in kbd.mode array, all arguments needs to be objects");
-                const Map<String, Value>& submap = sub.toMap();
+                const Map<String, Value> &submap = sub.toMap();
                 if (!submap.contains("seq"))
                     return instance()->throwException<Value>("Invalid entry in kbd.mode array, need a seq property");
                 if (!submap.contains("action"))
                     return instance()->throwException<Value>("Invalid entry in kbd.mode array, need an action property");
-                const Value& seq = submap["seq"];
-                const Value& act = submap["action"];
+                const Value &seq = submap["seq"];
+                const Value &act = submap["action"];
                 if (!seq.isString())
                     return instance()->throwException<Value>("Invalid entry in kbd.mode array, seq needs to be a string");
                 if (!act.isCustom())
@@ -729,14 +717,14 @@ Value JavaScript::evaluateFile(const Path &file, String *err)
     return evaluate(code, Path(), err);
 }
 
-void JavaScript::onClient(const Client::SharedPtr& client, bool notify)
+void JavaScript::onClient(Client *client, bool notify)
 {
     mClients.append(client);
     if (notify)
         onClientEvent(client, "client");
 }
 
-void JavaScript::onClientEvent(const Client::SharedPtr &client, const String &event)
+void JavaScript::onClientEvent(Client *client, const String &event)
 {
     assert(mClients.contains(client));
     auto it = mOns.find(event);

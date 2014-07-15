@@ -62,13 +62,12 @@ public:
     uint16_t moveModifierMask() const { return mMoveModifierMask; }
     void setMoveModifier(const String& mod);
 
-    void startMoving(const Client::SharedPtr& client, const Point& point) { mMoving = client; mIsMoving = true; mMovingOrigin = point; }
-    void stopMoving() { mMoving.reset(); mIsMoving = false; }
+    void startMoving(Client *client, const Point& point) { mMoving = client; mMovingOrigin = point; }
+    void stopMoving() { mMoving = 0; }
     void setMovingOrigin(const Point& point) { mMovingOrigin = point; }
-    bool isMoving() const { return mIsMoving; }
-    Client::SharedPtr moving() const { return mMoving.lock(); }
-    Client::SharedPtr focusedClient() const { return mFocused.lock(); }
-    void setFocusedClient(const Client::SharedPtr &client);
+    Client *moving() const { return mMoving; }
+    Client *focusedClient() const { return mFocused; }
+    void setFocusedClient(Client *client);
     void updateCurrentScreen(int screen) { mCurrentScreen = screen; }
     int currentScreen() const { return mCurrentScreen; }
     Point pointer(int *screen = 0, bool *ok = 0) const;
@@ -144,8 +143,7 @@ private:
     Keybindings mBindings;
     String mMoveModifier;
     uint16_t mMoveModifierMask;
-    Client::WeakPtr mMoving, mFocused;
-    bool mIsMoving;
+    Client *mMoving, *mFocused;
     Point mMovingOrigin;
     FocusPolicy mFocusPolicy;
     int mCurrentScreen;

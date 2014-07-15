@@ -22,14 +22,15 @@ public:
     int screenNumber() const { return mScreenNumber; }
     xcb_screen_t *screen() const;
 
-    void addClient(const Client::SharedPtr& client);
-    void removeClient(const Client::SharedPtr& client);
+    void addClient(Client *client);
+    void removeClient(Client *client);
 
-    void updateFocus(const Client::SharedPtr& client = Client::SharedPtr());
+    void updateFocus(Client *client = 0);
+    void onClientDestroyed(Client *client);
 
     enum RaiseMode { Next, Last };
     void raise(RaiseMode mode);
-    void notifyRaised(const Client::SharedPtr& client);
+    void notifyRaised(Client *client);
 
     String name() const { return mName; }
     Rect rect() const { return mRect; }
@@ -44,16 +45,16 @@ private:
     String mName;
     Layout *mLayout;
     // ordered by focus
-    LinkedList<Client::WeakPtr> mClients;
+    LinkedList<Client *> mClients;
     const int mScreenNumber;
 };
 
-inline void Workspace::removeClient(const Client::SharedPtr& client)
+inline void Workspace::removeClient(Client *client)
 {
     auto it = mClients.begin();
     const auto end = mClients.cend();
     while (it != end) {
-        if (it->lock() == client) {
+        if (*it == client) {
             mClients.erase(it);
             return;
         }

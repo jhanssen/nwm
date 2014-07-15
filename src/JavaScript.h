@@ -19,15 +19,15 @@ public:
     bool reload(String *error = 0);
     Value evaluateFile(const Path &path, String *error);
 
-    const Class::SharedPtr& clientClass() const { return mClientClass; }
-    const Class::SharedPtr& fileClass() const { return mFileClass; }
+    std::shared_ptr<Class> clientClass() const { return mClientClass; }
+    std::shared_ptr<Class> fileClass() const { return mFileClass; }
 
-    void onClient(const Client::SharedPtr& client, bool notify = true);
-    void onClientEvent(const Client::SharedPtr &client, const String &event);
-    void onClientRaised(const Client::SharedPtr &client) { onClientEvent(client, "raised"); }
-    void onClientFocusLost(const Client::SharedPtr &client) { onClientEvent(client, "focusLost"); }
-    void onClientFocused(const Client::SharedPtr &client) { onClientEvent(client, "focused"); }
-    void onClientDestroyed(const Client::SharedPtr &client)
+    void onClient(Client *client, bool notify = true);
+    void onClientEvent(Client *client, const String &event);
+    void onClientRaised(Client *client) { onClientEvent(client, "raised"); }
+    void onClientFocusLost(Client *client) { onClientEvent(client, "focusLost"); }
+    void onClientFocused(Client *client) { onClientEvent(client, "focused"); }
+    void onClientDestroyed(Client *client)
     {
         onClientEvent(client, "destroyed");
         mClients.remove(client);
@@ -36,9 +36,9 @@ public:
 private:
     bool init(String *error);
     List<Path> mConfigFiles;
-    Class::SharedPtr mClientClass, mFileClass;
+    std::shared_ptr<Class> mClientClass, mFileClass;
     Hash<String, Value> mOns;
-    List<Client::SharedPtr> mClients;
+    List<Client*> mClients;
 };
 
 #endif

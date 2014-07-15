@@ -15,22 +15,19 @@
 
 class Workspace;
 
-class Client : public std::enable_shared_from_this<Client>
+class Client
 {
 public:
-    typedef std::shared_ptr<Client> SharedPtr;
-    typedef std::weak_ptr<Client> WeakPtr;
-
     ~Client();
 
-    static SharedPtr client(xcb_window_t window);
-    static SharedPtr manage(xcb_window_t window, int screenNumber);
-    static SharedPtr create(const Rect& rect, int screenNumber);
+    static Client *client(xcb_window_t window);
+    static Client *manage(xcb_window_t window, int screenNumber);
+    static Client *create(const Rect& rect, int screenNumber);
     static void release(xcb_window_t window);
     static void clear() { sClients.clear(); }
 
     // ### heavy, should be improved
-    static List<Client::SharedPtr> clients() { return sClients.values(); }
+    static List<Client*> clients() { return sClients.values(); }
 
     void release() { release(mWindow); mWindow = 0; }
 
@@ -62,7 +59,7 @@ public:
     void clearJSValue() { mJSValue.clear(); }
 
     Workspace* workspace() const { return mWorkspace; }
-    std::shared_ptr<ClientGroup> group() const { return mGroup; }
+    ClientGroup *group() const { return mGroup; }
 
     Layout* layout() const { return mLayout; }
     xcb_window_t window() const { return mWindow; }
@@ -126,13 +123,13 @@ private:
     Set<xcb_atom_t> mEwmhState;
     Set<xcb_atom_t> mWindowType;
     xcb_ewmh_wm_strut_partial_t mStrut;
-    std::shared_ptr<ClientGroup> mGroup;
+    ClientGroup *mGroup;
     bool mFloating;
     Value mJSValue;
     uint32_t mPid;
     int mScreenNumber;
 
-    static Hash<xcb_window_t, Client::SharedPtr> sClients;
+    static Hash<xcb_window_t, Client*> sClients;
 
     friend class Workspace;
 };

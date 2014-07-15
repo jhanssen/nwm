@@ -34,59 +34,27 @@ void Workspace::setRect(const Rect& rect)
     mLayout->setRect(rect);
 }
 
-void Workspace::updateFocus(const Client::SharedPtr& client)
+void Workspace::updateFocus(Client *client)
 {
-    if (client) {
-        if (client->noFocus())
-            return;
-        // find it in our list
-        bool first = true;
-        auto it = mClients.begin();
-        const auto end = mClients.cend();
-        while (it != end) {
-            if (Client::SharedPtr candidate = it->lock()) {
-                if (candidate == client) {
-                    // yay
-                    if (first) {
-                        // already focused, nothing to do
-                        return;
-                    }
-                    break;
-                }
-                first = false;
-            }
-            ++it;
-        }
-        assert(it != end);
-        mClients.erase(it);
-        mClients.prepend(client);
-#warning should this tell WindowManager which client is the focused one?
-    } else {
-        // focus the first available one in our list
-        for (const Client::WeakPtr& candidate : mClients) {
-            if (Client::SharedPtr client = candidate.lock()) {
-                if (!client->noFocus()) {
-                    client->focus();
-                    return;
-                }
-            }
-        }
-        // No window to focus, focus the root window instead
-        WindowManager *wm = WindowManager::instance();
-        wm->updateCurrentScreen(mScreenNumber);
-        const xcb_window_t root = screen()->root;
-        xcb_set_input_focus(wm->connection(), XCB_INPUT_FOCUS_PARENT, root, wm->timestamp());
-        // error() << "Setting input focus to root" << root;
-        xcb_ewmh_set_active_window(wm->ewmhConnection(), mScreenNumber, root);
+    assert(client);
+    if (client->noFocus())
+        return;
+    // find it in our list
+    const auto it = mClients.find(client);
+    assert(it != mClients.end());
+    if (it == mClients.begin()) {
+        // already focused, nothing to do
+        return;
     }
+    mClients.erase(it);
+    mClients.prepend(client);
+#warning should this tell WindowManager which client is the focused one?
 }
 
 void Workspace::deactivate()
 {
-    for (const Client::WeakPtr& client : mClients) {
-        if (Client::SharedPtr c = client.lock()) {
-            c->unmap();
-        }
+    for (Client *client : mClients) {
+        client->unmap();
     }
 }
 
@@ -94,41 +62,32 @@ void Workspace::activate()
 {
     WindowManager::instance()->activateWorkspace(this);
     // map all clients in the stacking order
-    Client::SharedPtr client;
+    Client *client = 0;
     auto it = mClients.crbegin();
     const auto end = mClients.crend();
     while (it != end) {
-        if (client = it->lock()) {
-            client->map();
-        }
+        client = *it;
+        client->map();
         ++it;
     }
     if (client)
         client->focus();
 }
 
-void Workspace::notifyRaised(const Client::SharedPtr& client)
+void Workspace::notifyRaised(Client *client)
 {
     warning() << "raised" << client->className();
-    // find and remove
-    auto it = mClients.begin();
-    while (it != mClients.end()) {
-        if (Client::SharedPtr cand = it->lock()) {
-            if (cand == client) {
-                mClients.erase(it);
-                break;
-            }
-            ++it;
-        } else {
-            it = mClients.erase(it);
-        }
+    auto it = mClients.find(client);
+    assert(it != mClients.end());
+    if (it != mClients.begin()) {
+        mClients.erase(it);
+        mClients.prepend(client);
     }
-    mClients.prepend(client);
 }
 
 void Workspace::raise(RaiseMode mode)
 {
-    if (mClients.empty())
+    if (mClients.isEmpty())
         return;
 
     int pos = 0;
@@ -148,41 +107,26 @@ void Workspace::raise(RaiseMode mode)
     if (pos > 0) {
         auto it = mClients.begin();
         while (it != mClients.end()) {
-            if (Client::SharedPtr client = it->lock()) {
-                if (cur == pos) {
-                    client->raise();
-                    client->focus();
-                    return;
-                }
-                ++cur;
-                ++it;
-            } else {
-                // take it out, it's dead
-                it = mClients.erase(it);
+            if (cur == pos) {
+                (*it)->raise();
+                (*it)->focus();
+                return;
             }
+            ++cur;
+            ++it;
         }
     } else {
         pos = abs(pos) - 1;
         assert(pos >= 0);
         auto it = mClients.end();
-        for (;;) {
-            assert(it != mClients.begin());
+        while (it != mClients.begin()) {
             --it;
-            if (Client::SharedPtr client = it->lock()) {
-                if (cur == pos) {
-                    client->raise();
-                    client->focus();
-                    return;
-                }
-                ++cur;
-            } else {
-                // take it out, it's dead
-                it = mClients.erase(it);
-                if (mClients.isEmpty())
-                    return;
-            }
-            if (it == mClients.begin())
+            if (cur == pos) {
+                (*it)->raise();
+                (*it)->focus();
                 return;
+            }
+            ++cur;
         }
     }
 }
@@ -197,7 +141,7 @@ inline bool Workspace::isActive() const
     return WindowManager::instance()->activeWorkspace(mScreenNumber) == this;
 }
 
-void Workspace::addClient(const Client::SharedPtr& client)
+void Workspace::addClient(Client *client)
 {
     assert(client);
     assert(client->screenNumber() == mScreenNumber);
@@ -208,5 +152,29 @@ void Workspace::addClient(const Client::SharedPtr& client)
             client->unmap();
         }
         mClients.append(client);
+    }
+}
+void Workspace::onClientDestroyed(Client *client)
+{
+    auto it = mClients.find(client);
+    assert(it != mClients.end());
+    const bool hadFocus = (it == mClients.begin());
+    mClients.erase(it);
+    if (hadFocus) {
+    } else {
+        // focus the first available one in our list
+        for (Client *client : mClients) {
+            if (!client->noFocus()) {
+                client->focus();
+                return;
+            }
+        }
+        // No window to focus, focus the root window instead
+        WindowManager *wm = WindowManager::instance();
+        wm->updateCurrentScreen(mScreenNumber);
+        const xcb_window_t root = screen()->root;
+        xcb_set_input_focus(wm->connection(), XCB_INPUT_FOCUS_PARENT, root, wm->timestamp());
+        // error() << "Setting input focus to root" << root;
+        xcb_ewmh_set_active_window(wm->ewmhConnection(), mScreenNumber, root);
     }
 }

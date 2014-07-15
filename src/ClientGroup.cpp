@@ -5,22 +5,20 @@
 
 Map<xcb_window_t, ClientGroup*> ClientGroup::sGroups;
 
-void ClientGroup::raise(const Client::SharedPtr& client)
+void ClientGroup::raise(Client *client)
 {
     const bool clientIsDialog = client->isDialog();
     const bool clientIsFloating = client->isFloating();
 
-    List<Client::SharedPtr> clients;
-    for (const Client::WeakPtr& weak : mClients) {
-        if (Client::SharedPtr shared = weak.lock()) {
-            if (shared != client)
-                clients.append(shared);
-        }
+    List<Client *> clients;
+    for (Client *c : mClients) {
+        if (c != client)
+            clients.append(c);
     }
 
     // sort by window type
     std::sort(clients.begin(), clients.end(),
-              [](const Client::SharedPtr& a, const Client::SharedPtr& b) -> bool {
+              [](Client *a, Client *b) -> bool {
                   if (a->isDialog() != b->isDialog())
                       return b->isDialog();
                   if (a->isFloating() != b->isFloating())
@@ -39,15 +37,15 @@ void ClientGroup::raise(const Client::SharedPtr& client)
             break;
         else if (!clientIsFloating && (*it)->isFloating())
             break;
-        warning() << "raising regular" << it->get() << "floating" << (*it)->isFloating();
+        warning() << "raising regular" << *it << "floating" << (*it)->isFloating();
         xcb_configure_window(conn, (*it)->frame(), XCB_CONFIG_WINDOW_STACK_MODE, stackMode);
-        // if (Workspace::SharedPtr ws = (*it)->workspace())
+        // if (Workspace * ws = (*it)->workspace())
         //     ws->notifyRaised(*it);
         ++it;
     }
 
     // raise the selected client
-    warning() << "raising selected client" << client.get() << client->className();
+    warning() << "raising selected client" << client << client->className();
     xcb_configure_window(conn, client->frame(), XCB_CONFIG_WINDOW_STACK_MODE, stackMode);
     if (Workspace *ws = client->workspace())
         ws->notifyRaised(client);
@@ -56,9 +54,9 @@ void ClientGroup::raise(const Client::SharedPtr& client)
     // raise any remaining dialogs
     while (it != end) {
         assert((*it)->isDialog() || (*it)->isFloating());
-        warning() << "raising dialog/floating" << it->get();
+        warning() << "raising dialog/floating" << *it;
         xcb_configure_window(conn, (*it)->frame(), XCB_CONFIG_WINDOW_STACK_MODE, stackMode);
-        // if (Workspace::SharedPtr ws = (*it)->workspace())
+        // if (Workspace *ws = (*it)->workspace())
         //     ws->notifyRaised(*it);
         ++it;
     }

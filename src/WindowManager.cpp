@@ -91,7 +91,8 @@ WindowManager *WindowManager::sInstance;
 
 WindowManager::WindowManager()
     : mConn(0), mEwmhConn(0), mPreferredScreenIndex(0), mXkbEvent(0), mSyms(0), mTimestamp(XCB_CURRENT_TIME),
-      mMoveModifierMask(0), mIsMoving(false), mFocusPolicy(FocusFollowsMouse), mCurrentScreen(-1), mRestart(false)
+      mMoveModifierMask(0), mMoving(0), mFocused(0), mFocusPolicy(FocusFollowsMouse),
+      mCurrentScreen(-1), mRestart(false)
 {
     Messages::registerMessage<NWMMessage>();
     memset(&mXkb, '\0', sizeof(mXkb));
@@ -526,7 +527,7 @@ bool WindowManager::manage()
                     || stateValue == XCB_ICCCM_WM_STATE_WITHDRAWN) {
                     continue;
                 }
-                Client::SharedPtr client = Client::manage(clients[i], screenNumber);
+                Client *client = Client::manage(clients[i], screenNumber);
             }
         }
         ++screenNumber;
@@ -923,17 +924,15 @@ String WindowManager::displayString() const
         return mDisplay;
     return mDisplay + "." + String::number(mCurrentScreen);
 }
-void WindowManager::setFocusedClient(const Client::SharedPtr &client)
+void WindowManager::setFocusedClient(Client *client)
 {
-    if (auto shared = mFocused.lock()) {
-        if (shared == client)
-            return;
-        mJS.onClientFocusLost(shared);
-    }
+    if (client == mFocused)
+        return;
     mFocused = client;
-    mCurrentScreen = client->screenNumber();
-    if (client)
-        mJS.onClientFocused(client);
+    if (mFocused) {
+        mCurrentScreen = mFocused->screenNumber();
+        mJS.onClientFocused(mFocused);
+    }
 }
 
 Point WindowManager::pointer(int *screen, bool *ok) const

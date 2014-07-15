@@ -13,7 +13,7 @@ void handleButtonPress(const xcb_button_press_event_t* event)
     WindowManager *wm = WindowManager::instance();
     wm->updateTimestamp(event->time);
 
-    Client::SharedPtr client = Client::client(event->event);
+    Client *client = Client::client(event->event);
     if (client) {
         xcb_connection_t* conn = wm->connection();
 #warning should not call raise if we are raised
@@ -24,7 +24,7 @@ void handleButtonPress(const xcb_button_press_event_t* event)
 
         if (event->state) {
             const uint16_t mod = wm->moveModifierMask();
-            if (mod && (event->state & mod) == mod && client->isFloating()) {
+            if (mod && (event->state  &mod) == mod && client->isFloating()) {
                 // grab both the keyboard and the pointer
                 xcb_grab_pointer_cookie_t pointerCookie = xcb_grab_pointer(conn, false, event->root,
                                                                            XCB_EVENT_MASK_BUTTON_RELEASE
@@ -90,7 +90,7 @@ void handleButtonRelease(const xcb_button_release_event_t* event)
 {
     WindowManager *wm = WindowManager::instance();
     wm->updateTimestamp(event->time);
-    if (!wm->isMoving())
+    if (!wm->moving())
         return;
     wm->stopMoving();
     releaseGrab(wm->connection(), event->time);
@@ -100,10 +100,10 @@ void handleMotionNotify(const xcb_motion_notify_event_t* event)
 {
     WindowManager *wm = WindowManager::instance();
     wm->updateTimestamp(event->time);
-    if (!wm->isMoving())
+    if (!wm->moving())
         return;
 
-    Client::SharedPtr client = wm->moving();
+    Client *client = wm->moving();
     Point origin = wm->movingOrigin();
     if (client) {
         // move window
@@ -126,7 +126,7 @@ static inline int screenFromWindow(xcb_window_t win)
     int scrn = wm->screenNumber(win);
     if (scrn != -1)
         return scrn;
-    Client::SharedPtr client = Client::client(win);
+    Client *client = Client::client(win);
     if (client)
         return client->screenNumber();
     return -1;
@@ -137,7 +137,7 @@ void handleClientMessage(const xcb_client_message_event_t* event)
     WindowManager *wm = WindowManager::instance();
     xcb_ewmh_connection_t* ewmhConn = wm->ewmhConnection();
     if (event->type == ewmhConn->_NET_ACTIVE_WINDOW) {
-        Client::SharedPtr client = Client::client(event->window);
+        Client *client = Client::client(event->window);
         if (client) {
             client->raise();
             client->focus();
@@ -150,7 +150,7 @@ void handleClientMessage(const xcb_client_message_event_t* event)
         }
 
         const uint32_t ws = event->data.data32[0];
-        const List<Workspace*>& wss = wm->workspaces(scrn);
+        const List<Workspace*> &wss = wm->workspaces(scrn);
         if (ws >= static_cast<uint32_t>(wss.size()))
             return;
         wss[ws]->activate();
@@ -162,7 +162,7 @@ void handleConfigureRequest(const xcb_configure_request_event_t* event)
 {
     xcb_connection_t* conn = WindowManager::instance()->connection();
 
-    Client::SharedPtr client = Client::client(event->window);
+    Client *client = Client::client(event->window);
     if (client) {
 #warning need to restack here
 
@@ -174,31 +174,31 @@ void handleConfigureRequest(const xcb_configure_request_event_t* event)
         uint32_t windowValues[7];
         int i = 0;
 
-        if (event->value_mask & XCB_CONFIG_WINDOW_X) {
+        if (event->value_mask  &XCB_CONFIG_WINDOW_X) {
             windowMask |= XCB_CONFIG_WINDOW_X;
             windowValues[i++] = event->x;
         }
-        if (event->value_mask & XCB_CONFIG_WINDOW_Y) {
+        if (event->value_mask  &XCB_CONFIG_WINDOW_Y) {
             windowMask |= XCB_CONFIG_WINDOW_Y;
             windowValues[i++] = event->y;
         }
-        if (event->value_mask & XCB_CONFIG_WINDOW_WIDTH) {
+        if (event->value_mask  &XCB_CONFIG_WINDOW_WIDTH) {
             windowMask |= XCB_CONFIG_WINDOW_WIDTH;
             windowValues[i++] = event->width;
         }
-        if (event->value_mask & XCB_CONFIG_WINDOW_HEIGHT) {
+        if (event->value_mask  &XCB_CONFIG_WINDOW_HEIGHT) {
             windowMask |= XCB_CONFIG_WINDOW_HEIGHT;
             windowValues[i++] = event->height;
         }
-        if (event->value_mask & XCB_CONFIG_WINDOW_BORDER_WIDTH) {
+        if (event->value_mask  &XCB_CONFIG_WINDOW_BORDER_WIDTH) {
             windowMask |= XCB_CONFIG_WINDOW_BORDER_WIDTH;
             windowValues[i++] = event->border_width;
         }
-        if (event->value_mask & XCB_CONFIG_WINDOW_SIBLING) {
+        if (event->value_mask  &XCB_CONFIG_WINDOW_SIBLING) {
             windowMask |= XCB_CONFIG_WINDOW_SIBLING;
             windowValues[i++] = event->sibling;
         }
-        if (event->value_mask & XCB_CONFIG_WINDOW_STACK_MODE) {
+        if (event->value_mask  &XCB_CONFIG_WINDOW_STACK_MODE) {
             windowMask |= XCB_CONFIG_WINDOW_STACK_MODE;
             windowValues[i++] = event->stack_mode;
         }
@@ -214,7 +214,7 @@ void handleConfigureNotify(const xcb_configure_notify_event_t* event)
 
 void handleDestroyNotify(const xcb_destroy_notify_event_t* event)
 {
-    Client::SharedPtr client = Client::client(event->window);
+    Client *client = Client::client(event->window);
     if (client) {
         client->destroy();
     }
@@ -225,7 +225,7 @@ void handleEnterNotify(const xcb_enter_notify_event_t* event)
     WindowManager *wm = WindowManager::instance();
     wm->updateTimestamp(event->time);
     if (wm->focusPolicy() == WindowManager::FocusFollowsMouse) {
-        Client::SharedPtr client = Client::client(event->child);
+        Client *client = Client::client(event->child);
         if (client)
             client->focus();
     }
@@ -233,7 +233,7 @@ void handleEnterNotify(const xcb_enter_notify_event_t* event)
 
 void handleExpose(const xcb_expose_event_t* event)
 {
-    Client::SharedPtr client = Client::client(event->window);
+    Client *client = Client::client(event->window);
     if (client) {
         client->expose(Rect({ event->x, event->y, event->width, event->height }));
     }
@@ -247,19 +247,19 @@ void handleKeyPress(const xcb_key_press_event_t* event)
 {
     WindowManager *wm = WindowManager::instance();
     wm->updateTimestamp(event->time);
-    //const int col = (event->state & XCB_MOD_MASK_SHIFT);
+    //const int col = (event->state  &XCB_MOD_MASK_SHIFT);
     const int col = 0;
     const xcb_keysym_t sym = xcb_key_press_lookup_keysym(wm->keySymbols(), const_cast<xcb_key_press_event_t*>(event), col);
     if (xcb_is_modifier_key(sym))
         return;
-    Keybindings& bindings = wm->bindings();
+    Keybindings &bindings = wm->bindings();
     if (!bindings.feed(sym, event->state))
         return;
     const Keybinding* binding = bindings.current();
     assert(binding);
-    const Value& func = binding->function();
+    const Value &func = binding->function();
     assert(func.type() == Value::Type_Custom);
-    JavaScript& engine = wm->js();
+    JavaScript &engine = wm->js();
     std::shared_ptr<ScriptEngine::Object> obj = engine.toObject(func);
     if (!obj) {
         error() << "couldn't get object for key bind" << wm->keycodeToString(event->detail);
@@ -291,7 +291,7 @@ void handleMapRequest(const xcb_map_request_event_t* event)
         return;
     }
     error() << "managing?";
-    Client::SharedPtr client = Client::client(event->window);
+    Client *client = Client::client(event->window);
     if (client) {
         // stuff
     } else {
@@ -311,14 +311,14 @@ void handlePropertyNotify(const xcb_property_notify_event_t* event)
 void handleUnmapNotify(const xcb_unmap_notify_event_t* event)
 {
     WindowManager *wm = WindowManager::instance();
-    if (wm->isMoving()) {
+    if (wm->moving()) {
         error() << "client unmapped while moving, releasing grab";
         wm->stopMoving();
         releaseGrab(wm->connection(), wm->timestamp());
     }
 
     error() << "unmapping" << event->event << event->window;
-    Client::SharedPtr client = Client::client(event->event);
+    Client *client = Client::client(event->event);
     if (client) {
         client->unmap();
     }

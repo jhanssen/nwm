@@ -7,7 +7,7 @@
 #include <sys/types.h>
 #include <signal.h>
 
-Hash<xcb_window_t, Client::SharedPtr> Client::sClients;
+Hash<xcb_window_t, Client*> Client::sClients;
 
 Client::Client(xcb_window_t win)
     : mWindow(win), mFrame(XCB_NONE), mNoFocus(false), mOwned(false), mLayout(0),
@@ -19,6 +19,13 @@ Client::Client(xcb_window_t win)
 
 Client::~Client()
 {
+    assert(mJSValue.isInvalid() || mJSValue.isCustom());
+    if (!mJSValue.isInvalid()) {
+        JavaScript &engine = WindowManager::instance()->js();
+        ScriptEngine::Object::SharedPtr obj = engine.toObject(mJSValue);
+        if (obj)
+            obj->setExtraData(0);
+    }
     delete mGraphics;
     xcb_connection_t* conn = WindowManager::instance()->connection();
     if (mWindow) {
@@ -28,10 +35,8 @@ Client::~Client()
             xcb_destroy_window(conn, mWindow);
     }
     xcb_destroy_window(conn, mFrame);
-
-    if (EventLoop::SharedPtr loop = EventLoop::eventLoop()) {
-        Workspace *workspace = mWorkspace;
-        loop->callLater([workspace]() { workspace->updateFocus(); });
+    if (mWorkspace) {
+        mWorkspace->onClientDestroyed(this);
     }
 }
 
@@ -175,7 +180,7 @@ bool Client::updateWorkspace(Workspace *workspace)
         return false;
     if (workspace == mWorkspace)
         return true;
-    mWorkspace->removeClient(shared_from_this());
+    mWorkspace->removeClient(this);
     if (shouldLayout()) {
         mLayout = workspace->layout()->add(Size({ mRect.width, mRect.height }));
         mLayout->rectChanged().connect(std::bind(&Client::onLayoutChanged, this, std::placeholders::_1));
@@ -225,13 +230,13 @@ void Client::updateLeader(xcb_connection_t* conn, xcb_get_property_cookie_t cook
     AutoPointer<xcb_get_property_reply_t> leader(xcb_get_property_reply(conn, cookie, 0));
     if (!leader || leader->type != XCB_ATOM_WINDOW || leader->format != 32 || !leader->length) {
         mGroup = ClientGroup::clientGroup(mWindow);
-        mGroup->add(shared_from_this());
+        mGroup->add(this);
         return;
     }
 
     const xcb_window_t win = *static_cast<xcb_window_t *>(xcb_get_property_value(leader));
     mGroup = ClientGroup::clientGroup(win);
-    mGroup->add(shared_from_this());
+    mGroup->add(this);
 }
 
 void Client::updateSize(xcb_connection_t* conn, xcb_get_geometry_cookie_t cookie)
@@ -274,7 +279,7 @@ void Client::updateTransient(xcb_connection_t* conn, xcb_get_property_cookie_t c
             mTransientFor = mGroup->leader();
         } else {
             // add us to the group of the window we're transient for
-            Client::SharedPtr other = Client::client(mTransientFor);
+            Client *other = Client::client(mTransientFor);
             if (!other) {
                 error() << "Couldn't find the client we're transient for" << mWindow << mTransientFor;
                 mTransientFor = XCB_NONE;
@@ -283,7 +288,7 @@ void Client::updateTransient(xcb_connection_t* conn, xcb_get_property_cookie_t c
             ClientGroup *otherGroup = other->group();
             if (mGroup != otherGroup) {
                 mGroup = otherGroup;
-                mGroup->add(shared_from_this());
+                mGroup->add(this);
             }
         }
     }
@@ -418,7 +423,7 @@ void Client::onLayoutChanged(const Rect& rect)
     }
 }
 
-Client::SharedPtr Client::create(const Rect& rect, int screenNumber)
+Client *Client::create(const Rect& rect, int screenNumber)
 {
     WindowManager *wm = WindowManager::instance();
     xcb_connection_t* conn = wm->connection();
@@ -445,7 +450,7 @@ Client::SharedPtr Client::create(const Rect& rect, int screenNumber)
                       XCB_COPY_FROM_PARENT, XCB_COPY_FROM_PARENT,
                       XCB_CW_BORDER_PIXEL | XCB_CW_BIT_GRAVITY | XCB_CW_WIN_GRAVITY
                       | XCB_CW_OVERRIDE_REDIRECT | XCB_CW_EVENT_MASK, values);
-    Client::SharedPtr ptr(new Client(window));
+    Client *ptr(new Client(window));
     ptr->mOwned = true;
     ptr->mScreenNumber = screenNumber;
     ptr->init();
@@ -462,10 +467,10 @@ Client::SharedPtr Client::create(const Rect& rect, int screenNumber)
     return ptr;
 }
 
-Client::SharedPtr Client::manage(xcb_window_t window, int screenNumber)
+Client *Client::manage(xcb_window_t window, int screenNumber)
 {
     assert(sClients.count(window) == 0);
-    Client::SharedPtr ptr(new Client(window)); // can't use make_shared due to private c'tor
+    Client *ptr(new Client(window)); // can't use make_shared due to private c'tor
     ptr->mScreenNumber = screenNumber;
     ptr->init();
     WindowManager *wm = WindowManager::instance();
@@ -482,24 +487,18 @@ Client::SharedPtr Client::manage(xcb_window_t window, int screenNumber)
     return ptr;
 }
 
-Client::SharedPtr Client::client(xcb_window_t window)
+Client *Client::client(xcb_window_t window)
 {
-    const Hash<xcb_window_t, Client::SharedPtr>::const_iterator it = sClients.find(window);
-    if (it != sClients.end()) {
-        return it->second;
-    }
-    return SharedPtr();
+    return sClients.value(window);
 }
 
 void Client::release(xcb_window_t window)
 {
-    Hash<xcb_window_t, Client::SharedPtr>::iterator it = sClients.find(window);
-    if (it != sClients.end()) {
-        if (it->second->mWorkspace) {
-            it->second->mWorkspace->removeClient(it->second);
+    if (Client *client = sClients.take(window)) {
+        if (client->mWorkspace) {
+            client->mWorkspace->removeClient(client);
         }
-        WindowManager::instance()->js().onClientDestroyed(it->second);
-        sClients.erase(it);
+        WindowManager::instance()->js().onClientDestroyed(client);
     }
 }
 
@@ -509,7 +508,7 @@ void Client::setBackgroundColor(const Color& color)
     if (!mOwned)
         return;
     if (!mGraphics)
-        mGraphics = new Graphics(shared_from_this());
+        mGraphics = new Graphics(this);
     mGraphics->setBackgroundColor(color);
     mGraphics->redraw();
 }
@@ -520,7 +519,7 @@ void Client::setText(const Rect& rect, const Font& font, const Color& color, con
     if (!mOwned)
         return;
     if (!mGraphics)
-        mGraphics = new Graphics(shared_from_this());
+        mGraphics = new Graphics(this);
     mGraphics->setText(rect.isEmpty() ? Rect({ 0, 0, mRect.width, mRect.height }) : rect, font, color, string);
     mGraphics->redraw();
 }
@@ -570,9 +569,9 @@ void Client::focus()
     xcb_set_input_focus(wm->connection(), XCB_INPUT_FOCUS_PARENT, mWindow, wm->timestamp());
     // error() << "Setting input focus to client" << mWindow << mClass.className;
     xcb_ewmh_set_active_window(wm->ewmhConnection(), mScreenNumber, mWindow);
-    wm->setFocusedClient(shared_from_this());
+    wm->setFocusedClient(this);
     if (mWorkspace)
-        mWorkspace->updateFocus(shared_from_this());
+        mWorkspace->updateFocus(this);
 }
 
 void Client::destroy()
@@ -586,7 +585,7 @@ void Client::raise()
 {
     warning() << "raising" << this;
     assert(mGroup);
-    mGroup->raise(shared_from_this());
+    mGroup->raise(this);
 }
 
 void Client::resize(const Size& size)
@@ -685,7 +684,7 @@ void Client::createJSValue()
 {
     JavaScript& js = WindowManager::instance()->js();
     ScriptEngine::Object::SharedPtr obj = js.clientClass()->create();
-    obj->setExtraData(WeakPtr(shared_from_this()));
+    obj->setExtraData(this);
     mJSValue = js.fromObject(obj);
 }
 

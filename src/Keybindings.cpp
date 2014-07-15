@@ -132,13 +132,13 @@ void Keybindings::add(const Keybinding& binding)
         return;
     for (xcb_window_t root : wm->roots())
         rebind(binding, conn, root);
-    const List<Client::SharedPtr>& clients = Client::clients();
-    for (const Client::SharedPtr& client : clients) {
+    const List<Client*> &clients = Client::clients();
+    for (Client *client : clients) {
         rebind(binding, conn, client->window());
     }
 }
 
-void Keybindings::toggle(const Keybinding& binding, const Set<Keybinding>& subbindings)
+void Keybindings::toggle(const Keybinding &binding, const Set<Keybinding> &subbindings)
 {
     if (!mEscape.isValid()) {
         mEscape.init("Escape", "escape");
@@ -156,21 +156,21 @@ void Keybindings::rebindAll()
 
     WindowManager *wm = WindowManager::instance();
     xcb_connection_t* conn = wm->connection();
-    const List<Client::SharedPtr>& clients = Client::clients();
+    const List<Client *> &clients = Client::clients();
 #warning clients should return a list per screen
 
-    Set<Keybinding>& bindings = mCurrentToggle ? mToggles[*mCurrentToggle] : mKeybindings;
+    Set<Keybinding> &bindings = mCurrentToggle ? mToggles[*mCurrentToggle] : mKeybindings;
 
     for (xcb_window_t root : wm->roots()) {
         xcb_ungrab_key(conn, XCB_GRAB_ANY, root, XCB_BUTTON_MASK_ANY);
-        for (const Client::SharedPtr& client : clients) {
+        for (Client *client : clients) {
             if (client->root() == root)
                 xcb_ungrab_key(conn, XCB_GRAB_ANY, client->window(), XCB_BUTTON_MASK_ANY);
         }
 
-        for (const Keybinding& binding : bindings) {
+        for (const Keybinding &binding : bindings) {
             rebind(binding, conn, root);
-            for (const Client::SharedPtr& client : clients) {
+            for (Client *client : clients) {
                 if (client->root() == root) {
                     rebind(binding, conn, client->window());
                 }
@@ -181,22 +181,22 @@ void Keybindings::rebindAll()
 
 void Keybindings::rebind(xcb_window_t win)
 {
-    Set<Keybinding>& bindings = mCurrentToggle ? mToggles[*mCurrentToggle] : mKeybindings;
+    Set<Keybinding> &bindings = mCurrentToggle ? mToggles[*mCurrentToggle] : mKeybindings;
 
     xcb_connection_t* conn = WindowManager::instance()->connection();
     xcb_ungrab_key(conn, XCB_GRAB_ANY, win, XCB_BUTTON_MASK_ANY);
-    for (const Keybinding& binding : bindings) {
+    for (const Keybinding &binding : bindings) {
         rebind(binding, conn, win);
     }
 }
 
-void Keybindings::rebind(const Keybinding& binding, xcb_connection_t* conn, xcb_window_t win)
+void Keybindings::rebind(const Keybinding &binding, xcb_connection_t* conn, xcb_window_t win)
 {
-    const auto& seqs = binding.sequence();
+    const auto &seqs = binding.sequence();
     if (seqs.isEmpty())
         return;
     const uint8_t keymode = (seqs.size() == 1) ? XCB_GRAB_MODE_ASYNC : XCB_GRAB_MODE_SYNC;
-    const auto& seq = seqs.front();
+    const auto &seq = seqs.front();
     if (keymode == XCB_GRAB_MODE_SYNC) {
         mPrefixes.insert(seq);
     }

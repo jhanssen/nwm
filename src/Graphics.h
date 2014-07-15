@@ -41,7 +41,7 @@ public:
 class Graphics
 {
 public:
-    Graphics(const std::shared_ptr<Client>& client);
+    Graphics(Client *client);
     ~Graphics();
 
     void redraw();
