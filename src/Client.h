@@ -70,6 +70,8 @@ public:
     String instanceName() const { return mClass.instanceName; }
     String className() const { return mClass.className; }
 
+    bool isOwned() const { return mOwned; }
+
     Rect rect() const { return mRect; }
     void setRect(const Rect &rect);
 private:

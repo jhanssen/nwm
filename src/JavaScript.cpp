@@ -179,6 +179,8 @@ bool JavaScript::init(String *err)
                         return instance()->throwException<Value>("Client.text needs to have a font property");
                     }
                     if (Client *client = obj->extraData<Client*>()) {
+                        if (!client->isOwned())
+                            return instance()->throwException<Value>("Client.text can only be used for nwm-created clients");
                         client->setText(rect, font, color, text.toString());
                     }
                 } else {

@@ -29,10 +29,12 @@ Client::~Client()
     delete mGraphics;
     xcb_connection_t* conn = WindowManager::instance()->connection();
     if (mWindow) {
-        if (!mOwned)
+        if (!mOwned) {
             xcb_reparent_window(conn, mWindow, root(), 0, 0);
-        else
+        } else {
             xcb_destroy_window(conn, mWindow);
+        }
+        sClients.erase(mWindow);
     }
     xcb_destroy_window(conn, mFrame);
     if (mWorkspace) {

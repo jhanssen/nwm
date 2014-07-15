@@ -528,6 +528,7 @@ bool WindowManager::manage()
                     continue;
                 }
                 Client *client = Client::manage(clients[i], screenNumber);
+                (void)client;
             }
         }
         ++screenNumber;
@@ -706,13 +707,13 @@ bool WindowManager::install()
     xcb_connection_t* conn = mConn;
     const int fd = xcb_get_file_descriptor(mConn);
     uint8_t xkbEvent = mXkbEvent;
-    EventLoop::eventLoop()->registerSocket(fd, EventLoop::SocketRead, [conn, fd, xkbEvent](int, unsigned int) {
+    EventLoop::eventLoop()->registerSocket(fd, EventLoop::SocketRead, [this, conn, fd, xkbEvent](int, unsigned int) {
             List<xcb_generic_event_t*> events;
             for (;;) {
                 if (xcb_connection_has_error(conn)) {
                     error() << "X server connection error" << xcb_connection_has_error(conn);
                     if (EventLoop::SharedPtr eventLoop = EventLoop::eventLoop()) {
-                        eventLoop->unregisterSocket(fd);
+                        mRestart = true;
                         eventLoop->quit();
                     }
                     events.deleteAll(&free);
