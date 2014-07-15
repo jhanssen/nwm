@@ -161,7 +161,7 @@ void Workspace::onClientDestroyed(Client *client)
         return;
     const bool hadFocus = (it == mClients.begin());
     mClients.erase(it);
-    if (!hadFocus) {
+    if (hadFocus) {
         // focus the first available one in our list
         for (Client *client : mClients) {
             if (!client->noFocus()) {

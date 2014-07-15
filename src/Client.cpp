@@ -498,7 +498,7 @@ void Client::release(xcb_window_t window)
 {
     if (Client *client = sClients.take(window)) {
         if (client->mWorkspace) {
-            client->mWorkspace->removeClient(client);
+            client->mWorkspace->onClientDestroyed(client);
         }
         WindowManager::instance()->js().onClientDestroyed(client);
     }
