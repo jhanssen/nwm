@@ -106,6 +106,12 @@ public:
         mRestart = true;
         EventLoop::eventLoop()->quit();
     }
+
+    void quit(int status = 0)
+    {
+        mExitCode = status;
+        EventLoop::eventLoop()->quit();
+    }
 private:
     bool install();
     bool isRunning();

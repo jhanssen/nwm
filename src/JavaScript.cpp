@@ -422,6 +422,14 @@ bool JavaScript::init(String *err)
             WindowManager::instance()->restart();
             return Value::undefined();
         });
+    nwm->registerFunction("quit", [](const Object::SharedPtr&, const List<Value>& args) -> Value {
+            if (args.size() > 1 || (args.size() == 1 && !args.first().isInteger()))
+                return instance()->throwException<Value>("Invalid arguments to nwm.quit(). Needs to 0 or 1 int argument");
+
+            WindowManager::instance()->quit(args.isEmpty() ? 0 : args.first().toInteger());
+            return Value::undefined();
+        });
+
     nwm->registerProperty("clients",
                           [this](const Object::SharedPtr&) -> Value {
                               List<Value> ret;

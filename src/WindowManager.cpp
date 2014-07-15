@@ -403,8 +403,7 @@ bool WindowManager::init(int &argc, char **argv)
                             }
 
                             if (m->flags() & NWMMessage::Quit) {
-                                mExitCode = m->exitCode();
-                                EventLoop::eventLoop()->quit();
+                                quit(m->exitCode());
                             }
 
                             String err;
