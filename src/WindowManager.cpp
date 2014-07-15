@@ -706,6 +706,7 @@ bool WindowManager::install()
     const int fd = xcb_get_file_descriptor(mConn);
     uint8_t xkbEvent = mXkbEvent;
     EventLoop::eventLoop()->registerSocket(fd, EventLoop::SocketRead, [conn, fd, xkbEvent](int, unsigned int) {
+            List<xcb_generic_event_t*> events;
             for (;;) {
                 if (xcb_connection_has_error(conn)) {
                     error() << "X server connection error" << xcb_connection_has_error(conn);
@@ -713,80 +714,94 @@ bool WindowManager::install()
                         eventLoop->unregisterSocket(fd);
                         eventLoop->quit();
                     }
+                    events.deleteAll(&free);
                     return;
                 }
-                AutoPointer<xcb_generic_event_t> event(xcb_poll_for_event(conn));
-                if (event) {
-                    const unsigned int responseType = event->response_type & ~0x80;
-                    switch (responseType) {
-                    case XCB_BUTTON_PRESS:
-                        warning() << "button press";
-                        Handlers::handleButtonPress(event.cast<xcb_button_press_event_t>());
-                        break;
-                    case XCB_BUTTON_RELEASE:
-                        warning() << "button release";
-                        Handlers::handleButtonRelease(event.cast<xcb_button_release_event_t>());
-                        break;
-                    case XCB_MOTION_NOTIFY:
-                        warning() << "motion notify";
-                        Handlers::handleMotionNotify(event.cast<xcb_motion_notify_event_t>());
-                        break;
-                    case XCB_CLIENT_MESSAGE:
-                        warning() << "client message";
-                        Handlers::handleClientMessage(event.cast<xcb_client_message_event_t>());
-                        break;
-                    case XCB_CONFIGURE_REQUEST:
-                        warning() << "configure request";
-                        Handlers::handleConfigureRequest(event.cast<xcb_configure_request_event_t>());
-                        break;
-                    case XCB_CONFIGURE_NOTIFY:
-                        warning() << "configure notify";
-                        Handlers::handleConfigureNotify(event.cast<xcb_configure_notify_event_t>());
-                        break;
-                    case XCB_DESTROY_NOTIFY:
-                        warning() << "destroy notify";
-                        Handlers::handleDestroyNotify(event.cast<xcb_destroy_notify_event_t>());
-                        break;
-                    case XCB_ENTER_NOTIFY:
-                        warning() << "enter notify";
-                        Handlers::handleEnterNotify(event.cast<xcb_enter_notify_event_t>());
-                        break;
-                    case XCB_EXPOSE:
-                        warning() << "expose";
-                        Handlers::handleExpose(event.cast<xcb_expose_event_t>());
-                        break;
-                    case XCB_FOCUS_IN:
-                        warning() << "focus in";
-                        Handlers::handleFocusIn(event.cast<xcb_focus_in_event_t>());
-                        break;
-                    case XCB_KEY_PRESS:
-                        warning() << "key press";
-                        Handlers::handleKeyPress(event.cast<xcb_key_press_event_t>());
-                        break;
-                    case XCB_MAP_REQUEST:
-                        warning() << "map request";
-                        Handlers::handleMapRequest(event.cast<xcb_map_request_event_t>());
-                        break;
-                    case XCB_PROPERTY_NOTIFY:
-                        warning() << "property notify";
-                        Handlers::handlePropertyNotify(event.cast<xcb_property_notify_event_t>());
-                        break;
-                    case XCB_UNMAP_NOTIFY:
-                        warning() << "unmap notify";
-                        Handlers::handleUnmapNotify(event.cast<xcb_unmap_notify_event_t>());
-                        break;
-                    default:
-                        if (responseType == xkbEvent) {
-                            warning() << "xkb event";
-                            handleXkb(event.cast<_xkb_event>());
+                xcb_generic_event_t *event = xcb_poll_for_event(conn);
+                if (!event)
+                    break;
+                const unsigned int responseType = event->response_type & ~0x80;
+                if (responseType == XCB_MOTION_NOTIFY || responseType == XCB_ENTER_NOTIFY) {
+                    const int size = events.size();
+                    for (int i=0; i<size; ++i) {
+                        if ((events[i]->response_type & ~0x80) == responseType) {
+                            free(events[i]);
+                            events.removeAt(i);
                             break;
                         }
-                        warning() << "unhandled event" << responseType;
+                    }
+                }
+                events.append(event);
+            }
+            for (auto event : events) {
+                const auto responseType = event->response_type & ~0x80;
+                switch (responseType) {
+                case XCB_BUTTON_PRESS:
+                    warning() << "button press";
+                    Handlers::handleButtonPress(reinterpret_cast<xcb_button_press_event_t*>(event));
+                    break;
+                case XCB_BUTTON_RELEASE:
+                    warning() << "button release";
+                    Handlers::handleButtonRelease(reinterpret_cast<xcb_button_release_event_t*>(event));
+                    break;
+                case XCB_MOTION_NOTIFY:
+                    warning() << "motion notify";
+                    Handlers::handleMotionNotify(reinterpret_cast<xcb_motion_notify_event_t*>(event));
+                    break;
+                case XCB_CLIENT_MESSAGE:
+                    warning() << "client message";
+                    Handlers::handleClientMessage(reinterpret_cast<xcb_client_message_event_t*>(event));
+                    break;
+                case XCB_CONFIGURE_REQUEST:
+                    warning() << "configure request";
+                    Handlers::handleConfigureRequest(reinterpret_cast<xcb_configure_request_event_t*>(event));
+                    break;
+                case XCB_CONFIGURE_NOTIFY:
+                    warning() << "configure notify";
+                    Handlers::handleConfigureNotify(reinterpret_cast<xcb_configure_notify_event_t*>(event));
+                    break;
+                case XCB_DESTROY_NOTIFY:
+                    warning() << "destroy notify";
+                    Handlers::handleDestroyNotify(reinterpret_cast<xcb_destroy_notify_event_t*>(event));
+                    break;
+                case XCB_ENTER_NOTIFY:
+                    warning() << "enter notify";
+                    Handlers::handleEnterNotify(reinterpret_cast<xcb_enter_notify_event_t*>(event));
+                    break;
+                case XCB_EXPOSE:
+                    warning() << "expose";
+                    Handlers::handleExpose(reinterpret_cast<xcb_expose_event_t*>(event));
+                    break;
+                case XCB_FOCUS_IN:
+                    warning() << "focus in";
+                    Handlers::handleFocusIn(reinterpret_cast<xcb_focus_in_event_t*>(event));
+                    break;
+                case XCB_KEY_PRESS:
+                    warning() << "key press";
+                    Handlers::handleKeyPress(reinterpret_cast<xcb_key_press_event_t*>(event));
+                    break;
+                case XCB_MAP_REQUEST:
+                    warning() << "map request";
+                    Handlers::handleMapRequest(reinterpret_cast<xcb_map_request_event_t*>(event));
+                    break;
+                case XCB_PROPERTY_NOTIFY:
+                    warning() << "property notify";
+                    Handlers::handlePropertyNotify(reinterpret_cast<xcb_property_notify_event_t*>(event));
+                    break;
+                case XCB_UNMAP_NOTIFY:
+                    warning() << "unmap notify";
+                    Handlers::handleUnmapNotify(reinterpret_cast<xcb_unmap_notify_event_t*>(event));
+                    break;
+                default:
+                    if (responseType == xkbEvent) {
+                        warning() << "xkb event";
+                        handleXkb(reinterpret_cast<_xkb_event*>(event));
                         break;
                     }
-                } else {
+                    warning() << "unhandled event" << responseType;
                     break;
                 }
+                free(event);
             }
             xcb_flush(conn);
         });
@@ -942,7 +957,6 @@ Point WindowManager::pointer(int *screen, bool *ok) const
     return Point(reply->root_x, reply->root_y);
 }
 
-
 bool WindowManager::warpPointer(const Point &point, int screen, PointerMode mode)
 {
     if (screen == -1) {
@@ -963,6 +977,7 @@ bool WindowManager::warpPointer(const Point &point, int screen, PointerMode mode
         LOG_ERROR(err, "Unable to warp pointer");
         return false;
     }
+    xcb_flush(mConn);
 
     return true;
 }

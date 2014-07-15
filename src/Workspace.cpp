@@ -60,7 +60,6 @@ void Workspace::updateFocus(const Client::SharedPtr& client)
         assert(it != end);
         mClients.erase(it);
         mClients.prepend(client);
-        client->focus();
 #warning should this tell WindowManager which client is the focused one?
     } else {
         // focus the first available one in our list

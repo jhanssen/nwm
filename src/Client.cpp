@@ -11,7 +11,7 @@ Hash<xcb_window_t, Client::SharedPtr> Client::sClients;
 
 Client::Client(xcb_window_t win)
     : mWindow(win), mFrame(XCB_NONE), mNoFocus(false), mOwned(false), mLayout(0),
-      mWorkspace(0), mGraphics(0), mGroup(0), mFloating(false), mPid(0),
+      mWorkspace(0), mGraphics(0), mFloating(false), mPid(0),
       mScreenNumber(0)
 {
     warning() << "making client";
@@ -33,7 +33,6 @@ Client::~Client()
         Workspace *workspace = mWorkspace;
         loop->callLater([workspace]() { workspace->updateFocus(); });
     }
-    delete mGroup;
 }
 
 void Client::init()
