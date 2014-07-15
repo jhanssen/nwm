@@ -302,6 +302,22 @@ bool JavaScript::init(String *err)
 
     auto global = globalObject();
 
+    // --------------- timers ---------------
+    global->registerFunction("setTimeout", [this](const Object::SharedPtr &, const List<Value> &args) -> Value {
+            return startTimer(args, Timer::SingleShot);
+        });
+
+    global->registerFunction("setInterval", [this](const Object::SharedPtr &, const List<Value> &args) -> Value {
+            return startTimer(args, 0);
+        });
+    global->registerFunction("clearTimeout", [this](const Object::SharedPtr &, const List<Value> &args) -> Value {
+            return clearTimer(args);
+        });
+    global->registerFunction("clearInterval", [this](const Object::SharedPtr &, const List<Value> &args) -> Value {
+            return clearTimer(args);
+        });
+    // yes you can clear a timeout with clearInterval and vice versa
+
     // --------------- console ---------------
     auto console = global->child("console");
     console->registerFunction("log", [](const Object::SharedPtr&, const List<Value> &args) -> Value {
@@ -394,7 +410,7 @@ bool JavaScript::init(String *err)
             if (name.type() != Value::Type_String) {
                 return instance()->throwException<Value>("First argument to nwm.on needs to be a string");
             }
-            if (func.type() != Value::Type_Custom) {
+            if (!isFunction(func)) {
                 return instance()->throwException<Value>("First argument to nwm.on needs to be a function");
             }
             mOns[name.toString()] = func;
@@ -638,14 +654,14 @@ bool JavaScript::init(String *err)
 
     // --------------- nwm.kbd ---------------
     auto kbd = nwm->child("kbd");
-    kbd->registerFunction("set", [](const Object::SharedPtr&, const List<Value> &args) -> Value {
+    kbd->registerFunction("set", [this](const Object::SharedPtr&, const List<Value> &args) -> Value {
             if (args.size() != 2)
                 return instance()->throwException<Value>("Invalid number of arguments to kbd.set, 2 required");
             const Value &key = args.at(0);
             const Value &func = args.at(1);
             if (key.type() != Value::Type_String)
                 return instance()->throwException<Value>("Invalid first argument to kbd.set, needs to be a string");
-            if (func.type() != Value::Type_Custom)
+            if (!isFunction(func))
                 return instance()->throwException<Value>("Invalid second argument to kbd.set, needs to be a JS function");
             Keybinding binding(key.toString(), func);
             if (!binding.isValid())
@@ -704,6 +720,11 @@ bool JavaScript::init(String *err)
 
 JavaScript::~JavaScript()
 {
+    if (auto eventLoop = EventLoop::eventLoop()) {
+        for (int id : mActiveTimers) {
+            eventLoop->unregisterTimer(id);
+        }
+    }
 }
 
 Value JavaScript::evaluateFile(const Path &file, String *err)
@@ -748,4 +769,27 @@ bool JavaScript::reload(String *err)
     mOns.clear();
     mClientClass.reset();
     return init(err);
+}
+
+Value JavaScript::startTimer(const List<Value> &args, unsigned int flags)
+{
+    if (args.size() != 2 || !isFunction(args[0]) || args[1].type() != Value::Type_Integer) {
+        return throwException<Value>("Invalid arguments to setTimeout/setInterval");
+    }
+    const int interval = args[1].toInteger();
+    if (interval < 0)
+        return instance()->throwException<Value>("Invalid arguments to setTimeout/setInterval");
+    std::shared_ptr<ScriptEngine::Object> func = toObject(args[0]);
+    return EventLoop::eventLoop()->registerTimer([this, func](int id) {
+            assert(func->isFunction());
+            func->call();
+        }, interval, flags);
+}
+
+Value JavaScript::clearTimer(const List<Value> &args)
+{
+    if (args.size() != 1 || args.first().type() != Value::Type_Integer)
+        return instance()->throwException<Value>("Invalid arguments to setTimeout");
+    EventLoop::eventLoop()->unregisterTimer(args.first().toInteger());
+    return Value::undefined();
 }

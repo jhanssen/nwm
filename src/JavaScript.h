@@ -7,6 +7,7 @@
 #include <rct/String.h>
 #include <rct/Value.h>
 #include <rct/Hash.h>
+#include <rct/Timer.h>
 
 class JavaScript : public ScriptEngine
 {
@@ -34,6 +35,10 @@ public:
     }
     void clear() { mClients.clear(); }
 private:
+    Value startTimer(const List<Value> &args, unsigned int flags);
+    Value clearTimer(const List<Value> &args);
+
+    Set<int> mActiveTimers;
     bool init(String *error);
     List<Path> mConfigFiles;
     std::shared_ptr<Class> mClientClass, mFileClass;
