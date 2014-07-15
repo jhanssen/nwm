@@ -157,11 +157,11 @@ void Workspace::addClient(Client *client)
 void Workspace::onClientDestroyed(Client *client)
 {
     auto it = mClients.find(client);
-    assert(it != mClients.end());
+    if (it == mClients.end())
+        return;
     const bool hadFocus = (it == mClients.begin());
     mClients.erase(it);
-    if (hadFocus) {
-    } else {
+    if (!hadFocus) {
         // focus the first available one in our list
         for (Client *client : mClients) {
             if (!client->noFocus()) {
