@@ -3,9 +3,7 @@
 while true; do
     nwm $@
     [ $? -ne 100 ] && break
-    git stash
-    git pull
-    git stash pop
+    git sync
     if [ -f build.ninja ]; then 
         ninja 
     else
