@@ -619,23 +619,28 @@ void Client::move(const Point& point)
 
 void Client::close()
 {
-    WindowManager *wm = WindowManager::instance();
-    if (mProtocols.contains(Atoms::WM_DELETE_WINDOW)) {
-        // delete
-        xcb_client_message_event_t event;
-        memset(&event, '\0', sizeof(event));
-        event.response_type = XCB_CLIENT_MESSAGE;
-        event.window = mWindow;
-        event.format = 32;
-        event.type = Atoms::WM_PROTOCOLS;
-        event.data.data32[0] = Atoms::WM_DELETE_WINDOW;
-        event.data.data32[1] = wm->timestamp();
-
-        xcb_send_event(wm->connection(), false, mWindow, XCB_EVENT_MASK_NO_EVENT,
-                       reinterpret_cast<char*>(&event));
-
+    if (mOwned) {
+        destroy();
+        EventLoop::deleteLater(this);
     } else {
-        xcb_kill_client(wm->connection(), mWindow);
+        WindowManager *wm = WindowManager::instance();
+        if (mProtocols.contains(Atoms::WM_DELETE_WINDOW)) {
+            // delete
+            xcb_client_message_event_t event;
+            memset(&event, '\0', sizeof(event));
+            event.response_type = XCB_CLIENT_MESSAGE;
+            event.window = mWindow;
+            event.format = 32;
+            event.type = Atoms::WM_PROTOCOLS;
+            event.data.data32[0] = Atoms::WM_DELETE_WINDOW;
+            event.data.data32[1] = wm->timestamp();
+
+            xcb_send_event(wm->connection(), false, mWindow, XCB_EVENT_MASK_NO_EVENT,
+                           reinterpret_cast<char*>(&event));
+
+        } else {
+            xcb_kill_client(wm->connection(), mWindow);
+        }
     }
 }
 
