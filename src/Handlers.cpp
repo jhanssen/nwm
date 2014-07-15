@@ -217,6 +217,7 @@ void handleDestroyNotify(const xcb_destroy_notify_event_t* event)
     Client *client = Client::client(event->window);
     if (client) {
         client->destroy();
+        delete client;
     }
 }
 
