@@ -26,10 +26,7 @@ public:
     static void release(xcb_window_t window);
     static void clear() { sClients.clear(); }
 
-    // ### heavy, should be improved
-    static List<Client*> clients() { return sClients.values(); }
-
-    void release() { release(mWindow); mWindow = 0; }
+    static Hash<xcb_window_t, Client*> &clients() { return sClients; }
 
     void setBackgroundColor(const Color& color);
     void setText(const Rect& rect, const Font& font, const Color& color, const String& string);

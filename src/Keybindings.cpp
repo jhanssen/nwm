@@ -132,9 +132,8 @@ void Keybindings::add(const Keybinding& binding)
         return;
     for (xcb_window_t root : wm->roots())
         rebind(binding, conn, root);
-    const List<Client*> &clients = Client::clients();
-    for (Client *client : clients) {
-        rebind(binding, conn, client->window());
+    for (auto it : Client::clients()) {
+        rebind(binding, conn, it.first);
     }
 }
 
@@ -156,23 +155,23 @@ void Keybindings::rebindAll()
 
     WindowManager *wm = WindowManager::instance();
     xcb_connection_t* conn = wm->connection();
-    const List<Client *> &clients = Client::clients();
+    const auto &clients = Client::clients();
 #warning clients should return a list per screen
 
     Set<Keybinding> &bindings = mCurrentToggle ? mToggles[*mCurrentToggle] : mKeybindings;
 
     for (xcb_window_t root : wm->roots()) {
         xcb_ungrab_key(conn, XCB_GRAB_ANY, root, XCB_BUTTON_MASK_ANY);
-        for (Client *client : clients) {
-            if (client->root() == root)
-                xcb_ungrab_key(conn, XCB_GRAB_ANY, client->window(), XCB_BUTTON_MASK_ANY);
+        for (const auto it : clients) {
+            if (it.second->root() == root)
+                xcb_ungrab_key(conn, XCB_GRAB_ANY, it.first, XCB_BUTTON_MASK_ANY);
         }
 
         for (const Keybinding &binding : bindings) {
             rebind(binding, conn, root);
-            for (Client *client : clients) {
-                if (client->root() == root) {
-                    rebind(binding, conn, client->window());
+            for (const auto it : clients) {
+                if (it.second->root() == root) {
+                    rebind(binding, conn, it.first);
                 }
             }
         }
