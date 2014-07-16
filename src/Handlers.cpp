@@ -24,7 +24,7 @@ void handleButtonPress(const xcb_button_press_event_t* event)
 
         if (event->state) {
             const uint16_t mod = wm->moveModifierMask();
-            if (mod && (event->state  &mod) == mod && client->isFloating()) {
+            if (mod && (event->state & mod) == mod && client->isFloating()) {
                 // grab both the keyboard and the pointer
                 xcb_grab_pointer_cookie_t pointerCookie = xcb_grab_pointer(conn, false, event->root,
                                                                            XCB_EVENT_MASK_BUTTON_RELEASE
@@ -164,41 +164,45 @@ void handleConfigureRequest(const xcb_configure_request_event_t* event)
 
     Client *client = Client::client(event->window);
     if (client) {
-#warning need to restack here
-
-        // I know better than you, go away
         client->configure();
+#warning need to restack here
+        if (event->value_mask & XCB_CONFIG_WINDOW_STACK_MODE) {
+            if (event->stack_mode == XCB_STACK_MODE_ABOVE) {
+#warning not supported event->value_mask & XCB_CONFIG_WINDOW_SIBLING){
+                client->raise();
+            }
+        }
     } else {
         // configure
         uint16_t windowMask = 0;
         uint32_t windowValues[7];
         int i = 0;
 
-        if (event->value_mask  &XCB_CONFIG_WINDOW_X) {
+        if (event->value_mask & XCB_CONFIG_WINDOW_X) {
             windowMask |= XCB_CONFIG_WINDOW_X;
             windowValues[i++] = event->x;
         }
-        if (event->value_mask  &XCB_CONFIG_WINDOW_Y) {
+        if (event->value_mask & XCB_CONFIG_WINDOW_Y) {
             windowMask |= XCB_CONFIG_WINDOW_Y;
             windowValues[i++] = event->y;
         }
-        if (event->value_mask  &XCB_CONFIG_WINDOW_WIDTH) {
+        if (event->value_mask & XCB_CONFIG_WINDOW_WIDTH) {
             windowMask |= XCB_CONFIG_WINDOW_WIDTH;
             windowValues[i++] = event->width;
         }
-        if (event->value_mask  &XCB_CONFIG_WINDOW_HEIGHT) {
+        if (event->value_mask & XCB_CONFIG_WINDOW_HEIGHT) {
             windowMask |= XCB_CONFIG_WINDOW_HEIGHT;
             windowValues[i++] = event->height;
         }
-        if (event->value_mask  &XCB_CONFIG_WINDOW_BORDER_WIDTH) {
+        if (event->value_mask & XCB_CONFIG_WINDOW_BORDER_WIDTH) {
             windowMask |= XCB_CONFIG_WINDOW_BORDER_WIDTH;
             windowValues[i++] = event->border_width;
         }
-        if (event->value_mask  &XCB_CONFIG_WINDOW_SIBLING) {
+        if (event->value_mask & XCB_CONFIG_WINDOW_SIBLING) {
             windowMask |= XCB_CONFIG_WINDOW_SIBLING;
             windowValues[i++] = event->sibling;
         }
-        if (event->value_mask  &XCB_CONFIG_WINDOW_STACK_MODE) {
+        if (event->value_mask & XCB_CONFIG_WINDOW_STACK_MODE) {
             windowMask |= XCB_CONFIG_WINDOW_STACK_MODE;
             windowValues[i++] = event->stack_mode;
         }
@@ -248,7 +252,7 @@ void handleKeyPress(const xcb_key_press_event_t* event)
 {
     WindowManager *wm = WindowManager::instance();
     wm->updateTimestamp(event->time);
-    //const int col = (event->state  &XCB_MOD_MASK_SHIFT);
+    //const int col = (event->state & XCB_MOD_MASK_SHIFT);
     const int col = 0;
     const xcb_keysym_t sym = xcb_key_press_lookup_keysym(wm->keySymbols(), const_cast<xcb_key_press_event_t*>(event), col);
     if (xcb_is_modifier_key(sym))
