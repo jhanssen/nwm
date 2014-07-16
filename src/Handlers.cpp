@@ -165,12 +165,14 @@ void handleConfigureRequest(const xcb_configure_request_event_t* event)
     Client *client = Client::client(event->window);
     if (client) {
         client->configure();
-#warning need to restack here
         if (event->value_mask & XCB_CONFIG_WINDOW_STACK_MODE) {
-            if (event->stack_mode == XCB_STACK_MODE_ABOVE) {
-#warning not supported event->value_mask & XCB_CONFIG_WINDOW_SIBLING){
-                client->raise();
+            Client *sibling = 0;
+            if (event->value_mask & XCB_CONFIG_WINDOW_SIBLING) {
+                sibling = Client::client(event->sibling);
+                if (!sibling)
+                    sibling = Client::clientByFrame(event->sibling);
             }
+            client->restack(static_cast<xcb_stack_mode_t>(event->stack_mode), sibling);
         }
     } else {
         // configure
@@ -220,7 +222,6 @@ void handleDestroyNotify(const xcb_destroy_notify_event_t* event)
 {
     Client *client = Client::client(event->window);
     if (client) {
-        client->destroy();
         delete client;
     }
 }
@@ -309,8 +310,11 @@ void handleMapRequest(const xcb_map_request_event_t* event)
 void handlePropertyNotify(const xcb_property_notify_event_t* event)
 {
     WindowManager::instance()->updateTimestamp(event->time);
+    Client *client = Client::client(event->window);
+    if (client) {
+        client->propertyNotify(event->atom);
+    }
     warning() << "notifying for property" << Atoms::name(event->atom);
-#warning Propagate properties to client
 }
 
 void handleUnmapNotify(const xcb_unmap_notify_event_t* event)
@@ -322,7 +326,7 @@ void handleUnmapNotify(const xcb_unmap_notify_event_t* event)
         releaseGrab(wm->connection(), wm->timestamp());
     }
 
-    error() << "unmapping" << event->event << event->window;
+    warning() << "unmapping" << event->event << event->window;
     Client *client = Client::client(event->event);
     if (client) {
         client->unmap();

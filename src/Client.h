@@ -21,11 +21,12 @@ public:
     ~Client();
 
     static Client *client(xcb_window_t window);
+    static Client *clientByFrame(xcb_window_t frame);
+
     static Client *manage(xcb_window_t window, int screenNumber);
     static Client *create(const Rect& rect, int screenNumber,
                           const String &clazz = String(),
                           const String &instance = String());
-    static void release(xcb_window_t window);
     static void clear() { sClients.clear(); }
 
     static Hash<xcb_window_t, Client*> &clients() { return sClients; }
@@ -37,9 +38,9 @@ public:
     void map();
     void unmap();
     void focus();
-    void destroy();
     void configure();
-    void raise();
+    void restack(xcb_stack_mode_t stackMode, Client *sibling = 0);
+    void raise() { restack(XCB_STACK_MODE_ABOVE); }
     Point position() const { return mRect.point(); }
     Size size() const { return mRect.size(); }
     void move(const Point& point);
@@ -74,8 +75,10 @@ public:
 
     bool isOwned() const { return mOwned; }
 
-    Rect rect() const { return mRect; }
+    Rect rect() const { return mFloating || !mLayout ? mRect : mLayout->rect(); }
     void setRect(const Rect &rect);
+
+    void propertyNotify(xcb_atom_t atom);
 private:
     void clearWorkspace();
     bool updateWorkspace(Workspace* workspace);

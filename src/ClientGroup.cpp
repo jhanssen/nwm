@@ -5,15 +5,24 @@
 
 Map<xcb_window_t, ClientGroup*> ClientGroup::sGroups;
 
-void ClientGroup::raise(Client *client)
+void ClientGroup::restack(Client *client, xcb_stack_mode_t stackMode, Client *sibling)
 {
+    warning() << "got restack" << client << stackMode << sibling;
+    assert(client);
+    if (sibling && (sibling == client || sibling->group() == this))
+        sibling = 0;
+
     const bool clientIsDialog = client->isDialog();
     const bool clientIsFloating = client->isFloating();
 
     List<Client *> clients;
     for (Client *c : mClients) {
-        if (c != client)
+        if (c != client) {
+            if (sibling == c)
+                sibling = 0;
+#warning this might not be right
             clients.append(c);
+        }
     }
 
     // sort by window type
@@ -26,9 +35,18 @@ void ClientGroup::raise(Client *client)
                   return a->window() < b->window();
               });
 
-    // raise in order
+
+    // // raise in order
     xcb_connection_t* conn = WindowManager::instance()->connection();
-    const uint32_t stackMode[] = { XCB_STACK_MODE_ABOVE };
+    uint32_t values[2];
+    uint8_t valueMask = XCB_CONFIG_WINDOW_STACK_MODE;
+    if (sibling) {
+        values[0] = sibling->frame();
+        values[1] = stackMode;
+        valueMask |= XCB_CONFIG_WINDOW_SIBLING;
+    } else {
+        values[0] = stackMode;
+    }
     auto it = clients.cbegin();
     const auto end = clients.cend();
     while (it != end) {
@@ -37,16 +55,14 @@ void ClientGroup::raise(Client *client)
             break;
         else if (!clientIsFloating && (*it)->isFloating())
             break;
-        warning() << "raising regular" << *it << "floating" << (*it)->isFloating();
-        xcb_configure_window(conn, (*it)->frame(), XCB_CONFIG_WINDOW_STACK_MODE, stackMode);
-        // if (Workspace * ws = (*it)->workspace())
-        //     ws->notifyRaised(*it);
+        warning() << "restack regular" << *it << "floating" << (*it)->isFloating();
+        xcb_configure_window(conn, (*it)->frame(), valueMask, values);
         ++it;
     }
 
     // raise the selected client
-    warning() << "raising selected client" << client << client->className();
-    xcb_configure_window(conn, client->frame(), XCB_CONFIG_WINDOW_STACK_MODE, stackMode);
+    warning() << "restacking selected client" << client << client->className();
+    xcb_configure_window(conn, client->frame(), valueMask, values);
     if (Workspace *ws = client->workspace())
         ws->notifyRaised(client);
     WindowManager::instance()->js().onClientRaised(client);
@@ -55,9 +71,7 @@ void ClientGroup::raise(Client *client)
     while (it != end) {
         assert((*it)->isDialog() || (*it)->isFloating());
         warning() << "raising dialog/floating" << *it;
-        xcb_configure_window(conn, (*it)->frame(), XCB_CONFIG_WINDOW_STACK_MODE, stackMode);
-        // if (Workspace *ws = (*it)->workspace())
-        //     ws->notifyRaised(*it);
+        xcb_configure_window(conn, (*it)->frame(), valueMask, values);
         ++it;
     }
 }

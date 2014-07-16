@@ -19,6 +19,9 @@ Client::Client(xcb_window_t win)
 
 Client::~Client()
 {
+    if (mWorkspace)
+        mWorkspace->onClientDestroyed(this);
+    WindowManager::instance()->js().onClientDestroyed(this);
     assert(mJSValue.isInvalid() || mJSValue.isCustom());
     if (!mJSValue.isInvalid()) {
         JavaScript &engine = WindowManager::instance()->js();
@@ -26,6 +29,7 @@ Client::~Client()
         if (obj)
             obj->setExtraData(0);
     }
+    unmap();
     delete mGraphics;
     xcb_connection_t* conn = WindowManager::instance()->connection();
     if (mWindow) {
@@ -37,9 +41,8 @@ Client::~Client()
         sClients.erase(mWindow);
     }
     xcb_destroy_window(conn, mFrame);
-    if (mWorkspace) {
-        mWorkspace->onClientDestroyed(this);
-    }
+    if (mGroup)
+        mGroup->onClientDestroyed(this);
 }
 
 void Client::init()
@@ -481,7 +484,7 @@ Client *Client::create(const Rect& rect, int screenNumber, const String &clazz, 
 Client *Client::manage(xcb_window_t window, int screenNumber)
 {
     assert(sClients.count(window) == 0);
-    Client *ptr(new Client(window)); // can't use make_shared due to private c'tor
+    Client *ptr(new Client(window));
     ptr->mScreenNumber = screenNumber;
     ptr->init();
     WindowManager *wm = WindowManager::instance();
@@ -503,14 +506,13 @@ Client *Client::client(xcb_window_t window)
     return sClients.value(window);
 }
 
-void Client::release(xcb_window_t window)
+Client *Client::clientByFrame(xcb_window_t frame)
 {
-    if (Client *client = sClients.take(window)) {
-        if (client->mWorkspace) {
-            client->mWorkspace->onClientDestroyed(client);
-        }
-        WindowManager::instance()->js().onClientDestroyed(client);
+    for (const auto it : sClients) {
+        if (it.second->mFrame == frame)
+            return it.second;
     }
+    return 0;
 }
 
 void Client::setBackgroundColor(const Color& color)
@@ -585,18 +587,11 @@ void Client::focus()
         mWorkspace->updateFocus(this);
 }
 
-void Client::destroy()
-{
-    unmap();
-    release(mWindow);
-    mWindow = 0;
-}
-
-void Client::raise()
+void Client::restack(xcb_stack_mode_t stackMode, Client *sibling)
 {
     warning() << "raising" << this;
     assert(mGroup);
-    mGroup->raise(this);
+    mGroup->restack(this, stackMode, sibling);
 }
 
 void Client::resize(const Size& size)
@@ -629,7 +624,6 @@ void Client::move(const Point& point)
 void Client::close()
 {
     if (mOwned) {
-        destroy();
         EventLoop::deleteLater(this);
     } else {
         WindowManager *wm = WindowManager::instance();
@@ -726,4 +720,51 @@ void Client::setRect(const Rect &rect)
     const uint32_t values[4] = { static_cast<uint32_t>(rect.x), static_cast<uint32_t>(rect.y),
                                  static_cast<uint32_t>(rect.width), static_cast<uint32_t>(rect.height) };
     xcb_configure_window(conn, mFrame, mask, values);
+}
+
+void Client::propertyNotify(xcb_atom_t atom)
+{
+#warning Need to notify js that properties have changed
+    warning() << "Got propertyNotify" << Atoms::name(atom) << mWindow;
+    auto ewmhConnection = WindowManager::instance()->ewmhConnection();
+    auto conn = ewmhConnection->connection;
+    if (atom == XCB_ATOM_WM_NORMAL_HINTS) {
+        const xcb_get_property_cookie_t normalHintsCookie = xcb_icccm_get_wm_normal_hints(conn, mWindow);
+        updateNormalHints(conn, normalHintsCookie);
+    } else if (atom == XCB_ATOM_WM_TRANSIENT_FOR) {
+        const xcb_get_property_cookie_t transientCookie = xcb_icccm_get_wm_transient_for(conn, mWindow);
+        updateTransient(conn, transientCookie);
+    } else if (atom == Atoms::WM_CLIENT_LEADER) {
+        const xcb_get_property_cookie_t leaderCookie = xcb_get_property(conn, 0, mWindow, Atoms::WM_CLIENT_LEADER, XCB_ATOM_WINDOW, 0, 1);
+        updateLeader(conn, leaderCookie);
+    } else if (atom == XCB_ATOM_WM_HINTS) {
+        const xcb_get_property_cookie_t hintsCookie = xcb_icccm_get_wm_hints(conn, mWindow);
+        updateHints(conn, hintsCookie);
+    } else if (atom == XCB_ATOM_WM_CLASS) {
+        const xcb_get_property_cookie_t classCookie = xcb_icccm_get_wm_class(conn, mWindow);
+        updateClass(conn, classCookie);
+    } else if (atom == XCB_ATOM_WM_NAME) {
+        const xcb_get_property_cookie_t nameCookie = xcb_icccm_get_wm_name(conn, mWindow);
+        updateName(conn, nameCookie);
+    } else if (atom == Atoms::WM_PROTOCOLS) {
+        const xcb_get_property_cookie_t protocolsCookie = xcb_icccm_get_wm_protocols(conn, mWindow, Atoms::WM_PROTOCOLS);
+        updateProtocols(conn, protocolsCookie);
+    } else if (atom == ewmhConnection->_NET_WM_STRUT) {
+        const xcb_get_property_cookie_t strutCookie = xcb_ewmh_get_wm_strut(ewmhConnection, mWindow);
+        updateStrut(ewmhConnection, strutCookie);
+    } else if (atom == ewmhConnection->_NET_WM_STRUT_PARTIAL) {
+        const xcb_get_property_cookie_t partialStrutCookie = xcb_ewmh_get_wm_strut_partial(ewmhConnection, mWindow);
+        updatePartialStrut(ewmhConnection, partialStrutCookie);
+    } else if (atom == ewmhConnection->_NET_WM_STATE) {
+        const xcb_get_property_cookie_t stateCookie = xcb_ewmh_get_wm_state(ewmhConnection, mWindow);
+        updateEwmhState(ewmhConnection, stateCookie);
+    } else if (atom == ewmhConnection->_NET_WM_WINDOW_TYPE) {
+        const xcb_get_property_cookie_t typeCookie = xcb_ewmh_get_wm_window_type(ewmhConnection, mWindow);
+        updateWindowType(ewmhConnection, typeCookie);
+    } else if (atom == ewmhConnection->_NET_WM_PID) {
+        const xcb_get_property_cookie_t pidCookie = xcb_ewmh_get_wm_pid(ewmhConnection, mWindow);
+        updatePid(ewmhConnection, pidCookie);
+    } else {
+        warning() << "Unhandled propertyNotify atom" << Atoms::name(atom);
+    }
 }

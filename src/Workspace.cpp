@@ -146,12 +146,12 @@ void Workspace::addClient(Client *client)
     assert(client);
     assert(client->screenNumber() == mScreenNumber);
     if (client->updateWorkspace(this)) {
+        mClients.append(client);
         if (WindowManager::instance()->activeWorkspace(mScreenNumber) == this) {
             client->map();
         } else {
             client->unmap();
         }
-        mClients.append(client);
     }
 }
 void Workspace::onClientDestroyed(Client *client)

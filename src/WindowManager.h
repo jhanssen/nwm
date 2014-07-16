@@ -112,6 +112,8 @@ public:
         mExitCode = status;
         EventLoop::eventLoop()->quit();
     }
+
+    void processXCBEVents();
 private:
     bool install();
     bool isRunning();
@@ -154,6 +156,7 @@ private:
     Point mMovingOrigin;
     FocusPolicy mFocusPolicy;
     int mCurrentScreen;
+    int mConnectionFd;
 
     SocketServer mServer;
     int mExitCode;

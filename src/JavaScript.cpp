@@ -177,7 +177,7 @@ static inline Value fromRect(const Rect &rect)
 {
     Value ret;
     ret["x"] = rect.x;
-    ret["y"] = rect.x;
+    ret["y"] = rect.y;
     ret["width"] = rect.width;
     ret["height"] = rect.height;
     return ret;

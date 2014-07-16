@@ -20,7 +20,7 @@ public:
 
     xcb_window_t leader() const { return mLeader; }
 
-    void raise(Client *client);
+    void restack(Client *client, xcb_stack_mode_t stackMode, Client *sibling);
     void onClientDestroyed(Client *client);
 private:
     ClientGroup(xcb_window_t leader) : mLeader(leader) { }
