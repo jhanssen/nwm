@@ -50,6 +50,22 @@ void Graphics::redraw()
 #endif
 }
 
+static void initTextLayout(PangoLayout *textLayout, int width, const Font& font, const String& string)
+{
+    PangoFontDescription *description = pango_font_description_new();
+    assert(description);
+    pango_font_description_set_family(description, font.family().constData());
+    pango_font_description_set_size(description, font.pointSize() * PANGO_SCALE);
+    pango_font_description_set_style(description, PANGO_STYLE_NORMAL);
+    pango_font_description_set_weight(description, PANGO_WEIGHT_NORMAL);
+    pango_layout_set_font_description(textLayout, description);
+    pango_layout_set_text(textLayout, string.constData(), string.size());
+    pango_layout_set_wrap(textLayout, PANGO_WRAP_WORD_CHAR);
+    if (width != -1)
+        pango_layout_set_width(textLayout, width * PANGO_SCALE);
+    pango_font_description_free(description);
+}
+
 void Graphics::setText(const Rect& rect, const Font& font, const Color& color, const String& string)
 {
 #if defined(HAVE_CAIRO) && defined(HAVE_PANGO)
@@ -60,18 +76,7 @@ void Graphics::setText(const Rect& rect, const Font& font, const Color& color, c
     if (mTextLayout)
         g_object_unref(mTextLayout);
     mTextLayout = pango_cairo_create_layout(mCairo);
-
-    PangoFontDescription* desc = pango_font_description_new();
-    pango_font_description_set_family(desc, font.family().constData());
-    pango_font_description_set_size(desc, font.pointSize() * PANGO_SCALE);
-    pango_font_description_set_style(desc, PANGO_STYLE_NORMAL);
-    pango_font_description_set_weight(desc, PANGO_WEIGHT_NORMAL);
-    pango_layout_set_font_description(mTextLayout, desc);
-    pango_font_description_free(desc);
-
-    pango_layout_set_text(mTextLayout, string.constData(), -1);
-    pango_layout_set_wrap(mTextLayout, PANGO_WRAP_WORD_CHAR);
-    pango_layout_set_width(mTextLayout, rect.width * PANGO_SCALE);
+    initTextLayout(mTextLayout, rect.width, font, string);
     pango_layout_set_height(mTextLayout, rect.height * PANGO_SCALE);
 #endif
 }
@@ -86,4 +91,26 @@ void Graphics::clearText()
         mTextLayout = 0;
     }
 #endif
+}
+
+Size Graphics::fontMetrics(const Font &font, const String &string, int width)
+{
+    Size ret;
+#if defined(HAVE_CAIRO) && defined(HAVE_PANGO)
+    PangoFontMap *map = pango_cairo_font_map_get_default();
+    PangoContext *context = pango_font_map_create_context(map);
+
+    assert(context);
+    PangoLayout *layout = pango_layout_new(context);
+    assert(layout);
+    initTextLayout(layout, width, font, string);
+
+    pango_layout_get_pixel_size(layout, &ret.width, &ret.height);
+
+    g_object_unref(layout);
+    g_object_unref(context);
+
+#endif
+
+    return ret;
 }

@@ -120,7 +120,8 @@ void Client::complete()
          | XCB_EVENT_MASK_BUTTON_RELEASE)
     };
     warning() << "creating frame window" << layoutRect << mRect;
-    if (mFloating) {
+    if (mFloating && !mOwned) {
+#warning this should know if mRect.x and mRect.y is set
         const Rect &wsRect = wm->activeWorkspace(mScreenNumber)->rect();
         layoutRect.x = std::max<int>(0, (wsRect.width - layoutRect.width) / 2);
         layoutRect.y = std::max<int>(0, (wsRect.height - layoutRect.height) / 2);
@@ -198,7 +199,9 @@ bool Client::updateWorkspace(Workspace *workspace)
 void Client::updateState(xcb_ewmh_connection_t* ewmhConn)
 {
     xcb_connection_t* conn = ewmhConn->connection;
-    const xcb_get_geometry_cookie_t geomCookie = xcb_get_geometry_unchecked(conn, mWindow);
+    xcb_get_geometry_cookie_t geomCookie;
+    if (!mOwned)
+        geomCookie = xcb_get_geometry_unchecked(conn, mWindow);
     const xcb_get_property_cookie_t normalHintsCookie = xcb_icccm_get_wm_normal_hints(conn, mWindow);
     const xcb_get_property_cookie_t leaderCookie = xcb_get_property(conn, 0, mWindow, Atoms::WM_CLIENT_LEADER, XCB_ATOM_WINDOW, 0, 1);
     const xcb_get_property_cookie_t transientCookie = xcb_icccm_get_wm_transient_for(conn, mWindow);
@@ -212,7 +215,8 @@ void Client::updateState(xcb_ewmh_connection_t* ewmhConn)
     const xcb_get_property_cookie_t typeCookie = xcb_ewmh_get_wm_window_type(ewmhConn, mWindow);
     const xcb_get_property_cookie_t pidCookie = xcb_ewmh_get_wm_pid(ewmhConn, mWindow);
 
-    updateSize(conn, geomCookie);
+    if (!mOwned)
+        updateSize(conn, geomCookie);
     updateNormalHints(conn, normalHintsCookie);
     updateLeader(conn, leaderCookie);
     updateTransient(conn, transientCookie);
@@ -425,7 +429,7 @@ void Client::onLayoutChanged(const Rect& rect)
     }
 }
 
-Client *Client::create(const Rect& rect, int screenNumber)
+Client *Client::create(const Rect& rect, int screenNumber, const String &clazz, const String &instance)
 {
     WindowManager *wm = WindowManager::instance();
     xcb_connection_t* conn = wm->connection();
@@ -452,13 +456,18 @@ Client *Client::create(const Rect& rect, int screenNumber)
                       XCB_COPY_FROM_PARENT, XCB_COPY_FROM_PARENT,
                       XCB_CW_BORDER_PIXEL | XCB_CW_BIT_GRAVITY | XCB_CW_WIN_GRAVITY
                       | XCB_CW_OVERRIDE_REDIRECT | XCB_CW_EVENT_MASK, values);
+
+    String className = clazz + ' ' + instance;
+    className[clazz.size()] = '\0';
+    xcb_icccm_set_wm_class(conn, window, className.size(), className.constData());
     Client *ptr(new Client(window));
+    ptr->mRect = rect;
     ptr->mOwned = true;
     ptr->mScreenNumber = screenNumber;
     ptr->init();
     ptr->mFloating = true;
     // false = don't tell JS about the new client
-    wm->js().onClient(ptr, false);
+    wm->js().onClient(ptr);
     ptr->complete();
     Workspace *ws = wm->activeWorkspace(screenNumber);
     assert(ws);

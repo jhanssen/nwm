@@ -22,7 +22,9 @@ public:
 
     static Client *client(xcb_window_t window);
     static Client *manage(xcb_window_t window, int screenNumber);
-    static Client *create(const Rect& rect, int screenNumber);
+    static Client *create(const Rect& rect, int screenNumber,
+                          const String &clazz = String(),
+                          const String &instance = String());
     static void release(xcb_window_t window);
     static void clear() { sClients.clear(); }
 

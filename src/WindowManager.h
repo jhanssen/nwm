@@ -43,7 +43,7 @@ public:
     List<xcb_window_t> roots() const;
     xcb_visualtype_t* visualForScreen(unsigned int screen) const;
     enum { AllScreens = -1 };
-    int preferredScreenIndex() const { return mPreferredScreenIndex; }
+    int preferredScreen() const { return mPreferredScreenIndex; }
     int screenNumber(xcb_window_t root) const;
     int screenCount() const { return mScreens.size(); }
     const List<Workspace*> & workspaces(int screenNumber) const { return mScreens.at(screenNumber).workspaces; }

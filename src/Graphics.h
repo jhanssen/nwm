@@ -49,6 +49,7 @@ public:
     void setBackgroundColor(const Color& color) { mBackgroundColor = color; }
 
     void setText(const Rect& rect, const Font& font, const Color& color, const String& string);
+    static Size fontMetrics(const Font &font, const String &string, int width = -1);
     void clearText();
 
 private:

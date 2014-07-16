@@ -7,6 +7,131 @@
 #include <rct/Log.h>
 #include <rct/Process.h>
 
+enum ReadValueFlags {
+    None = 0x0,
+    NotRequired = 0x1,
+    UndefinedValue = 0x2
+};
+
+template <typename T> static T convertValue(const Value &value, bool &ok) { return value.convert<T>(&ok); }
+template <typename T> static T readValue(const Value &val, bool &ok, unsigned int flags = 0, const T &defaultValue = T())
+{
+    if (val.isInvalid() || (!(flags & UndefinedValue) && val.isUndefined())) {
+        ok = flags & NotRequired;
+        return defaultValue;
+    }
+
+    const T ret = convertValue<T>(val, ok);
+    if (!ok)
+        return defaultValue;
+    return ret;
+}
+
+template <typename T>
+static T readChild(const Value &map, const String &name, bool &ok, unsigned int flags = 0, const T &defaultValue = T())
+{
+    if (!map.isMap() || !map.contains(name)) {
+        ok = flags & NotRequired;
+        return defaultValue;
+    }
+    return readValue<T>(map[name], ok, flags, defaultValue);
+}
+
+template <typename T>
+static T readChild(const Value &array, int idx, bool &ok, unsigned int flags = 0, const T &defaultValue = T())
+{
+    assert(idx >= 0);
+    if (!array.isList() || array.count() <= idx) {
+        ok = flags & NotRequired;
+        return defaultValue;
+    }
+    return readValue<T>(array[idx], ok, flags, defaultValue);
+}
+
+template <> inline Color convertValue<Color>(const Value &value, bool &ok)
+{
+    if (value.isUndefined()) {
+        ok = true;
+        return Color();
+    } else if (!value.isMap()) {
+        ok = false;
+        return Color();
+    }
+
+    const int r = readChild<int>(value, "r", ok, NotRequired, 0);
+    if (!ok || r < 0 || r > 255)
+        return Color();
+
+    const int g = readChild<int>(value, "g", ok, NotRequired, 0);
+    if (!ok || g < 0 || g > 255)
+        return Color();
+
+    const int b = readChild<int>(value, "b", ok, NotRequired, 0);
+    if (!ok || b < 0 || b > 255)
+        return Color();
+
+    const int a = readChild<int>(value, "a", ok, NotRequired, 255);
+    if (!ok || a < 0 || a > 255)
+        return Color();
+
+    Color ret;
+    ret.r = static_cast<uint8_t>(r);
+    ret.g = static_cast<uint8_t>(g);
+    ret.b = static_cast<uint8_t>(b);
+    ret.a = static_cast<uint8_t>(a);
+    return ret;
+}
+
+template <> inline Rect convertValue<Rect>(const Value &value, bool &ok)
+{
+    if (value.isUndefined()) {
+        ok = true;
+        return Rect();
+    } else if (!value.isMap()) {
+        ok = false;
+        return Rect();
+    }
+    Rect rect;
+    rect.width = readChild<int>(value, "width", ok);
+    if (!ok || !rect.width)
+        return Rect();
+
+    rect.height = readChild<int>(value, "height", ok);
+    if (!ok || !rect.height)
+        return Rect();
+
+    rect.x = readChild<int>(value, "x", ok, NotRequired, 0);
+    if (!ok)
+        return Rect();
+
+    rect.y = readChild<int>(value, "y", ok, NotRequired, 0);
+    if (!ok)
+        return Rect();
+
+    return rect;
+}
+
+template <> inline Font convertValue<Font>(const Value &value, bool &ok)
+{
+    if (!value.isMap()) {
+        ok = false;
+        return Font();
+    }
+
+    const String family = readChild<String>(value, "family", ok);
+    if (!ok)
+        return Font();
+
+    const int pointSize = readChild<int>(value, "pointSize", ok);
+    if (!ok)
+        return Font();
+
+    Font font;
+    font.setFamily(family);
+    font.setPointSize(pointSize);
+    return font;
+}
+
 JavaScript::JavaScript()
     : ScriptEngine()
 {
@@ -27,43 +152,25 @@ static inline GridLayout *gridParent()
     return parent;
 }
 
-static inline void logValues(FILE* file, const List<Value> &args)
+static inline Value logValues(FILE* file, const List<Value> &args)
 {
+    if (args.isEmpty())
+        return ScriptEngine::instance()->throwException<Value>("No arguments passed to console function");
+
     String str;
     {
         Log log(&str);
         for (const Value &arg : args) {
             const String &str = arg.toString();
-            if (str.isEmpty())
+            if (str.isEmpty()) {
                 log << arg;
-            else
+            } else {
                 log << str;
+            }
         }
     }
     fprintf(file, "%s\n", str.constData());
-}
-
-static inline Rect toRect(const Value &value)
-{
-    assert(value.isMap());
-    Rect rect;
-    if (!value.contains("width"))
-        return rect;
-    rect.width = value["width"].toInteger();
-    if (!value.contains("height"))
-        return rect;
-    rect.height = value["height"].toInteger();
-    if (value.contains("x")) {
-        rect.x = value["x"].toInteger();
-    } else {
-        rect.x = 0;
-    }
-    if (value.contains("y")) {
-        rect.y = value["y"].toInteger();
-    } else {
-        rect.y = 0;
-    }
-    return rect;
+    return Value::undefined();
 }
 
 static inline Value fromRect(const Rect &rect)
@@ -76,19 +183,12 @@ static inline Value fromRect(const Rect &rect)
     return ret;
 }
 
-static inline Color toColor(const Value &value)
+static inline Value fromSize(const Size &size)
 {
-    assert(value.isMap() || value.isNull() || value.isUndefined());
-    Color color;
-    if (value.contains("r"))
-        color.r = value["r"].toInteger();
-    if (value.contains("g"))
-        color.g = value["g"].toInteger();
-    if (value.contains("b"))
-        color.b = value["b"].toInteger();
-    if (value.contains("a"))
-        color.a = value["a"].toInteger();
-    return color;
+    Value ret;
+    ret["width"] = size.width;
+    ret["height"] = size.height;
+    return ret;
 }
 
 bool JavaScript::init(String *err)
@@ -122,72 +222,53 @@ bool JavaScript::init(String *err)
         },
         // setter return the value set
         [](const Object::SharedPtr &obj, const String &prop, const Value &value) -> Value {
+            bool ok;
             if (prop == "floating") {
-                if (value.type() != Value::Type_Boolean) {
+                const bool floating = readValue<bool>(value, ok);
+                if (!ok)
                     return instance()->throwException<Value>("Client.floating needs to be a boolean");
-                }
                 if (Client *client = obj->extraData<Client*>()) {
-                    client->setFloating(value.toBool());
+                    client->setFloating(floating);
                 }
             } else if (prop == "backgroundColor") {
-                if (!value.isMap() && !value.isNull() && !value.isUndefined()) {
-                    return instance()->throwException<Value>("Client.backgroundColor needs to be a color");
-                }
+                const Color color = readValue<Color>(value, ok, UndefinedValue);
+                if (!ok)
+                    return instance()->throwException<Value>("Client.backgroundColor needs to be a color or undefined");
                 if (Client *client = obj->extraData<Client*>()) {
-                    client->setBackgroundColor(toColor(value));
+                    client->setBackgroundColor(color);
                 }
             } else if (prop == "text") {
-                if (value.isUndefined() || value.isNull()) {
-                    if (Client *client = obj->extraData<Client*>()) {
+                if (value.isUndefined() || value.isInvalid()) {
+                    if (Client *client = obj->extraData<Client*>())
                         client->clearText();
-                    }
-                } else if (value.isMap()) {
-                    Rect rect = { 0, 0, 0, 0 };
-                    if (value.contains("rect")) {
-                        const Value &val = value["rect"];
-                        if (val.isMap())
-                            rect = toRect(val);
-                    }
-                    if (!value.contains("text")) {
-                        return instance()->throwException<Value>("Client.text needs to have a text property");
-                    }
-                    const Value &text = value["text"];
-                    if (!text.isString()) {
-                        return instance()->throwException<Value>("Client.text text needs to be a string");
-                    }
-                    Color color;
-                    if (value.contains("color")) {
-                        const Value &col = value["color"];
-                        if (!col.isMap() && !col.isNull() && !col.isUndefined()) {
-                            return instance()->throwException<Value>("Client.text color needs to be a color");
-                        }
-                        color = toColor(col);
-                    }
-                    Font font;
-                    if (value.contains("font")) {
-                        const Value &fnt = value["font"];
-                        if (fnt.isMap() && fnt.contains("family") && fnt.contains("pointSize")) {
-                            const Value &fam = fnt["family"];
-                            const Value &pt = fnt["pointSize"];
-                            if (fam.isString() && pt.isInteger()) {
-                                font.setFamily(fam.toString());
-                                font.setPointSize(pt.toInteger());
-                            }
-                        }
-                    }
-                    if (font.family().isEmpty()) {
-                        return instance()->throwException<Value>("Client.text needs to have a font property");
-                    }
-                    if (Client *client = obj->extraData<Client*>()) {
-                        if (!client->isOwned())
-                            return instance()->throwException<Value>("Client.text can only be used for nwm-created clients");
-                        client->setText(rect, font, color, text.toString());
-                    }
-                } else {
+                    return Value::undefined();
+                } else if (!value.isMap()) {
                     return instance()->throwException<Value>("Client.text needs to be an object");
                 }
+
+                const Rect rect = readChild<Rect>(value, "rect", ok, NotRequired);
+                if (!ok)
+                    return instance()->throwException<Value>("Client.rect needs to be an object");
+
+                const String text = readChild<String>(value, "text", ok);
+                if (!ok)
+                    return instance()->throwException<Value>("Client.text needs to have a text property");
+
+                const Color color = readChild<Color>(value, "color", ok, NotRequired);
+                if (!ok)
+                    return instance()->throwException<Value>("Client.text color needs to be a color");
+
+                const Font font = readChild<Font>(value, "font", ok);
+                if (!ok || font.family().isEmpty())
+                    return instance()->throwException<Value>("Client.text needs to have a font property");
+
+                if (Client *client = obj->extraData<Client*>()) {
+                    if (!client->isOwned())
+                        return instance()->throwException<Value>("Client.text can only be used for nwm-created clients");
+                    client->setText(rect, font, color, text);
+                }
             }
-            return Value();
+            return Value::undefined();
         },
         // query, return Class::QueryResult
         [](const String &prop) -> Value {
@@ -212,15 +293,46 @@ bool JavaScript::init(String *err)
                                  << "window" << "focused" << "backgroundColor" << "text"
                                  << "screen" << "rect";
         });
-    mClientClass->registerConstructor([](const Value &arg) -> Value {
-            if (!arg.isMap())
-                return instance()->throwException<Value>("Client constructor needs an object argument with geometry");
-            Rect rect = toRect(arg);
-            if (rect.isEmpty())
-                return instance()->throwException<Value>("Client constructor needs an object argument with geometry");
+
+    mClientClass->registerConstructor([](const List<Value> &args) -> Value {
+            if (args.size() != 1)
+                return instance()->throwException<Value>("Client constructor needs an object argument");
+
+            bool ok;
+            const Rect rect = readChild<Rect>(args, 0, ok);
+            if (!ok)
+                return instance()->throwException<Value>("Client constructor needs an object argument with rect");
+
+            const String clazz = readChild<String>(args.first(), "class", ok, NotRequired);
+            if (!ok)
+                return instance()->throwException<Value>("Client constructor class needs to be a string");
+
+            const String inst = readChild<String>(args.first(), "instance", ok, NotRequired);
+            if (!ok)
+                return instance()->throwException<Value>("Client constructor instance needs to be a string");
+
             WindowManager* wm = WindowManager::instance();
-            Client *client = Client::create(rect, wm->currentScreen());
+            Client *client = Client::create(rect, wm->currentScreen(), clazz, inst);
             return client->jsValue();
+        });
+    mClientClass->registerStaticFunction("fontMetrics", [](const List<Value> &args) -> Value {
+            if (args.size() != 1) {
+                return instance()->throwException<Value>("Client fontMetrics needs a single object argument");
+            }
+            bool ok;
+            const int width = readChild<int>(args.first(), "width", ok, NotRequired, -1);
+            if (!ok)
+                return instance()->throwException<Value>("width needs to be an integer");
+
+            const String text = readChild<String>(args.first(), "text", ok);
+            if (!ok)
+                return instance()->throwException<Value>("text needs to have a text property");
+
+            const Font font = readChild<Font>(args.first(), "font", ok);
+            if (!ok || font.family().isEmpty())
+                return instance()->throwException<Value>("fontMetrics needs to have a font property");
+
+            return fromSize(Graphics::fontMetrics(font, text, width));
         });
     mClientClass->registerFunction("activate", [](const Object::SharedPtr &obj, const List<Value> &) -> Value {
             if (Client *client = obj->extraData<Client*>()) {
@@ -260,26 +372,25 @@ bool JavaScript::init(String *err)
             return Value::undefined();
         });
     mClientClass->registerFunction("kill", [](const Object::SharedPtr &obj, const List<Value> &args) -> Value {
-            if (args.size() != 1) {
-                return instance()->throwException<Value>("Invalid number of arguments to Client.kill, 1 required");
-            }
-            if (!args[0].isInteger()) {
+            bool ok;
+            const int pid = readChild<int>(args, 0, ok);
+            if (!ok)
                 return instance()->throwException<Value>("Invalid arguments to Client.kill. First arg must be an integer");
-            }
-            if (Client *client = obj->extraData<Client*>()) {
-                client->kill(args[0].toInteger());
-            }
+
+            if (Client *client = obj->extraData<Client*>())
+                client->kill(pid);
             return Value::undefined();
         });
     mClientClass->registerFunction("move", [](const Object::SharedPtr &obj, const List<Value> &args) -> Value {
-            if (args.size() != 2) {
-                return instance()->throwException<Value>("Invalid number of arguments to Client.move, 2 required");
-            }
-            if (!args[0].isInteger() || !args[1].isInteger()) {
-                return instance()->throwException<Value>("Invalid arguments to Client.move. Args must be integers");
-            }
+            bool ok;
+            const int x = readChild<int>(args, 0, ok);
+            if (!ok)
+                return instance()->throwException<Value>("Invalid arguments to Client.move, 2 integers required");
+            const int y = readChild<int>(args, 1, ok);
+            if (!ok)
+                return instance()->throwException<Value>("Invalid arguments to Client.move, 2 integers required");
             if (Client *client = obj->extraData<Client*>()) {
-                client->move(Point(args[0].toInteger(), args[1].toInteger()));
+                client->move(Point(x, y));
                 WindowManager *wm = WindowManager::instance();
                 assert(wm);
                 xcb_flush(wm->connection());
@@ -287,14 +398,16 @@ bool JavaScript::init(String *err)
             return Value::undefined();
         });
     mClientClass->registerFunction("resize", [](const Object::SharedPtr &obj, const List<Value> &args) -> Value {
-            if (args.size() != 2) {
-                return instance()->throwException<Value>("Invalid number of arguments to Client.resize, 2 required");
-            }
-            if (!args[0].isInteger() || !args[1].isInteger()) {
-                return instance()->throwException<Value>("Invalid arguments to Client.resize. Args must be integers");
-            }
+            bool ok;
+            const int w = readChild<int>(args, 0, ok);
+            if (!ok)
+                return instance()->throwException<Value>("Invalid arguments to Client.resize, 2 integers required");
+            const int h = readChild<int>(args, 1, ok);
+            if (!ok)
+                return instance()->throwException<Value>("Invalid arguments to Client.resize, 2 integers required");
+
             if (Client *client = obj->extraData<Client*>()) {
-                client->resize(Size(args[0].toInteger(), args[1].toInteger()));
+                client->resize(Size(w, h));
                 WindowManager *wm = WindowManager::instance();
                 assert(wm);
                 xcb_flush(wm->connection());
@@ -323,55 +436,40 @@ bool JavaScript::init(String *err)
     // --------------- console ---------------
     auto console = global->child("console");
     console->registerFunction("log", [](const Object::SharedPtr&, const List<Value> &args) -> Value {
-            if (args.isEmpty()) {
-                return instance()->throwException<Value>("No arguments passed to console.log");
-            }
-            logValues(stdout, args);
-            return Value::undefined();
+            return logValues(stdout, args);
         });
     console->registerFunction("error", [](const Object::SharedPtr&, const List<Value> &args) -> Value {
-            if (args.isEmpty()) {
-                return instance()->throwException<Value>("No arguments passed to console.log");
-            }
-            logValues(stderr, args);
-            return Value::undefined();
+            return logValues(stderr, args);
         });
 
     // --------------- nwm ---------------
     auto nwm = global->child("nwm");
     nwm->registerFunction("launch", [](const Object::SharedPtr&, const List<Value> &args) -> Value {
-            if (args.size() != 1 && args.size() != 2) {
-                return instance()->throwException<Value>("Invalid number of arguments to launch, 1 or 2 required");
-            }
-            const Value &arg = args.front();
-            if (arg.type() != Value::Type_String) {
-                return instance()->throwException<Value>("Argument to launch needs to be a string");
-            }
+            bool ok;
+            const String command = readChild<String>(args, 0, ok);
+            if (!ok)
+                return instance()->throwException<Value>("Invalid arguments to launch");
+
+            const Map<String, Value> environment = readChild<Map<String, Value> >(args, 1, ok, NotRequired);
+            if (!ok)
+                return instance()->throwException<Value>("Invalid arguments to launch");
 
             Hash<String, String> env;
-            if (args.size() == 2 && !args[1].isUndefined()) {
-                if (args[1].type() != Value::Type_Map)
-                    return instance()->throwException<Value>("Second argument to launch needs to be an object");
-                for (const auto &it : args[1].toMap()) {
-                    env[it.first] = it.second.toString();
-                }
+            for (const auto &it : environment) {
+                env[it.first] = it.second.toString();
             }
 
             if (!env.contains("DISPLAY"))
                 env["DISPLAY"] = WindowManager::instance()->displayString();
 
-            Util::launch(arg.toString(), env);
+            Util::launch(command, env);
             return true;
         });
     nwm->registerFunction("readFile", [](const Object::SharedPtr&, const List<Value> &args) -> Value {
-            if (args.size() != 1) {
-                return instance()->throwException<Value>("Invalid number of arguments to readFile, 1 required");
-            }
-            const Value &arg = args.front();
-            if (!arg.isString()) {
-                return instance()->throwException<Value>("Invalid arguments to readFile. First arg must be a string");
-            }
-            const Path path = arg.toString();
+            bool ok;
+            const Path path = readChild<String>(args, 0, ok);
+            if (!ok)
+                return instance()->throwException<Value>("Invalid arguments to readFile");
             if (!path.isFile())
                 return Value::undefined();
             return path.readAll();
@@ -448,6 +546,29 @@ bool JavaScript::init(String *err)
                               }
                               return ret;
                           });
+    nwm->registerProperty("currentScreen",
+                          [](const Object::SharedPtr&) -> Value {
+                              WindowManager *wm = WindowManager::instance();
+                              return wm->currentScreen();
+                          });
+    nwm->registerProperty("preferredScreen",
+                          [](const Object::SharedPtr&) -> Value {
+                              WindowManager *wm = WindowManager::instance();
+                              return wm->preferredScreen();
+                          });
+    nwm->registerProperty("screens",
+                          [](const Object::SharedPtr&) -> Value {
+                              WindowManager *wm = WindowManager::instance();
+                              List<Value> ret;
+                              const int count = wm->screenCount();
+                              ret.reserve(count);
+                              for (int i=0; i<count; ++i) {
+                                  ret.append(fromRect(wm->rect(i)));
+                              }
+
+                              return ret;
+                          });
+
     nwm->registerProperty("focusedClient",
                           [](const Object::SharedPtr&) -> Value {
                               auto client = WindowManager::instance()->focusedClient();
@@ -767,11 +888,10 @@ Value JavaScript::evaluateFile(const Path &file, String *err)
     return evaluate(code, Path(), err);
 }
 
-void JavaScript::onClient(Client *client, bool notify)
+void JavaScript::onClient(Client *client)
 {
     mClients.append(client);
-    if (notify)
-        onClientEvent(client, "client");
+    onClientEvent(client, "client");
 }
 
 void JavaScript::onClientEvent(Client *client, const String &event)
