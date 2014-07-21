@@ -460,6 +460,11 @@ Client *Client::create(const Rect& rect, int screenNumber, const String &clazz, 
                       XCB_CW_BORDER_PIXEL | XCB_CW_BIT_GRAVITY | XCB_CW_WIN_GRAVITY
                       | XCB_CW_OVERRIDE_REDIRECT | XCB_CW_EVENT_MASK, values);
 
+    xcb_icccm_wm_hints_t wmHints;
+    xcb_icccm_wm_hints_set_none(&wmHints);
+    xcb_icccm_wm_hints_set_input(&wmHints, 0);
+    xcb_icccm_set_wm_hints(conn, window, &wmHints);
+
     String className = clazz + ' ' + instance;
     className[clazz.size()] = '\0';
     xcb_icccm_set_wm_class(conn, window, className.size(), className.constData());
@@ -472,11 +477,11 @@ Client *Client::create(const Rect& rect, int screenNumber, const String &clazz, 
     // false = don't tell JS about the new client
     wm->js().onClient(ptr);
     ptr->complete();
+    ptr->mNoFocus = true;
     Workspace *ws = wm->activeWorkspace(screenNumber);
     assert(ws);
     ptr->mWorkspace = ws;
     ws->addClient(ptr);
-    ptr->focus();
     sClients[window] = ptr;
     return ptr;
 }
@@ -623,10 +628,13 @@ void Client::move(const Point& point)
 
 void Client::close()
 {
+    WindowManager *wm = WindowManager::instance();
     if (mOwned) {
-        EventLoop::deleteLater(this);
+        EventLoop::eventLoop()->callLater([this, wm] {
+                delete this;
+                xcb_flush(wm->connection());
+            });
     } else {
-        WindowManager *wm = WindowManager::instance();
         if (mProtocols.contains(Atoms::WM_DELETE_WINDOW)) {
             // delete
             xcb_client_message_event_t event;
