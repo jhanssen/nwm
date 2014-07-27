@@ -3,7 +3,6 @@
 
 #include "ClientGroup.h"
 #include "Graphics.h"
-#include "Layout.h"
 #include "Rect.h"
 #include <rct/Hash.h>
 #include <rct/Set.h>
@@ -61,7 +60,6 @@ public:
     Workspace* workspace() const { return mWorkspace; }
     ClientGroup *group() const { return mGroup; }
 
-    Layout* layout() const { return mLayout; }
     xcb_window_t window() const { return mWindow; }
     xcb_window_t frame() const { return mFrame; }
     xcb_window_t root() const { return screen()->root; }
@@ -75,7 +73,7 @@ public:
 
     bool isOwned() const { return mOwned; }
 
-    Rect rect() const { return mFloating || !mLayout ? mRect : mLayout->rect(); }
+    Rect rect() const { return mRect; }
     void setRect(const Rect &rect);
 
     void propertyNotify(xcb_atom_t atom);
@@ -90,7 +88,6 @@ private:
     void init();
     void complete();
 
-    void onLayoutChanged(const Rect& rect);
     void updateState(xcb_ewmh_connection_t* conn);
     void updateSize(xcb_connection_t* conn, xcb_get_geometry_cookie_t cookie);
     void updateNormalHints(xcb_connection_t* conn, xcb_get_property_cookie_t cookie);
@@ -110,7 +107,6 @@ private:
     xcb_window_t mWindow;
     xcb_window_t mFrame;
     bool mNoFocus, mOwned;
-    Layout* mLayout;
     Workspace* mWorkspace;
     Graphics* mGraphics;
 

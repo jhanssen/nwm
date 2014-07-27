@@ -1,37 +1,22 @@
 #include "Workspace.h"
-#include "GridLayout.h"
-#include "StackLayout.h"
 #include "WindowManager.h"
 #include <rct/Log.h>
 #include <assert.h>
 #include <stdlib.h>
 
-Workspace::Workspace(unsigned int layoutType, int screenNo, const Rect& rect, const String& name)
-    : mRect(rect), mName(name), mLayout(0), mScreenNumber(screenNo)
+Workspace::Workspace(int screenNo, const Rect& rect, const String& name)
+    : mRect(rect), mName(name), mScreenNumber(screenNo)
 {
     // error() << screenNo << rect;
-    switch (layoutType) {
-    case GridLayout::Type:
-        mLayout = new GridLayout(mRect);
-        break;
-    case StackLayout::Type:
-        mLayout = new StackLayout(mRect);
-        break;
-    default:
-        error() << "Invalid layout type" << layoutType << "for Workspace";
-        break;
-    }
 }
 
 Workspace::~Workspace()
 {
-    delete mLayout;
 }
 
 void Workspace::setRect(const Rect& rect)
 {
     mRect = rect;
-    mLayout->setRect(rect);
 }
 
 void Workspace::updateFocus(Client *client)
@@ -146,6 +131,7 @@ void Workspace::addClient(Client *client)
     assert(client);
     assert(client->screenNumber() == mScreenNumber);
     if (client->updateWorkspace(this)) {
+        assert(!mClients.contains(client));
         mClients.append(client);
         if (WindowManager::instance()->activeWorkspace(mScreenNumber) == this) {
             client->map();

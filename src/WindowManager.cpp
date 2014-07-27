@@ -126,6 +126,8 @@ static inline void usage(FILE *out)
 
 bool WindowManager::init(int &argc, char **argv)
 {
+    Rct::findExecutablePath(argv[0]);
+
     static bool first = true;
     if (first) {
         signal(SIGSEGV, crashHandler);
@@ -157,7 +159,7 @@ bool WindowManager::init(int &argc, char **argv)
 
     const String shortOptions = Rct::shortOptions(opts);
 
-    List<Path> configFiles;
+    List<Path> jsFiles;
     bool systemConfig = true;
     bool userConfig = true;
     int logLevel = 0;
@@ -168,6 +170,9 @@ bool WindowManager::init(int &argc, char **argv)
     unsigned int flags = 0;
     int exitCode = 0;
     int connectTimeout = 0;
+
+    const Path applicationDir = Rct::executablePath().parentDir();
+    jsFiles << applicationDir + "builtins.js";
 
     while (true) {
         const int c = getopt_long(argc, argv, shortOptions.constData(), opts, 0);
@@ -249,7 +254,7 @@ bool WindowManager::init(int &argc, char **argv)
                 fprintf(stderr, "%s doesn't seem to exist\n", optarg);
                 return false;
             }
-            configFiles << cfg;
+            jsFiles << cfg;
             break; }
         default:
             break;
@@ -262,9 +267,9 @@ bool WindowManager::init(int &argc, char **argv)
     }
 
     if (userConfig)
-        configFiles << Path::home() + ".config/nwm.js";
+        jsFiles << Path::home() + ".config/nwm.js";
     if (systemConfig)
-        configFiles << "/etc/xdg/nwm.js";
+        jsFiles << "/etc/xdg/nwm.js";
 
     String displayStr;
     if (display) {
@@ -359,7 +364,8 @@ bool WindowManager::init(int &argc, char **argv)
         }
 
         String err;
-        if (!mJS.init(configFiles, &err)) {
+        error() << jsFiles;
+        if (!mJS.init(jsFiles, &err)) {
             error() << err;
             return false;
         }
@@ -724,7 +730,6 @@ bool WindowManager::install()
     xcb_flush(mConn);
 
     // Get events
-    xcb_connection_t* conn = mConn;
     mConnectionFd = xcb_get_file_descriptor(mConn);
     EventLoop::eventLoop()->registerSocket(mConnectionFd, EventLoop::SocketRead, [this](int, unsigned int) {
             assert(WindowManager::instance());
@@ -788,15 +793,15 @@ void WindowManager::setRect(const Rect& rect, int idx)
     }
 }
 
-void WindowManager::addWorkspace(unsigned int layoutType, int screenNumber)
+void WindowManager::addWorkspace(int screenNumber)
 {
     if (screenNumber == AllScreens) {
         const int count = mScreens.size();
         for (int i=0; i<count; ++i)
-            addWorkspace(layoutType, i);
+            addWorkspace(i);
     } else {
         Screen &screen = mScreens[screenNumber];
-        screen.workspaces.append(new Workspace(layoutType, screenNumber, screen.rect));
+        screen.workspaces.append(new Workspace(screenNumber, screen.rect));
     }
 }
 

@@ -15,8 +15,8 @@ public:
     JavaScript();
     ~JavaScript();
 
-    List<Path> configFiles() const { return mConfigFiles; }
-    bool init(const List<Path> &configFiles, String *err = 0) { mConfigFiles = configFiles; return init(err); }
+    List<Path> jsFiles() const { return mJsFiles; }
+    bool init(const List<Path> &jsFiles, String *err = 0) { mJsFiles = jsFiles; return init(err); }
     bool reload(String *error = 0);
     Value evaluateFile(const Path &path, String *error);
 
@@ -25,6 +25,7 @@ public:
 
     void onClient(Client *client);
     void onClientEvent(Client *client, const String &event);
+    void onLayout(Client* client) { onClientEvent(client, "layout"); }
     void onClientRaised(Client *client) { onClientEvent(client, "raised"); }
     void onClientFocusLost(Client *client) { onClientEvent(client, "focusLost"); }
     void onClientFocused(Client *client) { onClientEvent(client, "focused"); }
@@ -40,7 +41,7 @@ private:
 
     Set<int> mActiveTimers;
     bool init(String *error);
-    List<Path> mConfigFiles;
+    List<Path> mJsFiles;
     std::shared_ptr<Class> mClientClass, mFileClass;
     Hash<String, Value> mOns;
     List<Client*> mClients;

@@ -82,7 +82,7 @@ public:
     void setFocusPolicy(FocusPolicy policy) { mFocusPolicy = policy; }
     FocusPolicy focusPolicy() const { return mFocusPolicy; }
 
-    void addWorkspace(unsigned int layoutType, int screenNumber);
+    void addWorkspace(int screenNumber);
 
     Rect rect(int idx) const { return mScreens.value(idx).rect; }
     void setRect(const Rect& rect, int idx);

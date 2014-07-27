@@ -31,12 +31,10 @@ set(NWM_SOURCES
     Client.cpp
     ClientGroup.cpp
     Graphics.cpp
-    GridLayout.cpp
     Handlers.cpp
     JavaScript.cpp
     Keybinding.cpp
     Keybindings.cpp
-    StackLayout.cpp
     Util.cpp
     WindowManager.cpp
     Workspace.cpp)

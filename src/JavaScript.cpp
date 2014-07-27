@@ -1,6 +1,4 @@
 #include "JavaScript.h"
-#include "GridLayout.h"
-#include "StackLayout.h"
 #include "Util.h"
 #include "Keybinding.h"
 #include "WindowManager.h"
@@ -137,21 +135,6 @@ JavaScript::JavaScript()
 {
 }
 
-static inline GridLayout *gridParent()
-{
-    WindowManager *wm = WindowManager::instance();
-    if (!wm)
-        return 0;
-    Client *current = wm->focusedClient();
-    if (!current)
-        return 0;
-    Layout *layout = current->layout();
-    if (!layout || layout->type() != GridLayout::Type)
-        return 0;
-    GridLayout *parent = static_cast<GridLayout*>(layout)->parent();
-    return parent;
-}
-
 static inline Value logValues(FILE* file, const List<Value> &args)
 {
     if (args.isEmpty())
@@ -217,6 +200,20 @@ bool JavaScript::init(String *err)
                     return fromRect(client->rect());
                 if (prop == "focused")
                     return Value(WindowManager::instance()->focusedClient() == client);
+                if (prop == "workspace") {
+                    Workspace* ws = client->workspace();
+                    if (!ws)
+                        return -1;
+                    const List<Workspace*>& wss = WindowManager::instance()->workspaces(client->screenNumber());
+                    int no = 0;
+                    for (auto w : wss) {
+                        if (w == ws)
+                            return no;
+                        ++no;
+                    }
+                    assert(false && "No workspace found");
+                    return -1;
+                }
             }
             return Value();
         },
@@ -274,7 +271,7 @@ bool JavaScript::init(String *err)
         [](const String &prop) -> Value {
             if (prop == "title" || prop == "class" || prop == "instance" ||
                 prop == "dialog" || prop == "window" || prop == "focused" ||
-                prop == "screen" || prop == "rect") {
+                prop == "screen" || prop == "rect" || prop == "workspace") {
                 return Class::ReadOnly|Class::DontDelete;
             }
 
@@ -291,7 +288,7 @@ bool JavaScript::init(String *err)
         []() -> Value {
             return List<Value>() << "title" << "class" << "instance" << "floating" << "dialog"
                                  << "window" << "focused" << "backgroundColor" << "text"
-                                 << "screen" << "rect";
+                                 << "screen" << "rect" << "workspace";
         });
 
     mClientClass->registerConstructor([](const List<Value> &args) -> Value {
@@ -670,10 +667,7 @@ bool JavaScript::init(String *err)
 
     // --------------- nwm.workspace ---------------
     auto workspace = nwm->child("workspace");
-    workspace->setProperty("Stack", StackLayout::Type);
-    workspace->setProperty("Grid", GridLayout::Type);
     workspace->registerFunction("add", [](const Object::SharedPtr&, const List<Value> &args) -> Value {
-            unsigned int layoutType = GridLayout::Type;
             int screenNumber = WindowManager::AllScreens;
             if (!args.isEmpty()) {
                 if (args.size() > 1)
@@ -681,22 +675,6 @@ bool JavaScript::init(String *err)
                 const Value &v = args.front();
                 if (v.type() != Value::Type_Map)
                     return instance()->throwException<Value>("workspace.add argument needs to be an object");
-
-                if (v.contains("type")) {
-                    const Value &t = v["type"];
-                    if (t.type() != Value::Type_Invalid) {
-                        if (t.type() != Value::Type_Integer)
-                            return instance()->throwException<Value>("workspace.add type needs to be an integer");
-                        layoutType = t.toInteger();
-                        switch (layoutType) {
-                        case StackLayout::Type:
-                        case GridLayout::Type:
-                            break;
-                        default:
-                            return instance()->throwException<Value>("workspace.add invalid layout type");
-                        }
-                    }
-                }
 
                 if (v.contains("screen")) {
                     const Value &s = v["screen"];
@@ -710,7 +688,7 @@ bool JavaScript::init(String *err)
                     }
                 }
             }
-            WindowManager::instance()->addWorkspace(layoutType, screenNumber);
+            WindowManager::instance()->addWorkspace(screenNumber);
             return Value::undefined();
         });
     workspace->registerFunction("moveTo", [](const Object::SharedPtr&, const List<Value> &args) -> Value {
@@ -758,47 +736,6 @@ bool JavaScript::init(String *err)
             if (!active)
                 return Value::undefined();
             active->raise(Workspace::Last);
-            return Value::undefined();
-        });
-
-    // --------------- nwm.layout ---------------
-    auto layout = nwm->child("layout");
-    layout->registerFunction("toggleOrientation", [](const Object::SharedPtr&, const List<Value>&) -> Value {
-            GridLayout *parent = gridParent();
-            if (!parent)
-                return Value::undefined();
-            const GridLayout::Direction dir = parent->direction();
-            switch (dir) {
-            case GridLayout::LeftRight:
-                parent->setDirection(GridLayout::TopBottom);
-                break;
-            case GridLayout::TopBottom:
-                parent->setDirection(GridLayout::LeftRight);
-                break;
-            }
-            parent->dump();
-            return Value::undefined();
-        });
-    layout->registerFunction("adjust", [](const Object::SharedPtr&, const List<Value> &args) -> Value {
-            GridLayout *parent = gridParent();
-            if (!parent)
-                return Value::undefined();
-            const int adjust = args.isEmpty() ? 10 : args[0].toInteger();
-            parent->adjust(adjust);
-            return Value::undefined();
-        });
-    layout->registerFunction("adjustLeft", [](const Object::SharedPtr&, const List<Value>&) -> Value {
-            GridLayout *parent = gridParent();
-            if (!parent)
-                return Value::undefined();
-            parent->adjust(-10);
-            return Value::undefined();
-        });
-    layout->registerFunction("adjustRight", [](const Object::SharedPtr&, const List<Value>&) -> Value {
-            GridLayout *parent = gridParent();
-            if (!parent)
-                return Value::undefined();
-            parent->adjust(10);
             return Value::undefined();
         });
 
@@ -853,11 +790,11 @@ bool JavaScript::init(String *err)
             return Value::undefined();
         });
 
-    for (int i=mConfigFiles.size() - 1; i>=0; --i) {
-        const String contents = mConfigFiles[i].readAll();
+    for (int i=mJsFiles.size() - 1; i>=0; --i) {
+        const String contents = mJsFiles[i].readAll();
         if (!contents.isEmpty()) {
             String e;
-            evaluate(contents, mConfigFiles[i], &e);
+            evaluate(contents, mJsFiles[i], &e);
             if (!e.isEmpty()) {
                 if (err)
                     *err = e;

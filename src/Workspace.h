@@ -2,7 +2,6 @@
 #define WORKSPACE_H
 
 #include "Client.h"
-#include "Layout.h"
 #include "Rect.h"
 #include <rct/String.h>
 #include <rct/LinkedList.h>
@@ -12,7 +11,7 @@
 class Workspace
 {
 public:
-    Workspace(unsigned int layoutType, int screenNo, const Rect& rect, const String& name = String());
+    Workspace(int screenNo, const Rect& rect, const String& name = String());
     ~Workspace();
 
     void setRect(const Rect& rect);
@@ -34,7 +33,6 @@ public:
 
     String name() const { return mName; }
     Rect rect() const { return mRect; }
-    Layout *layout() const { return mLayout; }
 
     inline bool isActive() const;
 private:
@@ -43,7 +41,6 @@ private:
 private:
     Rect mRect;
     String mName;
-    Layout *mLayout;
     // ordered by focus
     LinkedList<Client *> mClients;
     const int mScreenNumber;
