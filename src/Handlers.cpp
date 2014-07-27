@@ -24,7 +24,7 @@ void handleButtonPress(const xcb_button_press_event_t* event)
 
         if (event->state) {
             const uint16_t mod = wm->moveModifierMask();
-            if (mod && (event->state & mod) == mod && client->isFloating()) {
+            if (mod && (event->state & mod) == mod && client->isMoveable()) {
                 // grab both the keyboard and the pointer
                 xcb_grab_pointer_cookie_t pointerCookie = xcb_grab_pointer(conn, false, event->root,
                                                                            XCB_EVENT_MASK_BUTTON_RELEASE

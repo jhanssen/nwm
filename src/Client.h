@@ -49,10 +49,8 @@ public:
     void expose(const Rect& rect);
 
     bool noFocus() const { return mNoFocus; }
-    bool isFloating() const { return mFloating; }
     bool isDialog() const { return mTransientFor != XCB_NONE; }
-
-    void setFloating(bool floating) { mFloating = floating; }
+    bool isFloating() const;
 
     const Value& jsValue() { if (mJSValue.type() == Value::Type_Invalid) createJSValue(); return mJSValue; }
     void clearJSValue() { mJSValue.clear(); }
@@ -72,6 +70,9 @@ public:
     String className() const { return mClass.className; }
 
     bool isOwned() const { return mOwned; }
+
+    bool isMoveable() const { return mMoveable || isFloating(); }
+    void setMoveable(bool moveable) { mMoveable = moveable; }
 
     Rect rect() const { return mRect; }
     void setRect(const Rect &rect);
@@ -106,7 +107,7 @@ private:
 private:
     xcb_window_t mWindow;
     xcb_window_t mFrame;
-    bool mNoFocus, mOwned;
+    bool mNoFocus, mOwned, mMoveable;
     Workspace* mWorkspace;
     Graphics* mGraphics;
 
@@ -124,7 +125,6 @@ private:
     Set<xcb_atom_t> mWindowType;
     xcb_ewmh_wm_strut_partial_t mStrut;
     ClientGroup *mGroup;
-    bool mFloating;
     Value mJSValue;
     uint32_t mPid;
     int mScreenNumber;

@@ -13,7 +13,6 @@ void ClientGroup::restack(Client *client, xcb_stack_mode_t stackMode, Client *si
         sibling = 0;
 
     const bool clientIsDialog = client->isDialog();
-    const bool clientIsFloating = client->isFloating();
 
     List<Client *> clients;
     for (Client *c : mClients) {
@@ -30,8 +29,6 @@ void ClientGroup::restack(Client *client, xcb_stack_mode_t stackMode, Client *si
               [](Client *a, Client *b) -> bool {
                   if (a->isDialog() != b->isDialog())
                       return b->isDialog();
-                  if (a->isFloating() != b->isFloating())
-                      return b->isFloating();
                   return a->window() < b->window();
               });
 
@@ -53,9 +50,7 @@ void ClientGroup::restack(Client *client, xcb_stack_mode_t stackMode, Client *si
         // break at the first client that's supposed to be on top of our client
         if (!clientIsDialog && (*it)->isDialog())
             break;
-        else if (!clientIsFloating && (*it)->isFloating())
-            break;
-        warning() << "restack regular" << *it << "floating" << (*it)->isFloating();
+        warning() << "restack regular" << *it;
         xcb_configure_window(conn, (*it)->frame(), valueMask, values);
         ++it;
     }
@@ -69,8 +64,8 @@ void ClientGroup::restack(Client *client, xcb_stack_mode_t stackMode, Client *si
 
     // raise any remaining dialogs
     while (it != end) {
-        assert((*it)->isDialog() || (*it)->isFloating());
-        warning() << "raising dialog/floating" << *it;
+        assert((*it)->isDialog());
+        warning() << "raising dialog" << *it;
         xcb_configure_window(conn, (*it)->frame(), valueMask, values);
         ++it;
     }

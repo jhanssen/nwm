@@ -11,8 +11,7 @@ Hash<xcb_window_t, Client*> Client::sClients;
 
 Client::Client(xcb_window_t win)
     : mWindow(win), mFrame(XCB_NONE), mNoFocus(false), mOwned(false),
-      mWorkspace(0), mGraphics(0), mFloating(false), mPid(0),
-      mScreenNumber(0)
+      mMoveable(false), mWorkspace(0), mGraphics(0), mPid(0), mScreenNumber(0)
 {
     warning() << "making client";
 }
@@ -58,7 +57,6 @@ void Client::complete()
     WindowManager *wm = WindowManager::instance();
     xcb_connection_t* conn = wm->connection();
     xcb_ewmh_connection_t* ewmhConn = wm->ewmhConnection();
-    Rect layoutRect;
     if (mEwmhState.contains(ewmhConn->_NET_WM_STATE_STICKY)) {
         // don't put in layout
 #warning support strut windows in layouts (reserved space)
@@ -88,17 +86,11 @@ void Client::complete()
             rect.height -= mStrut.bottom;
         }
         wm->setRect(rect, mScreenNumber);
-        layoutRect = mRect;
-        warning() << "fixed at" << layoutRect;
+        warning() << "fixed at" << mRect;
     } else {
         if (shouldLayout()) {
             wm->js().onLayout(this);
-            layoutRect = mRect;
-            warning() << "laid out at" << layoutRect;
-        } else {
-            layoutRect = mRect;
-            mFloating = true;
-            warning() << "floating at" << layoutRect;
+            warning() << "laid out at" << mRect;
         }
     }
 #warning do startup-notification stuff here
@@ -120,17 +112,9 @@ void Client::complete()
          | XCB_EVENT_MASK_BUTTON_PRESS
          | XCB_EVENT_MASK_BUTTON_RELEASE)
     };
-    warning() << "creating frame window" << layoutRect << mRect;
-    if (mFloating && !mOwned) {
-#warning this should know if mRect.x and mRect.y is set
-        const Rect &wsRect = wm->activeWorkspace(mScreenNumber)->rect();
-        layoutRect.x = std::max<int>(0, (wsRect.width - layoutRect.width) / 2);
-        layoutRect.y = std::max<int>(0, (wsRect.height - layoutRect.height) / 2);
-        mRect.x = layoutRect.x;
-        mRect.y = layoutRect.y;
-    }
+    warning() << "creating frame window" << mRect;
     xcb_create_window(conn, XCB_COPY_FROM_PARENT, mFrame, scr->root,
-                      layoutRect.x, layoutRect.y, layoutRect.width, layoutRect.height, 0,
+                      mRect.x, mRect.y, mRect.width, mRect.height, 0,
                       XCB_COPY_FROM_PARENT, XCB_COPY_FROM_PARENT,
                       XCB_CW_BORDER_PIXEL | XCB_CW_BIT_GRAVITY | XCB_CW_WIN_GRAVITY
                       | XCB_CW_OVERRIDE_REDIRECT | XCB_CW_EVENT_MASK, values);
@@ -152,8 +136,8 @@ void Client::complete()
         uint16_t windowMask = XCB_CONFIG_WINDOW_WIDTH|XCB_CONFIG_WINDOW_HEIGHT|XCB_CONFIG_WINDOW_BORDER_WIDTH;
         uint32_t windowValues[3];
         int i = 0;
-        windowValues[i++] = layoutRect.width;
-        windowValues[i++] = layoutRect.height;
+        windowValues[i++] = mRect.width;
+        windowValues[i++] = mRect.height;
         windowValues[i++] = 0;
         xcb_configure_window(conn, mWindow, windowMask, windowValues);
     }
@@ -182,8 +166,6 @@ bool Client::updateWorkspace(Workspace *workspace)
     mWorkspace = workspace;
     if (shouldLayout()) {
         WindowManager::instance()->js().onLayout(this);
-    } else {
-        assert(mFloating);
     }
 
     return true;
@@ -446,9 +428,7 @@ Client *Client::create(const Rect& rect, int screenNumber, const String &clazz, 
     ptr->mOwned = true;
     ptr->mScreenNumber = screenNumber;
     ptr->init();
-    ptr->mFloating = true;
     ptr->mNoFocus = true;
-    // false = don't tell JS about the new client
     Workspace *ws = wm->activeWorkspace(screenNumber);
     assert(ws);
     ptr->mWorkspace = ws;
@@ -586,7 +566,7 @@ void Client::resize(const Size& size)
     warning() << "resizing" << size << this;
     mRect.width = size.width;
     mRect.height = size.height;
-    if (!mFloating)
+    if (!mFrame)
         return;
 
     xcb_connection_t* conn = WindowManager::instance()->connection();
@@ -601,7 +581,7 @@ void Client::move(const Point& point)
     warning() << "move" << point << this;
     mRect.x = point.x;
     mRect.y = point.y;
-    if (!mFloating)
+    if (!mFrame)
         return;
 
     xcb_connection_t* conn = WindowManager::instance()->connection();
@@ -666,13 +646,17 @@ void Client::configure()
 
 bool Client::shouldLayout()
 {
-    if (mFloating)
-        return false;
 #warning handle transient-for here
     if (mWindowType.isEmpty())
         return true;
     xcb_ewmh_connection_t* conn = WindowManager::instance()->ewmhConnection();
-    return (mWindowType.contains(conn->_NET_WM_WINDOW_TYPE_NORMAL));
+    return mWindowType.contains(conn->_NET_WM_WINDOW_TYPE_NORMAL);
+}
+
+bool Client::isFloating() const
+{
+    xcb_ewmh_connection_t* conn = WindowManager::instance()->ewmhConnection();
+    return !mWindowType.contains(conn->_NET_WM_WINDOW_TYPE_NORMAL);
 }
 
 void Client::expose(const Rect& rect)
@@ -701,8 +685,6 @@ xcb_visualtype_t* Client::visual() const
 
 void Client::setRect(const Rect &rect)
 {
-    if (!mFloating)
-        return;
     mRect = rect;
 
     xcb_connection_t* conn = WindowManager::instance()->connection();

@@ -188,8 +188,6 @@ bool JavaScript::init(String *err)
                     return client->className();
                 if (prop == "instance")
                     return client->instanceName();
-                if (prop == "floating")
-                    return client->isFloating();
                 if (prop == "screen")
                     return client->screenNumber();
                 if (prop == "dialog")
@@ -200,6 +198,8 @@ bool JavaScript::init(String *err)
                     return fromRect(client->rect());
                 if (prop == "focused")
                     return Value(WindowManager::instance()->focusedClient() == client);
+                if (prop == "moveable")
+                    return client->isMoveable();
                 if (prop == "workspace") {
                     Workspace* ws = client->workspace();
                     if (!ws)
@@ -220,13 +220,12 @@ bool JavaScript::init(String *err)
         // setter return the value set
         [](const Object::SharedPtr &obj, const String &prop, const Value &value) -> Value {
             bool ok;
-            if (prop == "floating") {
-                const bool floating = readValue<bool>(value, ok);
+            if (prop == "moveable") {
+                const bool moveable = readValue<bool>(value, ok);
                 if (!ok)
-                    return instance()->throwException<Value>("Client.floating needs to be a boolean");
-                if (Client *client = obj->extraData<Client*>()) {
-                    client->setFloating(floating);
-                }
+                    return instance()->throwException<Value>("Client.moveable needs to be a boolean");
+                if (Client *client = obj->extraData<Client*>())
+                    client->setMoveable(moveable);
             } else if (prop == "backgroundColor") {
                 const Color color = readValue<Color>(value, ok, UndefinedValue);
                 if (!ok)
@@ -275,7 +274,7 @@ bool JavaScript::init(String *err)
                 return Class::ReadOnly|Class::DontDelete;
             }
 
-            if (prop == "floating" || prop == "backgroundColor" || prop == "text") {
+            if (prop == "backgroundColor" || prop == "text" || prop == "moveable") {
                 return Class::DontDelete;
             }
             return Value();
@@ -286,9 +285,9 @@ bool JavaScript::init(String *err)
         },
         // enumerator, return List of property names intercepted
         []() -> Value {
-            return List<Value>() << "title" << "class" << "instance" << "floating" << "dialog"
+            return List<Value>() << "title" << "class" << "instance" << "dialog"
                                  << "window" << "focused" << "backgroundColor" << "text"
-                                 << "screen" << "rect" << "workspace";
+                                 << "screen" << "rect" << "workspace" << "moveable";
         });
 
     mClientClass->registerConstructor([](const List<Value> &args) -> Value {
