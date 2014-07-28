@@ -1,7 +1,9 @@
 #include "Util.h"
+#include <rct/Log.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include <rct/Log.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 static inline char **c(const List<String> &args)
 {
@@ -57,8 +59,10 @@ void launch(const String& cmd, const Hash<String, String> &env)
         }
         exit(p == -1 ? 1 : 0);
         break; }
-    default:
-        break;
+    default: {
+        int status;
+        waitpid(p, &status, 0);
+        break; }
     }
 }
 
