@@ -171,7 +171,7 @@ bool WindowManager::init(int &argc, char **argv)
     int exitCode = 0;
     int connectTimeout = 0;
 
-    const Path applicationDir = Rct::executablePath().parentDir();
+    const Path applicationDir = Rct::executablePath().resolved().parentDir();
     jsFiles << applicationDir + "builtins.js";
 
     while (true) {
