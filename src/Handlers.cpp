@@ -24,7 +24,7 @@ void handleButtonPress(const xcb_button_press_event_t* event)
 
         if (event->state) {
             const uint16_t mod = wm->moveModifierMask();
-            if (mod && (event->state & mod) == mod && client->isMoveable()) {
+            if (mod && (event->state & mod) == mod && client->isMovable()) {
                 // grab both the keyboard and the pointer
                 xcb_grab_pointer_cookie_t pointerCookie = xcb_grab_pointer(conn, false, event->root,
                                                                            XCB_EVENT_MASK_BUTTON_RELEASE
@@ -230,6 +230,7 @@ void handleEnterNotify(const xcb_enter_notify_event_t* event)
 {
     WindowManager *wm = WindowManager::instance();
     wm->updateTimestamp(event->time);
+    error() << "got event notify" << Client::client(event->child) << event->child;
     if (wm->focusPolicy() == WindowManager::FocusFollowsMouse) {
         Client *client = Client::client(event->child);
         if (client)

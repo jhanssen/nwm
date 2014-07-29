@@ -11,7 +11,7 @@ Hash<xcb_window_t, Client*> Client::sClients;
 
 Client::Client(xcb_window_t win)
     : mWindow(win), mFrame(XCB_NONE), mNoFocus(false), mOwned(false),
-      mMoveable(false), mWorkspace(0), mGraphics(0), mPid(0), mScreenNumber(0)
+      mMovable(false), mWorkspace(0), mGraphics(0), mPid(0), mScreenNumber(0)
 {
     warning() << "making client";
 }
@@ -451,14 +451,17 @@ Client *Client::manage(xcb_window_t window, int screenNumber)
     wm->js().onClient(ptr);
 
     xcb_ewmh_connection_t* ewmhConn = wm->ewmhConnection();
+    bool focus = false;
     if (!ptr->mEwmhState.contains(ewmhConn->_NET_WM_STATE_STICKY)) {
         Workspace *ws = wm->activeWorkspace(screenNumber);
         assert(ws);
         ptr->mWorkspace = ws;
         ws->addClient(ptr);
-        ptr->focus();
+        focus = true;
     }
     ptr->complete();
+    if (focus)
+        ptr->focus();
 
     sClients[window] = ptr;
     return ptr;
@@ -547,7 +550,7 @@ void Client::focus()
                        reinterpret_cast<char*>(&event));
     }
     xcb_set_input_focus(wm->connection(), XCB_INPUT_FOCUS_PARENT, mWindow, wm->timestamp());
-    // error() << "Setting input focus to client" << mWindow << mClass.className;
+    //error() << "Setting input focus to client" << mWindow << mClass.className;
     xcb_ewmh_set_active_window(wm->ewmhConnection(), mScreenNumber, mWindow);
     wm->setFocusedClient(this);
     if (mWorkspace)
@@ -656,7 +659,7 @@ bool Client::shouldLayout()
 bool Client::isFloating() const
 {
     xcb_ewmh_connection_t* conn = WindowManager::instance()->ewmhConnection();
-    return !mWindowType.contains(conn->_NET_WM_WINDOW_TYPE_NORMAL);
+    return (!mWindowType.isEmpty() && !mWindowType.contains(conn->_NET_WM_WINDOW_TYPE_NORMAL));
 }
 
 void Client::expose(const Rect& rect)

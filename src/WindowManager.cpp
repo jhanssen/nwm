@@ -261,7 +261,7 @@ bool WindowManager::init(int &argc, char **argv)
         }
     }
 
-    if (!initLogging(argv[0], LogStderr, logLevel, logFile, 0)) {
+    if (!initLogging(argv[0], LogStderr, logLevel, logFile, Log::DontRotate)) {
         fprintf(stderr, "Can't initialize logging\n");
         return false;
     }
@@ -340,9 +340,6 @@ bool WindowManager::init(int &argc, char **argv)
     }
 
 
-    if (socketPath.isEmpty())
-        socketPath = Path::home() + ".nwm.sock." + displayStr;
-
     mDisplay = displayStr;
     // strip out the screen part if we need to
     if (mScreens.size() > 1) {
@@ -353,6 +350,9 @@ bool WindowManager::init(int &argc, char **argv)
             mDisplay.truncate(dotIdx);
         }
     }
+
+    if (socketPath.isEmpty())
+        socketPath = Path::home() + ".nwm.sock." + mDisplay;
 
     if (!isRunning()) {
         error() << "Got screens" << screenCount;
@@ -458,7 +458,7 @@ bool WindowManager::init(int &argc, char **argv)
         connection->disconnected().connect([](Connection *){ EventLoop::eventLoop()->quit(); });
         if (!connection->connectUnix(socketPath, connectTimeout)) {
             delete connection;
-            error("Can't seem to connect to server");
+            error("Can't seem to connect to server %s %s", socketPath.constData(), mDisplay.constData());
             return false;
         }
         NWMMessage msg;

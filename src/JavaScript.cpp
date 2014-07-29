@@ -198,8 +198,8 @@ bool JavaScript::init(String *err)
                     return fromRect(client->rect());
                 if (prop == "focused")
                     return Value(WindowManager::instance()->focusedClient() == client);
-                if (prop == "moveable")
-                    return client->isMoveable();
+                if (prop == "movable")
+                    return client->isMovable();
                 if (prop == "workspace") {
                     Workspace* ws = client->workspace();
                     if (!ws)
@@ -220,12 +220,12 @@ bool JavaScript::init(String *err)
         // setter return the value set
         [](const Object::SharedPtr &obj, const String &prop, const Value &value) -> Value {
             bool ok;
-            if (prop == "moveable") {
-                const bool moveable = readValue<bool>(value, ok);
+            if (prop == "movable") {
+                const bool movable = readValue<bool>(value, ok);
                 if (!ok)
-                    return instance()->throwException<Value>("Client.moveable needs to be a boolean");
+                    return instance()->throwException<Value>("Client.movable needs to be a boolean");
                 if (Client *client = obj->extraData<Client*>())
-                    client->setMoveable(moveable);
+                    client->setMovable(movable);
             } else if (prop == "backgroundColor") {
                 const Color color = readValue<Color>(value, ok, UndefinedValue);
                 if (!ok)
@@ -274,7 +274,7 @@ bool JavaScript::init(String *err)
                 return Class::ReadOnly|Class::DontDelete;
             }
 
-            if (prop == "backgroundColor" || prop == "text" || prop == "moveable") {
+            if (prop == "backgroundColor" || prop == "text" || prop == "movable") {
                 return Class::DontDelete;
             }
             return Value();
@@ -287,7 +287,7 @@ bool JavaScript::init(String *err)
         []() -> Value {
             return List<Value>() << "title" << "class" << "instance" << "dialog"
                                  << "window" << "focused" << "backgroundColor" << "text"
-                                 << "screen" << "rect" << "workspace" << "moveable";
+                                 << "screen" << "rect" << "workspace" << "movable";
         });
 
     mClientClass->registerConstructor([](const List<Value> &args) -> Value {
@@ -610,8 +610,10 @@ bool JavaScript::init(String *err)
                               WindowManager *wm = WindowManager::instance();
                               int screen;
                               auto pointer = wm->pointer(&screen, &ok);
-                              if (!ok)
+                              if (!ok) {
+                                  error() << "Can't query pointer";
                                   return instance()->throwException<Value>("Can't query pointer");
+                              }
                               Value value;
                               value["x"] = static_cast<int>(pointer.x);
                               value["y"] = static_cast<int>(pointer.y);
@@ -622,9 +624,10 @@ bool JavaScript::init(String *err)
                               if (value.type() != Value::Type_Map || !value.contains("x") || !value.contains("y")) {
                                   return instance()->throwException<void>("Warp object needs to be an object with integral x, y and optionally screen and relative");
                               }
-                              const Value &x = value["x"];
-                              const Value &y = value["y"];
-                              if (x.type() != Value::Type_Integer || y.type() != Value::Type_Integer) {
+                              bool okx, oky;
+                              int x = readChild<int>(value, "x", okx);
+                              int y = readChild<int>(value, "y", oky);
+                              if (!okx || !oky) {
                                   return instance()->throwException<void>("Warp object needs to be an object with integral x, y and optionally screen and relative");
                               }
                               int screen = -1;
@@ -646,7 +649,7 @@ bool JavaScript::init(String *err)
                               }
 
                               WindowManager *wm = WindowManager::instance();
-                              if (!wm->warpPointer(Point(x.toInteger(), y.toInteger()), screen, mode)) {
+                              if (!wm->warpPointer(Point(x, y), screen, mode)) {
                                   instance()->throwException<void>("Invalid warp parameters");
                               }
                           });

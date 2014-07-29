@@ -71,8 +71,8 @@ public:
 
     bool isOwned() const { return mOwned; }
 
-    bool isMoveable() const { return mMoveable || isFloating(); }
-    void setMoveable(bool moveable) { mMoveable = moveable; }
+    bool isMovable() const { return mMovable || isFloating(); }
+    void setMovable(bool movable) { error() << "movable set to" << movable << "for" << mClass.className; mMovable = movable; }
 
     Rect rect() const { return mRect; }
     void setRect(const Rect &rect);
@@ -107,7 +107,7 @@ private:
 private:
     xcb_window_t mWindow;
     xcb_window_t mFrame;
-    bool mNoFocus, mOwned, mMoveable;
+    bool mNoFocus, mOwned, mMovable;
     Workspace* mWorkspace;
     Graphics* mGraphics;
 
