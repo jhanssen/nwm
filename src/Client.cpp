@@ -230,12 +230,11 @@ void Client::updateNormalHints(xcb_connection_t* conn, xcb_get_property_cookie_t
 {
     if (xcb_icccm_get_wm_normal_hints_reply(conn, cookie, &mNormalHints, 0)) {
         // overwrite the response from xcb_get_geometry_unchecked
-        if (mNormalHints.flags & XCB_ICCCM_SIZE_HINT_US_SIZE
-            || mNormalHints.flags & XCB_ICCCM_SIZE_HINT_P_SIZE) {
+        if (mNormalHints.flags & (XCB_ICCCM_SIZE_HINT_US_SIZE|XCB_ICCCM_SIZE_HINT_P_SIZE)) {
             mRect.width = mNormalHints.width;
             mRect.height = mNormalHints.height;
         }
-        if (mNormalHints.flags & XCB_ICCCM_SIZE_HINT_P_POSITION) {
+        if (mNormalHints.flags & (XCB_ICCCM_SIZE_HINT_P_POSITION|XCB_ICCCM_SIZE_HINT_US_POSITION)) {
             mRect.x = mNormalHints.x;
             mRect.y = mNormalHints.y;
         }
@@ -387,7 +386,7 @@ void Client::updatePid(xcb_ewmh_connection_t* conn, xcb_get_property_cookie_t co
         mPid = 0;
 }
 
-Client *Client::create(const Rect& rect, int screenNumber, const String &clazz, const String &instance)
+Client *Client::create(const Rect& rect, int screenNumber, const String &clazz, const String &instance, bool movable)
 {
     WindowManager *wm = WindowManager::instance();
     xcb_connection_t* conn = wm->connection();
@@ -420,10 +419,17 @@ Client *Client::create(const Rect& rect, int screenNumber, const String &clazz, 
     xcb_icccm_wm_hints_set_input(&wmHints, 0);
     xcb_icccm_set_wm_hints(conn, window, &wmHints);
 
+    xcb_size_hints_t wmNormalHints;
+    memset(&wmNormalHints, 0, sizeof(wmNormalHints));
+    xcb_icccm_size_hints_set_position(&wmNormalHints, 1, rect.x, rect.y);
+    xcb_icccm_size_hints_set_size(&wmNormalHints, 1, rect.width, rect.height);
+    xcb_icccm_set_wm_normal_hints(conn, window, &wmNormalHints);
+
     String className = clazz + ' ' + instance;
     className[clazz.size()] = '\0';
     xcb_icccm_set_wm_class(conn, window, className.size(), className.constData());
-    Client *ptr(new Client(window));
+    Client *ptr = new Client(window);
+    ptr->mMovable = movable;
     ptr->mRect = rect;
     ptr->mOwned = true;
     ptr->mScreenNumber = screenNumber;
@@ -444,7 +450,7 @@ Client *Client::create(const Rect& rect, int screenNumber, const String &clazz, 
 Client *Client::manage(xcb_window_t window, int screenNumber)
 {
     assert(sClients.count(window) == 0);
-    Client *ptr(new Client(window));
+    Client *ptr = new Client(window);
     ptr->mScreenNumber = screenNumber;
     ptr->init();
     WindowManager *wm = WindowManager::instance();

@@ -156,13 +156,27 @@ static inline Value logValues(FILE* file, const List<Value> &args)
     return Value::undefined();
 }
 
-static inline Value fromRect(const Rect &rect)
+enum FromRectFlag {
+    HasPos = 0x1,
+    HasSize = 0x2
+};
+static inline Value fromRect(const Rect &rect, unsigned int flags)
 {
-    Value ret;
-    ret["x"] = rect.x;
-    ret["y"] = rect.y;
-    ret["width"] = rect.width;
-    ret["height"] = rect.height;
+    Map<String, Value> ret;
+    if (flags & HasPos) {
+        ret["x"] = rect.x;
+        ret["y"] = rect.y;
+    } else {
+        ret["x"] = Value::undefined();
+        ret["y"] = Value::undefined();
+    }
+    if (flags & HasSize) {
+        ret["width"] = rect.width;
+        ret["height"] = rect.height;
+    } else {
+        ret["width"] = Value::undefined();
+        ret["height"] = Value::undefined();
+    }
     return ret;
 }
 
@@ -194,8 +208,16 @@ bool JavaScript::init(String *err)
                     return client->isDialog();
                 if (prop == "window")
                     return static_cast<int32_t>(client->window());
-                if (prop == "rect")
-                    return fromRect(client->rect());
+                if (prop == "focusable")
+                    return !client->noFocus();
+                if (prop == "rect") {
+                    unsigned int flags = 0;
+                    if (client->hasUserSpecifiedPosition())
+                        flags |= HasPos;
+                    if (client->hasUserSpecifiedSize())
+                        flags |= HasSize;
+                    return fromRect(client->rect(), flags);
+                }
                 if (prop == "focused")
                     return Value(WindowManager::instance()->focusedClient() == client);
                 if (prop == "movable")
@@ -270,7 +292,8 @@ bool JavaScript::init(String *err)
         [](const String &prop) -> Value {
             if (prop == "title" || prop == "class" || prop == "instance" ||
                 prop == "dialog" || prop == "window" || prop == "focused" ||
-                prop == "screen" || prop == "rect" || prop == "workspace") {
+                prop == "screen" || prop == "rect" || prop == "focusable" ||
+                prop == "workspace") {
                 return Class::ReadOnly|Class::DontDelete;
             }
 
@@ -287,7 +310,7 @@ bool JavaScript::init(String *err)
         []() -> Value {
             return List<Value>() << "title" << "class" << "instance" << "dialog"
                                  << "window" << "focused" << "backgroundColor" << "text"
-                                 << "screen" << "rect" << "workspace" << "movable";
+                                 << "focusable" << "screen" << "rect" << "workspace" << "movable";
         });
 
     mClientClass->registerConstructor([](const List<Value> &args) -> Value {
@@ -307,8 +330,12 @@ bool JavaScript::init(String *err)
             if (!ok)
                 return instance()->throwException<Value>("Client constructor instance needs to be a string");
 
+            const bool movable = readChild<bool>(args.first(), "movable", ok, NotRequired, false);
+            if (!ok)
+                return instance()->throwException<Value>("Client constructor movable needs to be a bool");
+
             WindowManager* wm = WindowManager::instance();
-            Client *client = Client::create(rect, wm->currentScreen(), clazz, inst);
+            Client *client = Client::create(rect, wm->currentScreen(), clazz, inst, movable);
             return client->jsValue();
         });
     mClientClass->registerStaticFunction("fontMetrics", [](const List<Value> &args) -> Value {
@@ -559,7 +586,7 @@ bool JavaScript::init(String *err)
                               const int count = wm->screenCount();
                               ret.reserve(count);
                               for (int i=0; i<count; ++i) {
-                                  ret.append(fromRect(wm->rect(i)));
+                                  ret.append(fromRect(wm->rect(i), HasPos|HasSize));
                               }
 
                               return ret;

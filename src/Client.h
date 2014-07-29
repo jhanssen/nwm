@@ -23,9 +23,11 @@ public:
     static Client *clientByFrame(xcb_window_t frame);
 
     static Client *manage(xcb_window_t window, int screenNumber);
-    static Client *create(const Rect& rect, int screenNumber,
-                          const String &clazz = String(),
-                          const String &instance = String());
+    static Client *create(const Rect& rect,
+                          int screenNumber,
+                          const String &clazz,
+                          const String &instance,
+                          bool movable);
     static void clear() { sClients.clear(); }
 
     static Hash<xcb_window_t, Client*> &clients() { return sClients; }
@@ -50,6 +52,10 @@ public:
 
     bool noFocus() const { return mNoFocus; }
     bool isDialog() const { return mTransientFor != XCB_NONE; }
+
+    bool hasUserSpecifiedPosition() const { return mNormalHints.flags & (XCB_ICCCM_SIZE_HINT_P_POSITION|XCB_ICCCM_SIZE_HINT_US_POSITION); }
+    bool hasUserSpecifiedSize() const { return mNormalHints.flags & (XCB_ICCCM_SIZE_HINT_US_SIZE|XCB_ICCCM_SIZE_HINT_P_SIZE); }
+
     bool isFloating() const;
 
     const Value& jsValue() { if (mJSValue.type() == Value::Type_Invalid) createJSValue(); return mJSValue; }
