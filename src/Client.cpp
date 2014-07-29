@@ -202,7 +202,7 @@ void Client::updateState(xcb_ewmh_connection_t* ewmhConn)
     updateStrut(ewmhConn, strutCookie);
     updatePartialStrut(ewmhConn, partialStrutCookie);
     updateEwmhState(ewmhConn, stateCookie);
-    updateWindowType(ewmhConn, typeCookie);
+    updateWindowTypes(ewmhConn, typeCookie);
     updatePid(ewmhConn, pidCookie);
 }
 
@@ -362,19 +362,19 @@ void Client::updateEwmhState(xcb_ewmh_connection_t* conn, xcb_get_property_cooki
     }
 }
 
-void Client::updateWindowType(xcb_ewmh_connection_t* conn, xcb_get_property_cookie_t cookie)
+void Client::updateWindowTypes(xcb_ewmh_connection_t* conn, xcb_get_property_cookie_t cookie)
 {
-    mWindowType.clear();
+    mWindowTypes.clear();
     xcb_ewmh_get_atoms_reply_t prop;
     if (xcb_ewmh_get_wm_window_type_reply(conn, cookie, &prop, 0)) {
         for (uint32_t i = 0; i < prop.atoms_len; ++i) {
             warning() << "window type has" << Atoms::name(prop.atoms[i]);
-            mWindowType.insert(prop.atoms[i]);
+            mWindowTypes.append(prop.atoms[i]);
         }
         xcb_ewmh_get_atoms_reply_wipe(&prop);
     }
 
-    if (mWindowType.contains(conn->_NET_WM_WINDOW_TYPE_DIALOG) && mTransientFor == XCB_NONE) {
+    if (mWindowTypes.contains(conn->_NET_WM_WINDOW_TYPE_DIALOG) && mTransientFor == XCB_NONE) {
         if (mGroup->leader() != mWindow) {
             mTransientFor = mGroup->leader();
         }
@@ -650,16 +650,14 @@ void Client::configure()
 bool Client::shouldLayout()
 {
 #warning handle transient-for here
-    if (mWindowType.isEmpty())
-        return true;
     xcb_ewmh_connection_t* conn = WindowManager::instance()->ewmhConnection();
-    return mWindowType.contains(conn->_NET_WM_WINDOW_TYPE_NORMAL);
+    return windowType() == conn->_NET_WM_WINDOW_TYPE_NORMAL;
 }
 
 bool Client::isFloating() const
 {
     xcb_ewmh_connection_t* conn = WindowManager::instance()->ewmhConnection();
-    return (!mWindowType.isEmpty() && !mWindowType.contains(conn->_NET_WM_WINDOW_TYPE_NORMAL));
+    return windowType() != conn->_NET_WM_WINDOW_TYPE_NORMAL;
 }
 
 void Client::expose(const Rect& rect)
@@ -736,11 +734,37 @@ void Client::propertyNotify(xcb_atom_t atom)
         updateEwmhState(ewmhConnection, stateCookie);
     } else if (atom == ewmhConnection->_NET_WM_WINDOW_TYPE) {
         const xcb_get_property_cookie_t typeCookie = xcb_ewmh_get_wm_window_type(ewmhConnection, mWindow);
-        updateWindowType(ewmhConnection, typeCookie);
+        updateWindowTypes(ewmhConnection, typeCookie);
     } else if (atom == ewmhConnection->_NET_WM_PID) {
         const xcb_get_property_cookie_t pidCookie = xcb_ewmh_get_wm_pid(ewmhConnection, mWindow);
         updatePid(ewmhConnection, pidCookie);
     } else {
         warning() << "Unhandled propertyNotify atom" << Atoms::name(atom);
     }
+}
+
+xcb_atom_t Client::windowType() const
+{
+    xcb_ewmh_connection_t* ewmhConn = WindowManager::instance()->ewmhConnection();
+    if (mWindowTypes.isEmpty())
+        return ewmhConn->_NET_WM_WINDOW_TYPE_NORMAL;
+
+    for (auto type : mWindowTypes) {
+        if (type == ewmhConn->_NET_WM_WINDOW_TYPE_DESKTOP
+            || type == ewmhConn->_NET_WM_WINDOW_TYPE_DOCK
+            || type == ewmhConn->_NET_WM_WINDOW_TYPE_TOOLBAR
+            || type == ewmhConn->_NET_WM_WINDOW_TYPE_MENU
+            || type == ewmhConn->_NET_WM_WINDOW_TYPE_UTILITY
+            || type == ewmhConn->_NET_WM_WINDOW_TYPE_SPLASH
+            || type == ewmhConn->_NET_WM_WINDOW_TYPE_DIALOG
+            || type == ewmhConn->_NET_WM_WINDOW_TYPE_DROPDOWN_MENU
+            || type == ewmhConn->_NET_WM_WINDOW_TYPE_POPUP_MENU
+            || type == ewmhConn->_NET_WM_WINDOW_TYPE_TOOLTIP
+            || type == ewmhConn->_NET_WM_WINDOW_TYPE_NOTIFICATION
+            || type == ewmhConn->_NET_WM_WINDOW_TYPE_COMBO
+            || type == ewmhConn->_NET_WM_WINDOW_TYPE_DND
+            || type == ewmhConn->_NET_WM_WINDOW_TYPE_NORMAL)
+            return type;
+    }
+    return XCB_ATOM_NONE;
 }

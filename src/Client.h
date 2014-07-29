@@ -78,6 +78,7 @@ public:
     void setRect(const Rect &rect);
 
     void propertyNotify(xcb_atom_t atom);
+    xcb_atom_t windowType() const;
 private:
     void clearWorkspace();
     bool updateWorkspace(Workspace* workspace);
@@ -100,7 +101,7 @@ private:
     void updateStrut(xcb_ewmh_connection_t* conn, xcb_get_property_cookie_t cookie);
     void updatePartialStrut(xcb_ewmh_connection_t* conn, xcb_get_property_cookie_t cookie);
     void updateEwmhState(xcb_ewmh_connection_t* conn, xcb_get_property_cookie_t cookie);
-    void updateWindowType(xcb_ewmh_connection_t* conn, xcb_get_property_cookie_t cookie);
+    void updateWindowTypes(xcb_ewmh_connection_t* conn, xcb_get_property_cookie_t cookie);
     void updateLeader(xcb_connection_t* conn, xcb_get_property_cookie_t cookie);
     void updatePid(xcb_ewmh_connection_t* conn, xcb_get_property_cookie_t cookie);
 
@@ -122,7 +123,7 @@ private:
     String mName;
     Set<xcb_atom_t> mProtocols;
     Set<xcb_atom_t> mEwmhState;
-    Set<xcb_atom_t> mWindowType;
+    List<xcb_atom_t> mWindowTypes;
     xcb_ewmh_wm_strut_partial_t mStrut;
     ClientGroup *mGroup;
     Value mJSValue;
