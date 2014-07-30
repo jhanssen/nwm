@@ -156,27 +156,13 @@ static inline Value logValues(FILE* file, const List<Value> &args)
     return Value::undefined();
 }
 
-enum FromRectFlag {
-    HasPos = 0x1,
-    HasSize = 0x2
-};
-static inline Value fromRect(const Rect &rect, unsigned int flags)
+static inline Value fromRect(const Rect &rect)
 {
-    Map<String, Value> ret;
-    if (flags & HasPos) {
-        ret["x"] = rect.x;
-        ret["y"] = rect.y;
-    } else {
-        ret["x"] = Value::undefined();
-        ret["y"] = Value::undefined();
-    }
-    if (flags & HasSize) {
-        ret["width"] = rect.width;
-        ret["height"] = rect.height;
-    } else {
-        ret["width"] = Value::undefined();
-        ret["height"] = Value::undefined();
-    }
+    Value ret;
+    ret["x"] = rect.x;
+    ret["y"] = rect.y;
+    ret["width"] = rect.width;
+    ret["height"] = rect.height;
     return ret;
 }
 
@@ -210,13 +196,12 @@ bool JavaScript::init(String *err)
                     return static_cast<int32_t>(client->window());
                 if (prop == "focusable")
                     return !client->noFocus();
+                if (prop == "userSpecifiedSize")
+                    return client->hasUserSpecifiedSize();
+                if (prop == "userSpecifiedPosition")
+                    return client->hasUserSpecifiedPosition();
                 if (prop == "rect") {
-                    unsigned int flags = 0;
-                    if (client->hasUserSpecifiedPosition())
-                        flags |= HasPos;
-                    if (client->hasUserSpecifiedSize())
-                        flags |= HasSize;
-                    return fromRect(client->rect(), flags);
+                    return fromRect(client->rect());
                 }
                 if (prop == "focused")
                     return Value(WindowManager::instance()->focusedClient() == client);
@@ -586,7 +571,7 @@ bool JavaScript::init(String *err)
                               const int count = wm->screenCount();
                               ret.reserve(count);
                               for (int i=0; i<count; ++i) {
-                                  ret.append(fromRect(wm->rect(i), HasPos|HasSize));
+                                  ret.append(fromRect(wm->rect(i)));
                               }
 
                               return ret;
