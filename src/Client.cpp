@@ -230,11 +230,13 @@ void Client::updateNormalHints(xcb_connection_t* conn, xcb_get_property_cookie_t
 {
     if (xcb_icccm_get_wm_normal_hints_reply(conn, cookie, &mNormalHints, 0)) {
         // overwrite the response from xcb_get_geometry_unchecked
-        if (mNormalHints.flags & (XCB_ICCCM_SIZE_HINT_US_SIZE|XCB_ICCCM_SIZE_HINT_P_SIZE)) {
+        enum { SIZE = (XCB_ICCCM_SIZE_HINT_US_SIZE|XCB_ICCCM_SIZE_HINT_P_SIZE) };
+        if ((mNormalHints.flags & SIZE) == SIZE) {
             mRect.width = mNormalHints.width;
             mRect.height = mNormalHints.height;
         }
-        if (mNormalHints.flags & (XCB_ICCCM_SIZE_HINT_P_POSITION|XCB_ICCCM_SIZE_HINT_US_POSITION)) {
+        enum { POS = (XCB_ICCCM_SIZE_HINT_P_POSITION|XCB_ICCCM_SIZE_HINT_US_POSITION) };
+        if ((mNormalHints.flags & POS) == POS) {
             mRect.x = mNormalHints.x;
             mRect.y = mNormalHints.y;
         }
