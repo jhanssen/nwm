@@ -135,27 +135,6 @@ JavaScript::JavaScript()
 {
 }
 
-static inline Value logValues(FILE* file, const List<Value> &args)
-{
-    if (args.isEmpty())
-        return ScriptEngine::instance()->throwException<Value>("No arguments passed to console function");
-
-    String str;
-    {
-        Log log(&str);
-        for (const Value &arg : args) {
-            const String &str = arg.toString();
-            if (str.isEmpty()) {
-                log << arg;
-            } else {
-                log << str;
-            }
-        }
-    }
-    fprintf(file, "%s\n", str.constData());
-    return Value::undefined();
-}
-
 static inline Value fromRect(const Rect &rect)
 {
     Value ret;
@@ -444,10 +423,19 @@ bool JavaScript::init(String *err)
     // --------------- console ---------------
     auto console = global->child("console");
     console->registerFunction("log", [](const Object::SharedPtr&, const List<Value> &args) -> Value {
-            return logValues(stdout, args);
-        });
-    console->registerFunction("error", [](const Object::SharedPtr&, const List<Value> &args) -> Value {
-            return logValues(stderr, args);
+            if (args.isEmpty())
+                return ScriptEngine::instance()->throwException<Value>("No arguments passed to console function");
+
+            Log log(Error);
+            for (const Value &arg : args) {
+                const String &str = arg.toString();
+                if (str.isEmpty()) {
+                    log << arg;
+                } else {
+                    log << str;
+                }
+            }
+            return Value::undefined();
         });
 
     // --------------- nwm ---------------
