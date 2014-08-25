@@ -7,11 +7,11 @@ nwm.on("layout", function(client) {
         client.resize(rect.width, rect.height);
     } else {
         var x = client.rect.x;
-        if (!client.userSpecifiedPosition)
-            x = (rect.width - client.rect.width) / 2;
         var y = client.rect.y;
-        if (!client.userSpecifiedSize)
+        if (!client.userSpecifiedPosition) {
+            x = (rect.width - client.rect.width) / 2;
             y = (rect.height - client.rect.height) / 2;
+        }
 
         console.log("movable client", client, x, y);
         client.move(x, y);
