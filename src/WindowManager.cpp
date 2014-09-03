@@ -5,7 +5,6 @@
 #include "Types.h"
 #include <rct/EventLoop.h>
 #include <rct/Message.h>
-#include <rct/Messages.h>
 #include <rct/Connection.h>
 #include <rct/SocketClient.h>
 #include <rct/Rct.h>
@@ -97,7 +96,7 @@ WindowManager::WindowManager()
       mMoveModifierMask(0), mMoving(0), mFocused(0), mFocusPolicy(FocusFollowsMouse),
       mCurrentScreen(-1), mConnectionFd(-1), mExitCode(0), mRestart(false)
 {
-    Messages::registerMessage<NWMMessage>();
+    Message::registerMessage<NWMMessage>();
     memset(&mXkb, '\0', sizeof(mXkb));
     assert(!sInstance);
     sInstance = this;
